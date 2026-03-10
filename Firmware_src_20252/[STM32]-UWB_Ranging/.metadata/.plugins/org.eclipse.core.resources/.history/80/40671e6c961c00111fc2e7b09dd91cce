@@ -219,18 +219,18 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi)
  /*----------------------------------------------------------------------
   * @brief: [SLV_BEACON] Finite State Machine
   ----------------------------------------------------------------------*/
-//  typedef enum {
-// 	 STATE_WAIT_MST_POLL,    		//  0-2ms		Lắng nghe Master Poll
-// 	 STATE_PREPARE_SLV_POLL,  		//  2-16ms: 	Chuẩn bị gói Slv_Beacon Poll
-// 	 STATE_WAIT_TAG_RES,  			//  16-28ms: 	Lắng nghe gói Response từ Tag
-// 	 STATE_CALCULATE_DIST			//  28-30ms: 	Slv_Beacon tính toán k/c pha hiện tại
-//  } slv_fsm_state_t;
+ typedef enum {
+	 STATE_WAIT_MST_POLL,    		//  0-2ms		Lắng nghe Master Poll
+	 STATE_PREPARE_SLV_POLL,  		//  2-16ms: 	Chuẩn bị gói Slv_Beacon Poll
+	 STATE_WAIT_TAG_RES,  			//  16-28ms: 	Lắng nghe gói Response từ Tag
+	 STATE_CALCULATE_DIST			//  28-30ms: 	Slv_Beacon tính toán k/c pha hiện tại
+ } slv_fsm_state_t;
 
 
  /*----------------------------------------------------------------------
   * @brief: [SLV_BEACON] Variable & Flag
   ----------------------------------------------------------------------*/
-//  volatile slv_fsm_state_t slv_state = STATE_WAIT_MST_POLL;
+ volatile slv_fsm_state_t slv_state = STATE_WAIT_MST_POLL;
 
 
  /*----------------------------------------------------------------------
@@ -244,7 +244,35 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi)
  void slv_beacon_loop (void) {
 	 uint32_t current_ms = HAL_GetTick();
 
-	
+	 /* ToDo:
+	  * 	-
+	  *		-
+	  *		-
+	  * */
+
+
+
+	 /* ToDo:
+	  * 	-
+	  *		-
+	  *		-
+	  * */
+
+
+
+	 /* ToDo:
+	  * 	-
+	  *		-
+	  *		-
+	  * */
+
+
+
+	 /* ToDo:
+	  * 	-
+	  *		-
+	  *		-
+	  * */
  }
 
 

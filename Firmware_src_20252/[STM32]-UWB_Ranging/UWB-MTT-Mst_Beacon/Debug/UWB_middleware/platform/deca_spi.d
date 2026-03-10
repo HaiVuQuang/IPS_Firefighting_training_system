@@ -1,7 +1,7 @@
 UWB_middleware/platform/deca_spi.o: ../UWB_middleware/platform/deca_spi.c \
  ../UWB_middleware/platform/deca_spi.h \
- F:/Workplace/Target_tracking_firmware_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver/deca_types.h \
- F:/Workplace/Target_tracking_firmware_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver/deca_device_api.h \
+ F:/Workplace/IPS_Firefighting_training_system/Firmware_src_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver/deca_types.h \
+ F:/Workplace/IPS_Firefighting_training_system/Firmware_src_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver/deca_device_api.h \
  ../Core/Inc/main.h ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h \
  ../Core/Inc/stm32f1xx_hal_conf.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h \
@@ -28,8 +28,8 @@ UWB_middleware/platform/deca_spi.o: ../UWB_middleware/platform/deca_spi.c \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h
 ../UWB_middleware/platform/deca_spi.h:
-F:/Workplace/Target_tracking_firmware_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver/deca_types.h:
-F:/Workplace/Target_tracking_firmware_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver/deca_device_api.h:
+F:/Workplace/IPS_Firefighting_training_system/Firmware_src_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver/deca_types.h:
+F:/Workplace/IPS_Firefighting_training_system/Firmware_src_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver/deca_device_api.h:
 ../Core/Inc/main.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:

@@ -25,7 +25,7 @@ C_DEPS += \
 
 # Each subdirectory must supply rules for building sources it contributes
 UWB_middleware/platform/%.o UWB_middleware/platform/%.su UWB_middleware/platform/%.cyclo: ../UWB_middleware/platform/%.c UWB_middleware/platform/subdir.mk
-	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I"F:/Workplace/Target_tracking_firmware_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver" -I"F:/Workplace/Target_tracking_firmware_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/platform" -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
+	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I"F:/Workplace/IPS_Firefighting_training_system/Firmware_src_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver" -I"F:/Workplace/IPS_Firefighting_training_system/Firmware_src_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/platform" -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
 
 clean: clean-UWB_middleware-2f-platform
 
