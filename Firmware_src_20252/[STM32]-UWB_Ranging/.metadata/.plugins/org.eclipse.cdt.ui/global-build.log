@@ -1,0 +1,36 @@
+21:14:57 **** Incremental Build of configuration Debug for project UWB-MTT-Mst_Beacon ****
+make -j16 all 
+arm-none-eabi-gcc "../Core/Src/uwb_app.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -I"F:/Workplace/Target_tracking_firmware_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/decadriver" -I"F:/Workplace/Target_tracking_firmware_20252/[STM32]-UWB_Ranging/UWB-MTT-Mst_Beacon/UWB_middleware/platform" -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/uwb_app.d" -MT"Core/Src/uwb_app.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Src/uwb_app.o"
+../Core/Src/uwb_app.c: In function 'tag_loop':
+../Core/Src/uwb_app.c:158:19: warning: unused variable 'current_ms' [-Wunused-variable]
+  158 |          uint32_t current_ms = HAL_GetTick();
+      |                   ^~~~~~~~~~
+../Core/Src/uwb_app.c: In function 'slv_beacon_loop':
+../Core/Src/uwb_app.c:245:19: warning: unused variable 'current_ms' [-Wunused-variable]
+  245 |          uint32_t current_ms = HAL_GetTick();
+      |                   ^~~~~~~~~~
+../Core/Src/uwb_app.c: In function 'mst_beacon_loop':
+../Core/Src/uwb_app.c:309:19: warning: unused variable 'current_ms' [-Wunused-variable]
+  309 |          uint32_t current_ms = HAL_GetTick();
+      |                   ^~~~~~~~~~
+../Core/Src/uwb_app.c: At top level:
+../Core/Src/uwb_app.c:21:16: warning: 'frame_seq' defined but not used [-Wunused-variable]
+   21 | static uint8_t frame_seq = 0;
+      |                ^~~~~~~~~
+../Core/Src/uwb_app.c:20:24: warning: 'tx_frame' defined but not used [-Wunused-variable]
+   20 | static uwb_msg_frame_t tx_frame;                        //      Buffer truyền (TX)
+      |                        ^~~~~~~~
+../Core/Src/uwb_app.c:19:16: warning: 'rx_buffer' defined but not used [-Wunused-variable]
+   19 | static uint8_t rx_buffer[128];                          //      Buffer nhận (RX)
+      |                ^~~~~~~~~
+arm-none-eabi-gcc -o "UWB-MTT-Mst_Beacon.elf" @"objects.list"   -mcpu=cortex-m3 -T"F:\Workplace\Target_tracking_firmware_20252\[STM32]-UWB_Ranging\UWB-MTT-Mst_Beacon\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="UWB-MTT-Mst_Beacon.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: UWB-MTT-Mst_Beacon.elf
+ 
+arm-none-eabi-size  UWB-MTT-Mst_Beacon.elf 
+arm-none-eabi-objdump -h -S UWB-MTT-Mst_Beacon.elf  > "UWB-MTT-Mst_Beacon.list"
+   text	   data	    bss	    dec	    hex	filename
+   6380	     12	   1804	   8196	   2004	UWB-MTT-Mst_Beacon.elf
+Finished building: default.size.stdout
+ 
+Finished building: UWB-MTT-Mst_Beacon.list
+ 
