@@ -1,0 +1,22 @@
+# Bỏ qua thư mục cấu hình của Eclipse/CubeIDE
+.metadata/
+.settings/
+
+# Bỏ qua các thư mục sinh ra khi Build code
+Debug/
+Release/
+
+# Bỏ qua các file nhị phân và file tạm của trình biên dịch
+*.o
+*.d
+*.su
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+*.log
+
+# Bỏ qua các cấu hình hệ điều hành sinh ra (nếu dùng Mac/Windows)
+.DS_Store
+Thumbs.db

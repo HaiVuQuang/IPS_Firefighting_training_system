@@ -1,7 +1,0 @@
-../Core/Src/uwb_app.c:59:6:Reset_DW1000	8	static
-../Core/Src/uwb_app.c:72:6:port_set_dw1000_slowrate	16	static
-../Core/Src/uwb_app.c:85:6:port_set_dw1000_fastrate	16	static
-../Core/Src/uwb_app.c:97:11:get_rx_timestamp_u64	48	static
-../Core/Src/uwb_app.c:157:7:tag_loop	16	static
-../Core/Src/uwb_app.c:244:7:slv_beacon_loop	16	static
-../Core/Src/uwb_app.c:280:7:mst_beacon_loop	16	static
