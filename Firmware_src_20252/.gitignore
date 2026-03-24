@@ -1,22 +1,50 @@
-# Bỏ qua thư mục cấu hình của Eclipse/CubeIDE
+# ==========================================
+# 1. Hệ điều hành & Text Editor (VS Code)
+# ==========================================
+.DS_Store
+Thumbs.db
+desktop.ini
+# Bỏ qua cấu hình VS Code 
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# ==========================================
+# 2. STM32CubeIDE / Eclipse (C/C++)
+# ==========================================
 .metadata/
 .settings/
-
-# Bỏ qua các thư mục sinh ra khi Build code
 Debug/
 Release/
-
-# Bỏ qua các file nhị phân và file tạm của trình biên dịch
 *.o
 *.d
 *.su
-*.elf
-*.bin
-*.hex
 *.map
 *.list
 *.log
 
-# Bỏ qua các cấu hình hệ điều hành sinh ra (nếu dùng Mac/Windows)
-.DS_Store
-Thumbs.db
+# ==========================================
+# 3. PlatformIO (ESP32 - Arduino & ESP-IDF)
+# ==========================================
+# BỎ QUA THƯ MỤC NẶNG NHẤT CỦA PIO: Chứa framework, thư viện tải về và file build
+.pio/
+.pioenvs/
+.piolibdeps/
+libdeps/
+
+# ==========================================
+# 4. ESP-IDF (Native CMake/Ninja build) & Arduino IDE
+# ==========================================
+# Thư mục build chung của CMake hoặc Arduino IDE
+build/
+# File backup cấu hình của ESP-IDF
+sdkconfig.old
+
+# ==========================================
+# 5. Các file nhị phân (Thực thi/Nạp code) chung
+# ==========================================
+*.elf
+*.bin
+*.hex
+*.a
+*.lib

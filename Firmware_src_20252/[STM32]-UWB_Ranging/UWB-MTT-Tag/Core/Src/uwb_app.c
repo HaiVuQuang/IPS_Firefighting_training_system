@@ -2,7 +2,1029 @@
  * uwb_app.c
  *
  *  Created on: Mar 8, 2026
- *      Author: ADMIN
+ *      Author: HaiVuQuang
+ *      Github: https://github.com/HaiVuQuang
+ *      Email: Hainhatquangvu@gmail.com
  */
+
+#include "uwb_app.h"
+
+
+/* ======================================================================
+ *				   --- HÀM & BIẾN NỘI BỘ DÙNG CHUNG ---
+ * =====================================================================*/
+
+
+/*------------------------------------------------------------------------
+ * @brief: 	Biến xử lý nội bộ dùng chung
+ -----------------------------------------------------------------------*/
+static uint8_t rx_buffer[128];				//	Buffer nhận (RX)
+static uwb_msg_frame_t tx_frame;			//	Buffer truyền (TX)
+static uint8_t frame_seq = 0;
+
+//extern UART_HandleTypeDef huart1;
+//extern UART_HandleTypeDef huart2;
+
+
+/*------------------------------------------------------------------------
+ * @brief: 	UWB configuration manage struct
+ * @param: 	none
+ -----------------------------------------------------------------------*/
+uwb_dev_config_t beacon_cfg = {
+//    .short_addr = MY_TAG_ID,
+    .ant_dly_tx = TX_ANT_DLY,
+    .ant_dly_rx = RX_ANT_DLY,
+
+    /* RF Configuration */
+    .config = {
+		.chan = CHANNEL_NUM,				/* Channel number. */
+		.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
+		.txPreambLength = DWT_PLEN_128,		/* Preamble length. Used in TX only. */
+		.rxPAC = DWT_PAC8,					/* Preamble acquisition chunk size. Used in RX only. */
+		.txCode = 9,						/* TX preamble code. Used in TX only. */
+		.rxCode = 9,						/* RX preamble code. Used in RX only. */
+		.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
+		.dataRate = DWT_BR_6M8,				/* Data rate. */
+		.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
+		.sfdTO = (129 + 8 - 8)				/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+    },
+
+    /* TX Power Configuration */
+    .tx_config = {
+        .PGdly = 0xC2,       // PG Delay cho Channel 2
+        .power = 0x67676767  // Công suất phát chuẩn
+    }
+};
+
+/*----------------------------------------------------------------------
+ * @brief: 	Reset module DW1000
+ * @param: 	none
+ *
+ ----------------------------------------------------------------------*/
+void Reset_DW1000(void) {
+    HAL_GPIO_WritePin(DW_RESET_GPIO_Port, DW_RESET_Pin, GPIO_PIN_RESET);
+    HAL_Delay(2);
+    HAL_GPIO_WritePin(DW_RESET_GPIO_Port, DW_RESET_Pin, GPIO_PIN_SET);
+    HAL_Delay(5);
+}
+
+
+/*----------------------------------------------------------------------
+ * @brief: 	Set hspi1 clock to 2.25MHz (UWB init)
+ * @param: 	none
+ *
+ ----------------------------------------------------------------------*/
+void port_set_dw1000_slowrate(SPI_HandleTypeDef *hspi)
+{
+	hspi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
+    HAL_SPI_Init(hspi);
+}
+
+
+/*----------------------------------------------------------------------
+ * @brief: 	Set hspi1 clock to 18MHz
+ * @param:
+ * 			*hspi: Pointer to SPI handle Structure definition
+ *
+ ----------------------------------------------------------------------*/
+void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi)
+{
+	hspi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+    HAL_SPI_Init(hspi);
+}
+
+
+/*! -------------------------------------------------------------------
+ * @brief:	Get the RX time-stamp in a 64-bit variable.
+ * 			This function assumes that length of timestamps is 40 bits
+ * @return  64-bit value of the read time-stamp.
+ ----------------------------------------------------------------------*/
+ uint64_t get_rx_timestamp_u64(void)
+{
+    uint8_t ts_tab[5];
+    uint64_t ts = 0;
+    int i;
+    dwt_readrxtimestamp(ts_tab);
+
+    for (i = 4; i >= 0; i--) {
+        ts <<= 8;
+        ts |= ts_tab[i];
+    }
+
+//    // Debug
+//    uint32_t ts_high = (uint32_t)(ts >> 32);
+//    uint32_t ts_low = (uint32_t)(ts & 0xFFFFFFFF);
+    return ts;
+}
+
+
+ /*------------------------------------------------------------------------
+  * @brief: 	Debug via huart1, use like printf
+  * @param:
+  * 			*format: Pointer to format string
+  -----------------------------------------------------------------------*/
+ void debug_print(const char *format, ...) {
+     char buffer[128];
+
+     // Ghép chuỗi theo format giống printf
+     va_list args;
+     va_start(args, format);
+     vsnprintf(buffer, sizeof(buffer), format, args);
+     va_end(args);
+
+     // Gửi dữ liệu ra UART1, thời gian timeout là 1s
+     HAL_UART_Transmit(&huart1, (uint8_t*)buffer, strlen(buffer), 1000);
+ }
+
+
+ /*------------------------------------------------------------------------
+  * @brief: 	Send data to central MCU (ESP32, etc...)
+  * @param:
+  * 			*pData: Pointer to Data buffer
+  * 			Size: Data length
+  -----------------------------------------------------------------------*/
+ void send_to_centralMCU(uint8_t *pData, uint16_t Size) {
+     HAL_UART_Transmit(&huart2, pData, Size, HAL_MAX_DELAY);
+ }
+
+
+#if (CURRENT_NODE_TYPE == TYPE_TAG)
+ /* =====================================================================
+  *				 	--- HÀM & LOGIC XỬ LÝ TAG ---
+  * ====================================================================*/
+
+ /* TDMA Timing (Microseconds tính từ lúc nhận Master Poll)
+ * 	|----------------------------------30ms----------------------------------|
+ *	|--2--|------------14--------------|--1--|-----------11------------|--2--|
+ *	(MST_Poll)		(SLV_Poll)		   (BACKUP)		  (TAG_RES)       (DIST_CAL)
+ */
+
+ /*----------------------------------------------------------------------
+  * @brief: [TAG] Finite State Machine
+  ----------------------------------------------------------------------*/
+ typedef enum {
+	 TAG_STATE_ADV = 0,					//	Trạng thái Broadcast ADV
+	 TAG_STATE_WAIT_MST_POLL,    		//  0-2ms		Lắng nghe Master Poll
+	 TAG_STATE_WAIT_SLV_POLL,  			//  2-16ms: 	Lắng nghe Slave Poll
+	 TAG_STATE_PREPARE_TAG_RES,  		//  16-28ms: 	Chuẩn bị gói Response
+ } tag_fsm_state_t;
+
+
+ /*----------------------------------------------------------------------
+  * @brief: [TAG] Buffer, Variable & Flag
+  ----------------------------------------------------------------------*/
+// volatile bool is_synced_mst = false;
+
+ volatile tag_fsm_state_t tag_state = TAG_STATE_ADV;	// Tag state (Defaut: STATE_ADV)
+ volatile uint8_t my_tdma_index = 0;					// Tag TDMA slot
+ volatile uint64_t master_poll_rx_ts = 0;				// Timestamp (DW1000) nhận Mst Poll
+
+ volatile bool has_prepared_res = false;				// Cờ báo setup xong TX Response
+ volatile bool recieved_mst_poll = false;				// Cờ báo nhận được Mst_beacon Poll
+// static bool is_synced = false;
+
+ static uint32_t last_master_poll_ms = 0;				// Timestamp ms (STM32) lần gần nhất nhận Mst Poll
+ static uint32_t last_adv_ms = 0;						// Timestamp ms (STM32) lần gần nhất gửi ADV
+
+ //Frame buffer
+ static pkt_tag_resp_t resp_payload;					// Payload Response
+ static uwb_msg_frame_t resp_frame;						// Frame tổng Response
+ static uwb_msg_frame_t adv_frame;						// Frame tổng ADV
+// static uint8_t rx_buffer[128];							// Buffer nhận
+
+
+ /*----------------------------------------------------------------------
+  * @brief: [TAG] RX callback function
+  ----------------------------------------------------------------------*/
+
+ void tag_rx_handler (uwb_msg_frame_t *rx_frame, uint8_t func_code) {
+
+	 // ===================== Master Beacon Poll =========================
+	 if (func_code == FUNC_MASTER_POLL) {
+
+		 // Lấy payload xử lý
+		 pkt_master_poll_t* mpoll_payload = (uwb_msg_frame_t*)rx_frame->payload;
+
+		 // Check is_my_id_present trong dsach của MST Poll
+		 bool is_my_id_present = false;
+		 for (int i = 0; i < mpoll_payload->tag_count; i++) {
+			 if (mpoll_payload->tag_ids[i] == MY_TAG_ID ){
+				 is_my_id_present = true;
+				 my_tdma_index = i;
+				 break;
+			 }
+		 }
+
+		 // Nếu thấy ID trong dsach của MST Poll
+		 if (is_my_id_present) {
+			 __HAL_TIM_SET_COUNTER(&htim2, 0); 				// Reset timer STM32 về 0 us
+			 master_poll_rx_ts = get_rx_timestamp_u64(); 	// Lưu mốc thời gian nhận MST Poll theo DW1000
+			 last_master_poll_ms = HAL_GetTick(); 			// Lưu mốc ms để check WAIT_MST_POLL_TIMEOUT_MS
+
+			 //>> !!! IMPORTANT !!! <<
+			 tag_state = TAG_STATE_WAIT_MST_POLL;			// Chuyển state TAG_STATE_WAIT_MST_POLL để đợi timeout
+			 resp_payload.beacon_count = 0; 				// Reset payload gói Response cũ
+			 recieved_mst_poll = true;
+
+
+//			 debug_print("[TAG] Recieved MST Poll!");
+		 }
+	 }
+
+	 // ====================== Slave Beacon Poll ==============================
+	 else if (func_code == FUNC_SLAVE_POLL && tag_state == TAG_STATE_WAIT_SLV_POLL) {
+
+		 //Lấy payload xử lý
+		 pkt_slave_poll_t* spoll_payload = (uwb_msg_frame_t*)rx_frame->payload;
+
+		 // Lưu thời gian nhận gói SLV poll (4 byte thấp, đã bù trừ RX_ANT_DLY)
+		 uint32_t slave_poll_rx_ts = dwt_readrxtimestamplo32();
+
+		 //Lưu lại ID Slv_beacon và thời gian nhận poll
+		 int slot = resp_payload.beacon_count;
+		 if (slot < MAX_SLAVES) {
+			 resp_payload.rx_infos[slot].slv_beacon_id = spoll_payload->slv_id;
+			 resp_payload.rx_infos[slot].poll_rx_ts = slave_poll_rx_ts;
+			 resp_payload.beacon_count++;
+		 }
+	 }
+ }
+
+ /*----------------------------------------------------------------------
+  * @brief: [TAG] Handle function
+  ----------------------------------------------------------------------*/
+
+ /*------------------------------------------------------------------------
+   * @brief:
+   -----------------------------------------------------------------------*/
+ static void handle_tag_state_adv (void) {
+
+	 // ================ Định kỳ ADV mỗi ADV_CYCLE_MS ======================
+	 if (HAL_GetTick() - last_adv_ms > ADV_CYCLE_MS) {
+		 last_adv_ms = HAL_GetTick();
+
+		 // --- Chuẩn bị payload ADV --
+		 pkt_adv_t adv_payload;
+		 adv_payload.tag_id = MY_TAG_ID;
+		 adv_payload.func_code = FUNC_ADV;
+
+		 // --- Chuẩn bị ADV frame ---
+//		 uwb_msg_frame_t adv_frame;
+		 adv_frame.frame_ctrl = FRAME_CONTROL;
+		 adv_frame.pan_id = PAN_ID;
+		 adv_frame.dest_addr = BROADCAST_ID;
+		 memcpy(adv_frame.payload, &adv_payload, sizeof(pkt_adv_t));
+
+		 uint16_t frame_len = MAC_HDR_LEN + sizeof(pkt_adv_t) + FCS_LEN;		// Độ dài frame truyền
+
+		 // --- Thực hiện Broadcast ADV ---
+		 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);					// Xóa cờ TX
+		 dwt_writetxdata(frame_len, (uint8_t *)&adv_frame, 0);					// Nạp data
+		 dwt_writetxfctrl(frame_len, 0, 1);
+		 int ret = dwt_starttx(DWT_START_TX_IMMEDIATE| DWT_RESPONSE_EXPECTED);	// Chuyển ngay sang RX khi truyền xong
+
+		  // Đợi cờ truyền xong
+		  while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
+		  {};
+
+		  // --- Kiểm tra & Debug ---
+		  if (ret == DWT_SUCCESS){
+			  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);				// Xóa cờ TX: Transmit Frame Sent
+			  debug_print("[TAG] Broadcast ADV -> OK!\r\n");
+		  } else {
+			  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXBERR);				// Xóa cờ TX: Transmit Buffer Error
+			  debug_print("[TAG] Broadcast ADV -> FAIL!\r\n");
+			  dwt_rxreset();													// Reset lại bộ receiver DW1000
+		  }
+	 }
+ }
+
+
+ /*------------------------------------------------------------------------
+   * @brief:
+   -----------------------------------------------------------------------*/
+ static void handle_state_wait_mst_poll(uint16_t elapsed_us) {
+	 // Chuyển sang TAG_STATE_WAIT_SLV_POLL khi có MASTER_POLL_TIMEOUT
+	 if (recieved_mst_poll && (elapsed_us > MASTER_POLL_TIMEOUT) && (elapsed_us < MASTER_POLL_TIMEOUT + 1000)) {
+		 tag_state = TAG_STATE_WAIT_SLV_POLL;
+		 recieved_mst_poll = false;
+		 debug_print("\r\n============================================\r\n");
+		 debug_print("[TAG] Current state -> WAIT_SLV_POLL\r\n");
+	 }
+
+	 // Timeout WAIT_MST_POLL_TIMEOUT_MS không thấy Master Poll -> Quay về ADV
+	 if (HAL_GetTick() - last_master_poll_ms > WAIT_MST_POLL_TIMEOUT_MS ) {
+		 tag_state = TAG_STATE_ADV;
+		 debug_print("\r\n============================================\r\n");
+		 debug_print("[TAG] Current state -> ADV\r\n");
+	 }
+
+
+ }
+
+
+ /*------------------------------------------------------------------------
+   * @brief:
+   -----------------------------------------------------------------------*/
+ static void handle_state_wait_slv_poll(uint16_t elapsed_us) {
+
+	 // Timeout -> Tắt bộ RX, chuyển sang TAG_STATE_PREPARE_TAG_RES
+	 if (elapsed_us >= MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT) {
+		 dwt_forcetrxoff();
+		 tag_state = TAG_STATE_PREPARE_TAG_RES;
+		 debug_print("\r\n============================================\r\n");
+		 debug_print("[TAG] Current state -> PREPARE_TAG_RES\r\n");
+		 has_prepared_res = false;
+	 }
+ }
+
+
+ /*------------------------------------------------------------------------
+   * @brief:
+   -----------------------------------------------------------------------*/
+ static void handle_state_prepare_tag_res(uint16_t elapsed_us) {
+
+	 // =============== Chuẩn bị và Broadcast Tag Response ====================
+	 if (!has_prepared_res) {
+		 // --- Tính toán Timestamp TX Response và cài Delay TX
+		 uint32_t delay_us = TAG_TDMA_BASE_US + (my_tdma_index * TAG_SLOT_TDMA_US);		// Tính toán TDMA time slot
+		 uint64_t delay_dwt = (uint64_t)delay_us * UUS_TO_DWT_TIME;						// Quy đổi từ micro-giây sang DW1000 time units
+		 uint64_t res_tx_ts_u64 = delay_dwt + master_poll_rx_ts;						// Timestamp Broadcast gói Response (DW1000)
+
+		 res_tx_ts_u64 &= 0xFFFFFFFFFFULL;												// Lấy 40-bit thấp
+		 uint32_t res_tx_ts_u32 = (uint32_t)(res_tx_ts_u64 >> 8);						// Masking lấy 32-bit (bỏ 8 bit thấp theo y/c Deca API)
+		 dwt_setdelayedtrxtime(res_tx_ts_u32);											// Setup Delay TX
+
+
+		 // --- Chuẩn bị Response payload ---
+		 resp_payload.func_code = FUNC_TAG_RESP;
+		 resp_payload.tag_id = MY_TAG_ID;
+//		 resp_payload.resp_tx_ts = (uint32_t)(res_tx_ts_u64 + TX_ANT_DLY);
+		 uint64_t actual_tx_time_u64 = ((uint64_t)res_tx_ts_u32 << 8);					// Zeros 8-bit thấp
+		 resp_payload.resp_tx_ts = (uint32_t)(actual_tx_time_u64 + TX_ANT_DLY);			// Bù Anten delay
+
+		 // --- Chuẩn bị Response frame ---
+		 resp_frame.frame_ctrl = FRAME_CONTROL;
+		 resp_frame.pan_id = PAN_ID;
+		 resp_frame.dest_addr = BROADCAST_ID;
+		 uint16_t payload_len = (resp_payload.beacon_count * sizeof(rx_info_t)) + 7;	// Độ dài Payload
+		 memcpy(resp_frame.payload, &resp_payload, payload_len);
+		 uint16_t resp_frame_len = MAC_HDR_LEN + payload_len + FCS_LEN;					// Độ dài Response frame
+
+
+		 // --- Nạp dữ liệu + Delay TX Response frame ---
+		 dwt_writetxdata(resp_frame_len, (uint8_t*)&resp_frame, 0);
+		 dwt_writetxfctrl(resp_frame_len, 0, 1);
+		 int ret = dwt_starttx(DWT_START_TX_DELAYED);
+		  while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))					// Đợi cờ truyền xong
+		  {};
+
+		  // --- Kiểm tra & Debug ---
+		  if (ret == DWT_SUCCESS){
+			  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);						// Xóa cờ TX: Transmit Frame Sent
+			  debug_print("[TAG] Broadcast RES -> OK!\r\n");
+		  } else {
+			  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXBERR);						// Xóa cờ TX: Transmit Buffer Error
+			  debug_print("[TAG] Broadcast RES -> FAIL!\r\n");
+			  dwt_rxreset();															// Reset lại bộ receiver DW1000
+		  }
+
+		  has_prepared_res = true;														// Cờ setup xong TX Response
+	 }
+
+	 // ================== Chuyển trạng thái TAG_STATE_WAIT_MST_POLL ========================
+	 if (elapsed_us >= MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT + TAG_RESPONSE_TIMEOUT) {
+		 tag_state = TAG_STATE_WAIT_MST_POLL;
+		 dwt_rxenable(DWT_START_RX_IMMEDIATE);
+		 debug_print("\r\n============================================\r\n");
+		 debug_print("[TAG] Current state -> WAIT_MST_POLL\r\n");
+//		 has_prepared_res = false;
+	 }
+ }
+
+
+ /*----------------------------------------------------------------------
+  * @brief: [TAG] Main loop
+  ----------------------------------------------------------------------*/
+ void tag_loop (void) {
+	 uint16_t elapsed_us = __HAL_TIM_GET_COUNTER(&htim2);
+
+	 switch (tag_state) {
+
+	 	 case TAG_STATE_ADV:
+
+	 		 /* ToDo: XỬ LÝ BẢN TIN VÀ ADV ĐỊNH KỲ -> DONE
+	 		  * 	- Tạo payload + bọc MAC header
+	 		  *		- TX Broadcast -> RX (Mỗi ADV_CYCLE_MS)
+	 		  *		- Chuyển TAG_STATE_WAIT_SLV_POLL <=> Nhận FUNC_MASTER_POLL
+	 		  *		- Handle RX callback
+	 		  * */
+	 		handle_tag_state_adv();
+
+	 		break;
+
+	 	 case TAG_STATE_WAIT_MST_POLL:
+
+	 		 /* ToDo: LẮNG NGHE FUNC_MASTER_POLL -> DONE
+	 		  * 	- Vừa vào TAG_STATE_WAIT_MST_POLL lưu lại start_time
+	 		  * 	- Quay lại TAG_STATE_ADV <=> elasped = current_time - start_time >= 500ms
+	 		  * 	- (Rx callback) Lưu lại rx_mst_poll_time (stm32) lần đầu làm mốc 0 (MST poll 3 lần). Dò ID bản thân
+	 		  * 		+ Ko có bỏ qua (xóa rx_mst_poll_time)
+	 		  * 		+ Nếu có lấy TDMA slot k (xóa start_time)
+	 		  *		- Chuyển TAG_STATE_WAIT_SLV_POLL <=> current_time - rx_mst_poll_time > MASTER_POLL_TIMEOUT
+	 		  * */
+	 		 handle_state_wait_mst_poll(elapsed_us);
+	 		 break;
+
+	 	 case TAG_STATE_WAIT_SLV_POLL:
+
+	 		 /* ToDo: LẮNG NGHE STATE_WAIT_SLV_POLL -> DONE
+	 		  * 	- (Rx callback) Lưu lại ID Beacon và thời điểm nhận gói poll rx_slv_poll_time (dw1000)
+	 		  *		- Chuyển TAG_STATE_PREPARE_TAG_RES <=> current_time - rx_mst_poll_time > MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT
+	 		  * */
+	 		 handle_state_wait_slv_poll(elapsed_us);
+	 		 break;
+
+	 	 case TAG_STATE_PREPARE_TAG_RES:
+
+	 		 /* ToDo: CHUẨN BỊ GÓI RES -> DONE
+	 		  * 	- Đóng gói payload + bọc MAC header
+	 		  * 		+ Response TX Timestamp (dw1000): tx_tag_response_time = dwt_readsystime() + delay
+	 		  * 		+ Duyệt qua toàn bộ Slv_beacon Queue -> ghép Beacon ID với rx_slv_poll_time tương ứng
+	 		  *		- Cài thời gian gửi sau delay = 500 + k * TAG_SLOT_TDMA_US
+	 		  *		- Chuyển TAG_STATE_WAIT_MST_POLL khi gửi thành công
+	 		  * */
+	 		 handle_state_prepare_tag_res(elapsed_us);
+	 		 break;
+	 }
+ }
+#endif
+
+
+
+#if (CURRENT_NODE_TYPE == TYPE_SLAVE)
+ /* ====================================================================
+  *			   --- HÀM & LOGIC XỬ LÝ SLV_BEACON ---
+  * ===================================================================*/
+
+ /* TDMA Timing (Microseconds tính từ lúc nhận Master Poll)
+ * 	|----------------------------------30ms----------------------------------|
+ *	|--2--|------------14--------------|--1--|-----------11------------|--2--|
+ *	(MST_Poll)		(SLV_Poll)		   (BACKUP)		  (TAG_RES)       (DIST_CAL)
+ */
+
+ /*----------------------------------------------------------------------
+  * @brief: [SLV_BEACON] Finite State Machine
+  ----------------------------------------------------------------------*/
+ typedef enum {
+	 SLV_STATE_WAIT_MST_POLL,    		//  0-2ms		Lắng nghe Master Poll
+	 SLV_STATE_PREPARE_SLV_POLL,  		//  2-16ms: 	Chuẩn bị gói Slv_Beacon Poll
+	 SLV_STATE_WAIT_TAG_RES,  			//  16-28ms: 	Lắng nghe gói Response từ Tag
+	 SLV_STATE_CALCULATE_DIST			//  28-30ms: 	Slv_Beacon tính toán k/c pha hiện tại
+ } slv_fsm_state_t;
+
+
+ /*----------------------------------------------------------------------
+  * @brief: [SLV_BEACON] Variable & Flag
+  ----------------------------------------------------------------------*/
+ // State & Variable
+ volatile slv_fsm_state_t slv_state = SLV_STATE_WAIT_MST_POLL;		// FSM state, Defaut SLV_STATE_WAIT_MST_POLL
+ volatile uint8_t my_tdma_index = 0xFF;								// Slot TDMA, Defaut 0xFF -> Error
+ volatile uint64_t master_poll_rx_ts = 0;							// Timestamp (DW1000) nhận MsT Poll
+
+ // Flags
+ volatile bool recieved_mst_poll = false;							// Cờ nhận Mst Poll
+// volatile bool recieved_tag_resp = false;							// Cờ nhận Tag Response
+ static bool has_prepared_poll_tx = false;							// Cờ chuẩn bị gói Slv Poll
+ static bool has_calculated = false;								// Cờ tính toán k/c mỗi pha Ranging
+
+ // TX/RX Buffer
+ static pkt_slave_poll_t slv_poll_payload;
+ static uwb_msg_frame_t slv_poll_frame;
+ static uint8_t rx_buffer[128];
+
+ // Tag handle
+// static uint8_t active_tag_ids[MAX_TAGS];
+ static uint8_t active_tag_count = 0;			// Số lượng Active tag chu kỳ hiện tại
+ static uint8_t prev_active_tag_count = 0;		// Số lượng Active tag chu kỳ trước
+ typedef struct {
+	 uint8_t tag_id;							// ID Tag
+     bool valid;								// Đã nhận được Response của Tag này chưa?
+     int32_t carrier_integ;						// Carrier integer -> Dùng để tính clockoffset
+     uint32_t poll_tx_ts_u32;       			// (DW1000) Mốc thời gian Slave TX Slave Poll
+     uint32_t resp_rx_ts_u32;       			// (DW1000) Mốc thời gian Slave RX Tag Response
+     uint32_t tag_poll_rx_ts;       			// (Từ Payload) Mốc Tag RX Slave Poll
+     uint32_t tag_resp_tx_ts;       			// (Từ Payload) Mốc Tag TX Tag Response
+ } slv_ranging_data_t;
+
+ static slv_ranging_data_t ranging_data[MAX_TAGS];
+
+ /*----------------------------------------------------------------------
+  * @brief: [SLV_BEACON] Handle function
+  ----------------------------------------------------------------------*/
+
+ /*----------------------------------------------------------------------
+  * @brief: Hàm init Slave Beacon (gọi khi khởi động lần đầu ở main.c)
+  ----------------------------------------------------------------------*/
+ void slv_beacon_init(void) {
+	 // Xác định TDMA slot
+	 for (int i = 0; i < MAX_SLAVES; i++) {
+		 if (MY_SLV_BEACON_ID == SLV_TOPOLOGY_LIST[i]) {
+			 my_tdma_index = i;
+			 break;
+		 }
+	 }
+
+	 // --- Chuẩn bị header Slave Poll ---
+	 slv_poll_frame.frame_ctrl = FRAME_CONTROL;
+	 slv_poll_frame.pan_id = PAN_ID;
+	 slv_poll_frame.dest_addr = BROADCAST_ID;
+
+	 slv_poll_payload.func_code = FUNC_SLAVE_POLL;
+	 slv_poll_payload.slv_id = MY_SLV_BEACON_ID;
+
+//	 for (int i = 0; i < MAX_TAGS; i++) {
+//		 slv_poll_payload.distances[i].dist_cm = INVALID_DIST; 		// Chu kỳ chưa có kết quả đo mặc định lỗi
+//	 }
+	 prev_active_tag_count = 0;										// Chu kỳ đầu chưa có kết quả Ranging
+ }
+
+
+ /*----------------------------------------------------------------------
+  * @brief: Slave Beacon RX callback
+  ----------------------------------------------------------------------*/
+ void slv_rx_handler(uwb_msg_frame_t *rx_frame, uint8_t func_code) {
+
+	 // ====================== Master Beacon Poll ==========================
+	 if (func_code == FUNC_MASTER_POLL) {
+		 // Lấy payload để xử lý
+		 pkt_master_poll_t* mpoll_payload = (uwb_msg_frame_t*)rx_frame->payload;
+
+		 // Check ID Master gửi
+		 if (mpoll_payload->mst_beacon_id == MY_MST_ID) {
+			__HAL_TIM_SET_COUNTER(&htim2, 0);							// Reset timer STM32 về 0 us
+			master_poll_rx_ts = get_rx_timestamp_u64();					// Lưu mốc thời gian nhận MST Poll theo DW1000
+
+			// Lấy dsach ID Tag tham gia pha Raning này
+			active_tag_count = mpoll_payload->tag_count;
+			for (int i = 0; i < active_tag_count; i++){
+				ranging_data[i].tag_id = mpoll_payload->tag_ids[i];		// Lưu ID Tag
+				ranging_data[i].valid = false;							// Reset cờ nhận Response
+			}
+			// Chuyển state & Reset các cờ trạng thái
+			slv_state = SLV_STATE_PREPARE_SLV_POLL;
+			recieved_mst_poll = true;			// Cờ nhận Mst Poll
+			has_prepared_poll_tx = false;			// Cờ chuẩn bị gói Slv Poll
+			has_calculated = false;				// Cờ tính toán k/c mỗi pha Ranging
+		 }
+	 }
+
+	 // ========================= Tag Response =============================
+	 else if (func_code == FUNC_TAG_RESP && slv_state == SLV_STATE_WAIT_TAG_RES) {
+		 // Lấy payload để xử lý
+		 pkt_tag_resp_t* resp_payload = (uwb_msg_frame_t*)rx_frame->payload;
+		 uint64_t resp_rx_ts = get_rx_timestamp_u64();
+
+		 // Kiểm tra index của Tag trong list và lưu dữ liệu
+		 for (int i = 0; i < active_tag_count; i++) {
+			 if (resp_payload->tag_id == ranging_data[i].tag_id ) {
+				 //Kiểm tra danh sách trong gói Tag Response có ID bản thân ko
+				 for (int j = 0; j < resp_payload->beacon_count; j++) {
+					 if (resp_payload->rx_infos[j].slv_beacon_id == MY_SLV_BEACON_ID) {
+						 ranging_data[i].carrier_integ = dwt_readcarrierintegrator();			// Đọc carrier interger từ thanh ghi
+						 ranging_data[i].tag_poll_rx_ts = resp_payload->rx_infos[j].poll_rx_ts;	// Timestamp Tag RX Slv Poll
+						 ranging_data[i].tag_resp_tx_ts = resp_payload->resp_tx_ts;				// Timestamp Tag TX Response
+						 ranging_data[i].resp_rx_ts_u32 = resp_rx_ts;							// Timestamp Beacon nhận Response
+						 ranging_data[i].valid = true;											// Cờ báo đã nhận đc Response của Tag này
+						 break;
+					 }
+				 }
+				 break;
+			 }
+		 }
+	 }
+ }
+
+
+ /*----------------------------------------------------------------------
+  * @brief:
+  ----------------------------------------------------------------------*/
+ static void handle_slv_prepare_poll(uint16_t elapsed_us) {
+
+	 // ===================== Chuẩn bị & TX Slave Beacon Poll ================================
+	 if (recieved_mst_poll && !has_prepared_poll_tx && my_tdma_index != 0xFF) {
+		 dwt_forcetrxoff();
+
+		 // Tính toán TDMA & Delay TX gói Slv Poll
+		 uint32_t delay_us = SLAVE_TDMA_BASE_US + (my_tdma_index * SLAVE_SLOT_TDMA_US);
+		 uint64_t delay_dwt = (uint64_t)delay_us * UUS_TO_DWT_TIME;
+		 uint64_t poll_tx_time_u64 = (master_poll_rx_ts + delay_dwt) & 0xFFFFFFFFFFULL;		// Masking lấy 40-bit thấp
+		 uint32_t poll_tx_time_u32 = (uint32_t)(poll_tx_time_u64 >> 8);						// Lấy 32 bit cao
+		 dwt_setdelayedtrxtime(poll_tx_time_u32);
+
+		 // Tính toán timestamp Broadcast Poll
+		 uint64_t actual_tx_time_u64 = ((uint64_t)poll_tx_time_u32 << 8);					// Zeros 8-bit thấp
+		 uint32_t actual_tx_time_u32 = (uint32_t)(actual_tx_time_u64 + TX_ANT_DLY); 		// Bù Anten Delay
+		 for (int i = 0; i < active_tag_count; i++) {
+			 ranging_data[i].poll_tx_ts_u32 = actual_tx_time_u32;
+		 }
+
+		 // --- Chuẩn bị payload Slave Poll (Đính kèm payload chu kỳ trước) ---
+		 uint16_t payload_len = (prev_active_tag_count * sizeof(prev_active_tag_count)) + 2;
+		 uint16_t frame_len = MAC_HDR_LEN + payload_len + FCS_LEN;
+		 memcpy(slv_poll_frame.payload, &slv_poll_payload, payload_len);					// Payload Ranging pha trước
+
+		 // Nạp thanh ghi TX
+		 dwt_writetxdata(frame_len, (uint8_t *)&slv_poll_frame, 0);
+		 dwt_writetxfctrl(frame_len, 0, 1);
+		 int ret = dwt_starttx(DWT_START_TX_DELAYED | DWT_RESPONSE_EXPECTED);
+
+		 // Đợi cờ truyền xong
+		 while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
+		 {};
+		 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);								// Clear cờ
+		 if (ret != DWT_SUCCESS) {
+			 debug_print("[SLV] Sending SLV Poll -> FAIL");
+			 dwt_rxreset();
+			 dwt_rxenable(DWT_START_RX_IMMEDIATE);
+		 } else {
+			 debug_print("[SLV] Sending SLV Poll -> OK");
+		 }
+
+		 // Khóa cờ Slv Poll
+		 has_prepared_poll_tx = true;
+	 }
+
+	 // ==================== Timeout chuyển SLV_STATE_WAIT_TAG_RES ==============================
+	 if (elapsed_us >= MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT) {
+		 slv_state = SLV_STATE_WAIT_TAG_RES;
+	 }
+ }
+
+
+ /*----------------------------------------------------------------------
+   * @brief:
+   ----------------------------------------------------------------------*/
+ static void handle_slv_wait_tag_res(uint16_t elapsed_us) {
+	 if (elapsed_us >= MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT + TAG_RESPONSE_TIMEOUT) {
+		 slv_state = SLV_STATE_CALCULATE_DIST;
+	 }
+ }
+
+
+
+ /*----------------------------------------------------------------------
+  * @brief:	Handle tính toán khoảng cách giữa Slv Beacon và các Tag
+  ----------------------------------------------------------------------*/
+ static void handle_slv_calc_ranging(uint16_t elapsed_us) {
+	 if (!has_calculated) {
+
+		 // ================ Xử lý tính Khoảng cách (cm) với từng Tag ===============================
+		 for (int i = 0; i < active_tag_count; i++) {
+			 slv_poll_payload.distances[i].tag_id = ranging_data[i].tag_id;
+			 if (ranging_data[i].valid) {
+				 // Tính T_round
+				 uint32_t t_round_u32 = ranging_data[i].resp_rx_ts_u32 - ranging_data[i].poll_tx_ts_u32;
+				 if (t_round_u32 < 0) {
+					 t_round_u32 += (1ULL << 32);
+				 }
+				 // Tính T_reply
+				 uint32_t t_reply_u32 = ranging_data[i].tag_resp_tx_ts - ranging_data[i].tag_poll_rx_ts;
+				 if (t_reply_u32 < 0) {
+					 t_reply_u32 += (1ULL << 32);
+				 }
+
+				 // Tính Clock offset Ratio
+				 float clockOffsetRatio;
+				 clockOffsetRatio = ranging_data[i].carrier_integ * (FREQ_OFFSET_MULTIPLIER * HERTZ_TO_PPM_MULTIPLIER_CHAN_2 / 1.0e6);
+
+				 // Tính toán ToF và k/c (cm)
+				 double tof = ((t_round_u32 - t_reply_u32 * (1 - clockOffsetRatio)) / 2.0) * DWT_TIME_UNITS;
+				 double dist_cm = tof * SPEED_OF_LIGHT * 100;
+
+				 // Lọc và điền payload
+				 if (dist_cm > 0){
+					 slv_poll_payload.distances[i].dist_cm = (uint16_t)(dist_cm);
+				 } else {
+					 slv_poll_payload.distances[i].dist_cm = INVALID_DIST;
+				 }
+			 } else {
+				 slv_poll_payload.distances[i].dist_cm = INVALID_DIST;
+			 }
+		 }
+		 // Chuẩn bị cho gửi piggybacking ở gói Slave Poll chu kỳ sau
+		 prev_active_tag_count = active_tag_count;
+		 has_calculated = true;
+	 }
+
+	 // ================== Timeout ============================
+	 if (elapsed_us >= ((CYCLE_PERIOD_MS * 1000) - 500)) {
+		 slv_state = SLV_STATE_WAIT_MST_POLL;
+		 recieved_mst_poll = false;
+		 has_calculated = false;
+		 dwt_rxenable(DWT_START_RX_IMMEDIATE);
+	 }
+ }
+
+ /*----------------------------------------------------------------------
+  * @brief: [SLV_BEACON] Main loop
+  ----------------------------------------------------------------------*/
+ void slv_beacon_loop (void) {
+	 uint16_t elapsed_us = __HAL_TIM_GET_COUNTER(&htim2);
+
+	 switch (slv_state) {
+
+	 	 case SLV_STATE_WAIT_MST_POLL:
+
+	 		 /* ToDo: LẮNG NGHE MASTER POLL -> Done
+	 		  * 	- (RX callback) Check xem đúng ID Mst_beacon quản lý không
+	 		  * 		+) Lưu lại rx_mst_poll_time (stm32) lần đầu làm mốc 0
+	 		  * */
+
+	 		 break;
+
+	 	 case SLV_STATE_PREPARE_SLV_POLL:
+
+	 		 /* ToDo: CHUẨN BỊ GÓI SLAVE POLL -> Done
+	 		  * 	- Đóng gói payload + bọc MAC header
+	 		  * 		+ Duyệt qua Tag Queue, lấy dsach ID và k/c tính được pha Ranging trước
+	 		  *		- Cài thời gian gửi sau delay = 500 + k * SLAVE_SLOT_TDMA_US
+	 		  *		- Gửi xong -> xóa Tag queue và dữ liệu hiện tại
+	 		  *		- Chuyển SLV_STATE_WAIT_TAG_RES khi thực hiện thành công
+	 		  * */
+
+	 		handle_slv_prepare_poll(elapsed_us);
+	 		break;
+
+	 	 case SLV_STATE_WAIT_TAG_RES:
+
+	 		 /* ToDo: LẮNG NGHE TAG RESPONSE -> Done
+	 		  * 	- (Rx callback) Nếu FUNC_TAG_RESP và dsach BeaconID có mình => Lưu lại ID TAG thông tin timestamp tương ứnggồm
+	 		  * 		+ Thời điểm nhận gói Response của Tag đó: rx_tag_res_time (dw1000)
+	 		  * 		+ Thời điểm TAG nhận gói Poll của Beacon (gói tin) : tag_rx_poll_time
+	 		  *		- Chuyển SLV_STATE_CALCULATE_DIST <=>
+	 		  *			current_time - rx_mst_poll_time > MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT + TAG_RESPONSE_TIMEOUT
+	 		  * */
+	 		handle_slv_wait_tag_res(elapsed_us);
+	 		break;
+
+	 	 case SLV_STATE_CALCULATE_DIST:
+
+	 		 /* ToDo: TÍNH TOÁN KHOẢNG CÁCH VỚI CÁC TAG -> Done
+	 		  * 	- Xóa rx_mst_poll_time (stm32)
+	 		  * 	- Tính toán k/c với từng Tag => Lưu struct
+	 		  * 	- Chuyển SLV_STATE_WAIT_MST_POLL khi tính tính toán xong
+	 		  * */
+
+	 		handle_slv_calc_ranging(elapsed_us);
+	 		break;
+	 }
+ }
+#endif
+
+
+#if (CURRENT_NODE_TYPE == TYPE_MASTER)
+ /* =====================================================================
+  *			   --- HÀM & LOGIC XỬ LÝ MST_BEACON ---
+  * ===================================================================*/
+
+ /* TDMA Timing (Microseconds tính từ lúc nhận Master Poll)
+ * 	|----------------------------------30ms----------------------------------|
+ *	|--2--|------------14--------------|--1--|-----------11------------|--2--|
+ *	(MST_Poll)		(SLV_Poll)		   (BACKUP)		  (TAG_RES)       (DIST_CAL)
+ */
+
+ /*----------------------------------------------------------------------
+  * @brief: [MST_BEACON] Finite State Machine
+  ----------------------------------------------------------------------*/
+ typedef enum {
+	 MST_STATE_PREPARE_MST_POLL,
+	 MST_STATE_LISTENING_PACKET,
+ } mst_fsm_state_t;
+//
+ /*----------------------------------------------------------------------
+  * @brief: [MST_BEACON] Variable & Flag
+  ----------------------------------------------------------------------*/
+ mst_fsm_state_t mst_state = MST_STATE_PREPARE_MST_POLL;
+
+ // --- Tag Queue ---
+ typedef struct {
+     uint8_t tag_id;
+     uint8_t ttl;
+ } mst_active_tag_t;
+
+ static mst_active_tag_t tag_queue[MAX_TAGS];
+ static uint8_t tag_queue_count = 0;
+
+ // --- Slave Poll Queue (Ring Buffer) ---
+ typedef struct {
+     bool has_data;
+     pkt_slave_poll_t payload;
+ } slv_poll_msg_t;
+
+ static slv_poll_msg_t slv_msg_queue[MSG_QUEUE_SIZE];
+ static volatile uint8_t msg_head = 0; 						// Head
+ static volatile uint8_t msg_tail = 0; 						// Tail
+ /*----------------------------------------------------------------------
+  * @brief: [MST_BEACON] Handle function
+  ----------------------------------------------------------------------*/
+
+ // Hàm đẩy data vào Ring Buffer (Ngắt)
+ static void push_slv_msg(pkt_slave_poll_t* spoll) {
+     uint8_t next = (msg_head + 1) % MSG_QUEUE_SIZE;
+     if (next != msg_tail) { // Tránh tràn Queue
+         slv_msg_queue[msg_head].payload = *spoll;
+         slv_msg_queue[msg_head].has_data = true;
+         msg_head = next;
+     }
+ }
+
+ // Hàm lấy data từ Ring Buffer (Main Loop)
+ static bool pop_slv_msg(pkt_slave_poll_t* spoll) {
+     if (msg_head == msg_tail) return false; // Queue rỗng
+
+     *spoll = slv_msg_queue[msg_tail].payload;
+     slv_msg_queue[msg_tail].has_data = false;
+     msg_tail = (msg_tail + 1) % MSG_QUEUE_SIZE;
+     return true;
+ }
+
+ /*----------------------------------------------------------------------
+  * @brief: Hàm khởi tạo Master Beacon
+  ----------------------------------------------------------------------*/
+ void mst_beacon_init(void) {
+     tag_queue_count = 0;
+     msg_head = 0;
+     msg_tail = 0;
+     mst_state = MST_STATE_PREPARE_MST_POLL;
+ }
+
+ /*----------------------------------------------------------------------
+  * @brief: Xử lý Ngắt Nhận (DW1000 RX Callback) cho Master
+  ----------------------------------------------------------------------*/
+ void mst_rx_handler(uwb_msg_frame_t *rx_frame, uint8_t func_code) {
+
+     // ========================== Slave Poll ============================
+     if (func_code == FUNC_SLAVE_POLL) {
+         pkt_slave_poll_t* spoll = (pkt_slave_poll_t*)rx_frame->payload;
+
+         // Check is_my_slave
+         bool is_my_slave = false;
+         for (int i = 0; i < MAX_SLAVES; i++) {
+             if (CONTROL_SLV_LIST[i] == spoll->slv_id) {
+                 is_my_slave = true;
+                 break;
+             }
+         }
+
+         // Nạp Ring buffer
+         if (is_my_slave) {
+             push_slv_msg(spoll);
+         }
+     }
+
+     // =================== Tag Response & Tag ADV =======================
+     else if (func_code == FUNC_TAG_RESP || func_code == FUNC_ADV) {
+         uint8_t tid;
+         if (func_code == FUNC_ADV) {
+             tid = ((pkt_adv_t*)rx_frame->payload)->tag_id;
+         } else {
+             tid = ((pkt_tag_resp_t*)rx_frame->payload)->tag_id;
+         }
+
+         // Tìm và gia hạn TTL cho Tag
+         bool found = false;
+         for (int i = 0; i < tag_queue_count; i++) {
+             if (tag_queue[i].tag_id == tid) {
+                 tag_queue[i].ttl = TAG_TTL_MAX;
+                 found = true;
+                 break;
+             }
+         }
+
+         // Tag mới -> Thêm vào
+         if (!found && tag_queue_count < MAX_TAGS) {
+             tag_queue[tag_queue_count].tag_id = tid;
+             tag_queue[tag_queue_count].ttl = TAG_TTL_MAX;
+             tag_queue_count++;
+         }
+     }
+ }
+
+
+ /*----------------------------------------------------------------------
+  * @brief: [MST_BEACON] Main loop
+  ----------------------------------------------------------------------*/
+ void mst_beacon_loop (void) {
+	 uint16_t elapsed_us = __HAL_TIM_GET_COUNTER(&htim2);
+
+	 switch (mst_state){
+
+	 	 case MST_STATE_PREPARE_MST_POLL:
+
+	 		 /* ToDo: XỬ LÝ BROADCAST MST_POLL
+	 		  * 	- Lấy timestamp đầu chu kỳ mới (stm32): start_time
+	 		  * 	- Tạo gói Master Poll (Danh sách Tag từ Queue)
+	 		  *		- Xóa Tag Queue và Ranging data pha trước
+	 		  *		- Chuyển MST_STATE_LISTENING_PACKET <=> current_time - start_time > MASTER_POLL_TIMEOUT
+	 		  * */
+
+	 		// Đồng bộ mốc T=0 cho toàn hệ thống
+			__HAL_TIM_SET_COUNTER(&htim2, 0);
+			elapsed_us = 0;
+
+			// Dọn dẹp hàng đợi Tag (Xóa Tag mất kết nối)
+			for (int i = 0; i < tag_queue_count; i++) {
+				tag_queue[i].ttl--;
+				if (tag_queue[i].ttl == 0) {
+					for (int j = i; j < tag_queue_count - 1; j++) {
+						tag_queue[j] = tag_queue[j + 1];
+					}
+					tag_queue_count--;
+					i--; // Lùi lại 1 bước do mảng vừa bị dồn
+				}
+			}
+
+			// Đóng gói Payload Master Poll
+			pkt_master_poll_t mpoll;
+			mpoll.func_code = FUNC_MASTER_POLL;
+			mpoll.mst_beacon_id = MY_MST_BEACON_ID;
+			mpoll.tag_count = tag_queue_count;
+			for (int i = 0; i < tag_queue_count; i++) {
+				mpoll.tag_ids[i] = tag_queue[i].tag_id;
+			}
+
+			uint16_t payload_len = 3 + tag_queue_count;
+			uint16_t frame_len = MAC_HDR_LEN + payload_len + FCS_LEN;
+
+			tx_frame.frame_ctrl = FRAME_CONTROL;
+			tx_frame.pan_id = PAN_ID;
+			tx_frame.dest_addr = BROADCAST_ID;
+			memcpy(tx_frame.payload, &mpoll, payload_len);
+
+			dwt_forcetrxoff();
+
+			dwt_writetxdata(frame_len, (uint8_t*)&tx_frame, 0);
+			dwt_writetxfctrl(frame_len, 0, 1);
+
+			// Gửi và tự động bật RX
+			int ret = dwt_starttx(DWT_START_TX_IMMEDIATE | DWT_RESPONSE_EXPECTED);
+			while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS)) {};
+			dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS); // Clear cờ
+
+			if (ret == DWT_SUCCESS) {
+				mst_state = MST_STATE_LISTENING_PACKET;
+			} else {
+				dwt_rxreset();
+				dwt_rxenable(DWT_START_RX_IMMEDIATE);
+				mst_state = MST_STATE_LISTENING_PACKET;
+			}
+	 		break;
+
+	 	 case MST_STATE_LISTENING_PACKET:
+
+	 		 /* ToDo: XỬ LÝ NHẬN SLV_POLL + TAG_RES + TAG ADV (CALLBACK)
+	 		  * 	- Nếu SLV_POLL	-> Đọc Dist và ID của từng Tag trong gói, lưu struct và forward qua UART
+	 		  * 		|BeaconID,TagID_1,Dist_1,TagID_2,Dist_2,...|
+	 		  *		- Nếu TAG_RES	-> Lưu ID Tag vào Queue để MST_POLL pha sau
+	 		  *		- Nếu ADV		-> Lưu ID Tag vào Queue để MST_POLL pha sau
+	 		  *		- Chuyển MST_STATE_PREPARE_MST_POLL <=>
+	 		  *			current_time - start_time > MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT
+	 		  *											+ TAG_RESPONSE_TIMEOUT + DIST_CAL_TIMEOUT
+	 		  * */
+
+	 		pkt_slave_poll_t spoll;
+	 		// Rút 1 gói từ Queue ra
+			if (pop_slv_msg(&spoll)) {
+				char uart_buf[128];
+				int len = sprintf(uart_buf, "%02X", spoll.slv_id); 	// BeaconID
+
+				bool has_valid_dist = false;
+				for (int i = 0; i < MAX_TAGS; i++) {
+					if (spoll.distances[i].dist_cm != INVALID_DIST) {
+						len += sprintf(uart_buf + len, ",%02X,%u",
+									   spoll.distances[i].tag_id,
+									   spoll.distances[i].dist_cm);
+						has_valid_dist = true;
+					}
+				}
+
+				len += sprintf(uart_buf + len, "\r\n"); // Chốt chuỗi
+
+				// Chỉ gửi lên MCU trung tâm nếu gói đo có kết quả thực
+				if (has_valid_dist) {
+					send_to_centralMCU((uint8_t*)uart_buf, len);
+				}
+			}
+			// ================== Timeout =====================
+			if (elapsed_us >= CYCLE_PERIOD_MS) {
+				mst_state = MST_STATE_PREPARE_MST_POLL;
+			}
+	 		 break;
+	 }
+ }
+
+#endif
+
 
 
