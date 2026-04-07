@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "uwb_app.h"
 
 /* USER CODE END Includes */
 
@@ -42,8 +43,12 @@
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart1_tx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -52,15 +57,60 @@ UART_HandleTypeDef huart2;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+/*------------------------------------------------------------------------
+ * @brief: 	UWB RX good frame event callback function
+ * @param:
+			*cb_data: Pointer to callback data
+ -----------------------------------------------------------------------*/
+void rx_ok_cb(const dwt_cb_data_t *cb_data) {
+
+	uint32_t frame_len = cb_data->datalength;
+
+	if (frame_len > sizeof(uwb_msg_frame_t)) {
+		dwt_rxenable(DWT_START_RX_IMMEDIATE | DWT_NO_SYNC_PTRS);
+		return;
+	}
+
+	uint8_t rx_buffer[64];
+	dwt_readrxdata(rx_buffer, frame_len, 0);
+	uwb_msg_frame_t *rx_frame = (uwb_msg_frame_t *)rx_buffer;
+	uint8_t func_code = rx_frame->payload[0];
+
+	#if (CURRENT_NODE_TYPE == TYPE_TAG)
+		tag_rx_handler(rx_frame, func_code);
+	#elif (CURRENT_NODE_TYPE == TYPE_SLAVE)
+		slv_rx_handler(rx_frame, func_code);
+	#elif (CURRENT_NODE_TYPE == TYPE_MASTER)
+		mst_rx_handler(rx_frame, func_code);
+	#endif
+}
+
+
+/*------------------------------------------------------------------------
+ * @brief: 	UWB RX timeout/RX error callback function
+ * @param:
+			*cb_data: Pointer to callback data
+ -----------------------------------------------------------------------*/
+void rx_err_cb(const dwt_cb_data_t *cb_data) {
+	// Clear the error flags
+	dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_ERR);
+	dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_ALL_RX_TO);
+    // Reset RX
+	dwt_forcetrxoff();
+	dwt_rxreset();
+    dwt_rxenable(DWT_START_RX_IMMEDIATE);
+}
 
 /* USER CODE END 0 */
 
@@ -93,10 +143,61 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_SPI1_Init();
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+
+  // Initialise Timer 2
+  HAL_TIM_Base_Start(&htim2);
+
+  Reset_DW1000();
+
+  char msg_buffer[100];
+
+  // Set hspi1 clock to 2.25MHz -> Safety DW1000 init (User manual)
+  port_set_dw1000_slowrate(&hspi1);
+
+  if (dwt_initialise(DWT_LOADUCODE) == DWT_SUCCESS){
+	  // Init OK
+	  sprintf(msg_buffer, "INIT OK! Device ID: 0x%08lX\r\n", dwt_readdevid());
+	  debug_print(msg_buffer);
+  } else {
+	  // Init Fail
+	  sprintf(msg_buffer, "INIT FAILED! Device ID: 0x%08lX\r\n", dwt_readdevid());
+	  debug_print(msg_buffer);
+
+	  while(1) {
+		  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // Error Blinky
+		  HAL_Delay(500);
+	  }
+  }
+
+  // Set hspi1 clock to 18MHz
+  port_set_dw1000_fastrate(&hspi1);
+
+  // Configure DW1000 Hardware and RF transceiver
+  dwt_configure(&uwb_cfg.config);
+  dwt_setrxantennadelay(uwb_cfg.ant_dly_rx);
+  dwt_settxantennadelay(uwb_cfg.ant_dly_tx);
+
+  // Delay POLL_TX_TO_RESP_RX_DLY_UUS between frames
+  dwt_setrxaftertxdelay(POLL_TX_TO_RESP_RX_DLY_UUS);
+
+  // Setup DW1000 RX Callback
+  dwt_setcallbacks(NULL, rx_ok_cb, rx_err_cb, rx_err_cb);
+  dwt_setinterrupt(DWT_INT_RFCG | DWT_INT_RPHE | DWT_INT_RFCE | DWT_INT_RFSL | DWT_INT_SFDT, 1);
+  dwt_setrxtimeout(0);
+
+  // Node Initialization
+	#if (CURRENT_NODE_TYPE == TYPE_TAG)
+	#elif (CURRENT_NODE_TYPE == TYPE_SLAVE)
+		slv_beacon_init();
+	#elif (CURRENT_NODE_TYPE == TYPE_MASTER)
+		mst_beacon_init();
+	#endif
 
   /* USER CODE END 2 */
 
@@ -104,6 +205,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	#if (CURRENT_NODE_TYPE == TYPE_TAG)
+		tag_loop();
+	#elif (CURRENT_NODE_TYPE == TYPE_SLAVE)
+		slv_beacon_loop();
+	#elif (CURRENT_NODE_TYPE == TYPE_MASTER)
+		mst_beacon_loop();
+	#endif
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -189,6 +297,51 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 71;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 65535;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -251,6 +404,25 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+  /* DMA1_Channel7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
 
 }
 
@@ -318,6 +490,15 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == DW_IRQ_Pin)
+    {
+    	// Forward to DW1000 RX callback handler
+        dwt_isr();
+    }
+}
 
 /* USER CODE END 4 */
 

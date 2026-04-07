@@ -39,6 +39,8 @@ extern "C" {
 #include "uwb_shared_def.h"
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
 
 /* USER CODE END Includes */
 
