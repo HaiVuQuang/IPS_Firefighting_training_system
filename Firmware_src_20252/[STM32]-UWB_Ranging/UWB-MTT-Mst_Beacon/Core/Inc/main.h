@@ -32,11 +32,11 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-//#include "deca_device_api.h"
-//#include "deca_param_types.h"
-//#include "deca_regs.h"
-//#include "deca_version.h"
-//#include "uwb_shared_def.h"
+#include "deca_device_api.h"
+#include "deca_param_types.h"
+#include "deca_regs.h"
+#include "deca_version.h"
+#include "uwb_shared_def.h"
 
 #include <stdint.h>
 #include <stdbool.h>
