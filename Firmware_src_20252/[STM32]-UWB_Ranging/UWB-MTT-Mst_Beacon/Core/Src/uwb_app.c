@@ -35,25 +35,43 @@ uwb_dev_config_t uwb_cfg = {
     .ant_dly_tx = TX_ANT_DLY,				/* TX antena Delay */
     .ant_dly_rx = RX_ANT_DLY,				/* RX antena Delay */
 
-    /* RF Configuration */
+
+//    .config = {
+//		.chan = CHANNEL_NUM,				/* Channel number. */
+//		.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
+//		.txPreambLength = DWT_PLEN_128,		/* Preamble length. Used in TX only. */
+//		.rxPAC = DWT_PAC8,					/* Preamble acquisition chunk size. Used in RX only. */
+//		.txCode = 9,						/* TX preamble code. Used in TX only. */
+//		.rxCode = 9,						/* RX preamble code. Used in RX only. */
+//		.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
+//		.dataRate = DWT_BR_6M8,				/* Data rate. */
+//		.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
+//		.sfdTO = (129 + 8 - 8)				/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+//    },
+
+	 /* RF Configuration */
     .config = {
 		.chan = CHANNEL_NUM,				/* Channel number. */
 		.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
-		.txPreambLength = DWT_PLEN_128,		/* Preamble length. Used in TX only. */
-		.rxPAC = DWT_PAC8,					/* Preamble acquisition chunk size. Used in RX only. */
+		.txPreambLength = DWT_PLEN_1024,	/* Preamble length. Used in TX only. */
+		.rxPAC = DWT_PAC32,					/* Preamble acquisition chunk size. Used in RX only. */
 		.txCode = 9,						/* TX preamble code. Used in TX only. */
 		.rxCode = 9,						/* RX preamble code. Used in RX only. */
 		.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
-		.dataRate = DWT_BR_6M8,				/* Data rate. */
+		.dataRate = DWT_BR_850K,			/* Data rate. */
 		.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
-		.sfdTO = (129 + 8 - 8)				/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+		.sfdTO = (1024 + 1 + 8 - 32)		/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
     },
 
     /* TX Power Configuration */
     .tx_config = {
         .PGdly = 0xC2,       				/* PG Delay cho Channel 2 */
-        .power = 0x67676767  				/* Công suất phát chuẩn */
+        .power = 0x6C6C6C6C  				/* Công suất phát cho Channel 2 */
     }
+//   .tx_config = {
+//	   .PGdly = 0x95,       				/* PG Delay cho Channel 4 */
+//	   .power = 0x9A9A9A9A  				/* Công suất phát cho Channel 4 */
+//   }
 };
 
 /*----------------------------------------------------------------------
@@ -89,6 +107,28 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 	hspi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
     HAL_SPI_Init(hspi);
 }
+
+///*----------------------------------------------------------------------
+// * @brief: 	Set hspi1 clock to 2.25MHz (UWB init)
+// * @param: 	none
+// *
+// ----------------------------------------------------------------------*/
+//void port_set_dw1000_slowrate(SPI_HandleTypeDef *hspi) {
+//	hspi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+//    HAL_SPI_Init(hspi);
+//}
+//
+//
+///*----------------------------------------------------------------------
+// * @brief: 	Set hspi1 clock to 18MHz
+// * @param:
+// * 			*hspi: Pointer to SPI handle Structure definition
+// *
+// ----------------------------------------------------------------------*/
+//void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
+//	hspi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+//    HAL_SPI_Init(hspi);
+//}
 
 
 /*! -------------------------------------------------------------------
@@ -862,6 +902,10 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
   ----------------------------------------------------------------------*/
  mst_fsm_state_t mst_state = MST_STATE_PREPARE_MST_POLL;
 
+ // --- Flags ---
+ static bool rf_is_idle = false;
+ uint32_t end_of_rf_activity = TAG_TDMA_BASE_US + (MAX_TAGS * TAG_SLOT_TDMA_US) + 1000;
+
  // --- Tag Queue ---
  typedef struct {
      uint8_t tag_id;
@@ -983,8 +1027,6 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  static void handle_mst_prepare_poll (uint16_t elapsed_us) {
 
 	 // ============= Chốt danh sách & cập nhật trạng thái Active Tag ================
-//	 debug_print("\r\n[MST] New cycle -> Prepare Master Poll...\r\n");
-
 	 /* Khóa ngắt RX khi chốt danh sách do nếu trong lúc đang cbi Mst Poll có Tag mới ADV
 	  * -> tag_queue_count bị thay đổi, dẫn tới sai gói tin TX
 	  * */
@@ -1083,12 +1125,20 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 			 len += sprintf(uart_buf + len, "\r\n");
 
 			 // |BeaconID,TagID_1,Dist_1,TagID_2,Dist_2,...|
-			 send_to_centralMCU((uint8_t*)uart_buf, len);
+//			 send_to_centralMCU((uint8_t*)uart_buf, len);
+			 debug_print(uart_buf);
 		 }
+	 }
+
+	 // ================== Chuyển DW1000 về IDLE đợi chu kỳ sau =====================
+	 if ((elapsed_us > end_of_rf_activity) && !rf_is_idle) {
+		 dwt_forcetrxoff();
+		 rf_is_idle = true;
 	 }
 
 	// ================== Timeout =====================
 	if (elapsed_us >= (CYCLE_PERIOD_MS + 1) * 1000) {
+		rf_is_idle = false;
 		mst_state = MST_STATE_PREPARE_MST_POLL;
 //		debug_print("[MST] Current state -> PREPARE_MST_POLL\r\n");
 	}
