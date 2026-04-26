@@ -1,0 +1,168 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <Arduino.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <PubSubClient.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
+#include <wifi.h>
+
+#include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
+#include <vector>
+
+using namespace std;
+
+// DEVICE SETTING
+/*#############################################################################################################*/
+#define MY_DEVICE_ID                0xC0
+#define MY_IPS_ALGO_CODE            2
+
+// SERIAL SETTING
+/*#############################################################################################################*/
+// Serial Monitor Settings
+#define BAUD_RATE_SERIAL 115200 // Serial monitor baud rate (bps)
+#define DEBUG_INTERVAL 100      // Debug print interval (ms)
+
+
+// WIFI AND MQTT CONFIGURATION
+/*#############################################################################################################*/
+// WiFi Settings
+#define WIFI_SSID "RSSI1"
+#define WIFI_PASSWORD "11111111"
+#define WIFI_TIMEOUT 10000 // Connection timeout (ms)
+
+// MQTT Broker Settings
+#define MQTT_BROKER "192.168.0.102"
+#define MQTT_PORT 1883 // Default MQTT port
+#define MQTT_USERNAME ""
+#define MQTT_PASSWORD ""
+#define MQTT_CLIENT_ID "ESP32_CLIENT_ID_14"
+
+// Message Publishing Configuration
+#define PUBLISH_INTERVAL 100 // Minimum time between messages (ms)
+
+
+// BNO055 I2C CONFIGURATION & REGISTER ADDRESS
+/*#############################################################################################################*/
+// BNO055 I2C Configuration
+#define I2C_SDA 21                              // Default SDA pin for ESP32
+#define I2C_SCL 22                              // Default SCL pin for ESP32
+#define BNO055_ADDRESS 0x28                     // Default I2C address for BNO055
+
+// BNO055 Register Addresses
+#define ACC_DATA_START 0x28                     // Accelerometer data registers 0x08-0x0D
+#define MAG_DATA_START 0x0E                     // Magnetometer data registers
+#define GYRO_DATA_START 0x14                    // Gyroscope data registers
+#define EULER_DATA_START 0x1A                   // Euler angles data registers
+#define QUATERNION_DATA_START 0x20              // Quaternion data registers
+
+// BNO055 Operation Mode Registers
+#define BNO055_OPR_MODE_ADDR 0x3D               // Operation mode register address
+#define BNO055_MODE_CONFIG 0x00                 // Configuration mode
+#define BNO055_MODE_NDOF 0x0C                   // Nine Degrees of Freedom fusion mode
+
+// BNO055 Operation Delays
+#define BNO055_CONFIG_DELAY 100                 // Delay after changing modes (ms)
+
+// BNO055 Calibration Status Register
+#define BNO055_CALIB_STAT_ADDR 0x35             // Calibration status register
+#define BNO055_CALIB_STAT_MASK 0xFF             // Mask for all calibration status bits
+
+// BNO055 System Status Register
+#define BNO055_SYS_STATUS_ADDR 0x39             // System status register
+#define BNO055_SYS_STATUS_RUNNING 0x05          // System status: running normally
+
+// BNO055 Error Status Register
+#define BNO055_SYS_ERR_ADDR 0x3A                // System error status register
+
+
+// ILI9341 SPI CONFIGURATION
+/*#############################################################################################################*/
+// SPI show screen
+#define TFT_MISO 19                             // SDO - MASTER IN SLAVE OUT (MISO) : Not used, as TFT is write-only
+#define TFT_LED 0                               // LED : Control LCD backlight connects to 3.3V 
+#define TFT_SCK 18                              // SCK - CLK : Serial Clock 
+#define TFT_MOSI 23                             // SDI - MASTER OUT SLAVE IN (MOSI) : Serial Data Input 
+#define TFT_DC 2                                // DC : Data/Command control pin 
+#define TFT_RST 4                               // RST - RESET : Reset pin 
+#define TFT_CS 5                                // CS : Chip Select 
+
+// LCD setup
+#define INTRO_TIME 5000                         // LCD intro time
+#define LCD_ROTATION 1                          // LCD rotation
+#define LCD_REFRESH_RATE_TRAINING_MODE 10       // LCD refresh rate for training mode (Hz)
+#define LCD_REFRESH_RATE_REALITY_MODE 10        // LCD refresh rate for reality mode (Hz)
+
+
+
+// BUTTON CONFIGURATION
+/*#############################################################################################################*/
+// Button Pins
+#define MODE_SWITCH_PIN 32                      // Training/Reality mode switch
+#define TRANS_PIN 33                            // Chuyen doi tu default sang hai che do con lai
+
+// Analog Input Pins
+#define VALVE_PIN 34                            // Valve control analog input in reality mode
+#define MODE_PIN 35                             // Mode control analog input in reality mode
+
+// System Modes
+#define MODE_REALITY 0                          // Reality mode
+#define MODE_TRAINING 1                         // Training mode
+
+// Analog Thresholds
+#define ANALOG_THRESHOLD 2048                   // Threshold for analog reading (4096/2)
+
+
+// IMU Data structure defines
+/*#############################################################################################################*/
+
+// Quarternion struct
+typedef struct {
+    int16_t w, x, y, z;
+} Raw_quaternion;
+
+typedef struct {
+    float w, x, y, z;
+} Real_quaternion;
+
+// Vector 3D struct
+typedef struct {
+    int16_t x, y, z;
+} Raw_vector3;
+
+typedef struct {
+    float x, y, z;
+} Real_vector3;
+
+// IMU raw data defines
+typedef struct {
+    Raw_vector3 acc_raw;
+    Raw_vector3 mag_raw;
+    Raw_vector3 gyro_raw;
+    Raw_vector3 euler_raw;
+    Raw_quaternion quaternion_raw;
+} IMU_Raw_Data;
+
+// IMU real local data defines
+typedef struct {
+    Real_vector3 acc_local_real;
+    Real_vector3 mag_local_real;
+    Real_vector3 gyro_local_real;
+    Real_vector3 euler_real;
+    Real_quaternion quaternion_real;
+} IMU_Real_local_Data;
+
+// IMU real global data defines
+typedef struct {
+    Real_vector3 gyro;
+    Real_vector3 mag;
+    Real_vector3 acc;
+    Real_vector3 euler;
+} IMU_Data;
+
+#endif

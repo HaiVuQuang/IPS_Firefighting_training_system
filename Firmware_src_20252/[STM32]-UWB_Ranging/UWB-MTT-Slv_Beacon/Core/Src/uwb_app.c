@@ -34,25 +34,43 @@ uwb_dev_config_t uwb_cfg = {
     .ant_dly_tx = TX_ANT_DLY,				/* TX antena Delay */
     .ant_dly_rx = RX_ANT_DLY,				/* RX antena Delay */
 
-    /* RF Configuration */
-    .config = {
+//    /* RF Configuration */
+//    .config = {
+//		.chan = CHANNEL_NUM,				/* Channel number. */
+//		.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
+//		.txPreambLength = DWT_PLEN_128,		/* Preamble length. Used in TX only. */
+//		.rxPAC = DWT_PAC8,					/* Preamble acquisition chunk size. Used in RX only. */
+//		.txCode = 9,						/* TX preamble code. Used in TX only. */
+//		.rxCode = 9,						/* RX preamble code. Used in RX only. */
+//		.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
+//		.dataRate = DWT_BR_6M8,				/* Data rate. */
+//		.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
+//		.sfdTO = (129 + 8 - 8)				/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+//    },
+
+	/* RF Configuration */
+   .config = {
 		.chan = CHANNEL_NUM,				/* Channel number. */
 		.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
-		.txPreambLength = DWT_PLEN_128,		/* Preamble length. Used in TX only. */
-		.rxPAC = DWT_PAC8,					/* Preamble acquisition chunk size. Used in RX only. */
+		.txPreambLength = DWT_PLEN_1024,	/* Preamble length. Used in TX only. */
+		.rxPAC = DWT_PAC32,					/* Preamble acquisition chunk size. Used in RX only. */
 		.txCode = 9,						/* TX preamble code. Used in TX only. */
 		.rxCode = 9,						/* RX preamble code. Used in RX only. */
 		.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
-		.dataRate = DWT_BR_6M8,				/* Data rate. */
+		.dataRate = DWT_BR_850K,			/* Data rate. */
 		.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
-		.sfdTO = (129 + 8 - 8)				/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
-    },
+		.sfdTO = (1024 + 1 + 8 - 32)		/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+   },
 
     /* TX Power Configuration */
     .tx_config = {
         .PGdly = 0xC2,       				/* PG Delay cho Channel 2 */
-        .power = 0x67676767  				/* Công suất phát chuẩn */
+        .power = 0x6C6C6C6C  				/* Công suất phát cho Channel 2 */
     }
+//   .tx_config = {
+//       .PGdly = 0x95,       				/* PG Delay cho Channel 4 */
+//       .power = 0x9A9A9A9A  				/* Công suất phát cho Channel 4 */
+//   }
 };
 
 /*----------------------------------------------------------------------
@@ -89,7 +107,27 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 	hspi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
     HAL_SPI_Init(hspi);
 }
-
+///*----------------------------------------------------------------------
+// * @brief: 	Set hspi1 clock to 2.25MHz (UWB init)
+// * @param: 	none
+// *
+// ----------------------------------------------------------------------*/
+//void port_set_dw1000_slowrate(SPI_HandleTypeDef *hspi) {
+//	hspi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+//    HAL_SPI_Init(hspi);
+//}
+//
+//
+///*----------------------------------------------------------------------
+// * @brief: 	Set hspi1 clock to 18MHz
+// * @param:
+// * 			*hspi: Pointer to SPI handle Structure definition
+// *
+// ----------------------------------------------------------------------*/
+//void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
+//	hspi->Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+//    HAL_SPI_Init(hspi);
+//}
 
 /*! -------------------------------------------------------------------
  * @brief:	Get the RX time-stamp in a 64-bit variable.
@@ -287,9 +325,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 pkt_slave_poll_t* spoll = (pkt_slave_poll_t*)rx_frame->payload;
 
 		 push_slv_poll_event(spoll->slv_id, rx_ts);
-		 if (is_debug_tx_ready) {
-			 debug_print("[TAG] Rec_SLV_POLL\r\n");
-		 }
+//		 if (is_debug_tx_ready) {
+//			 debug_print("[TAG] Rec_SLV_POLL\r\n");
+//		 }
 	 }
 
 	 dwt_rxenable(DWT_START_RX_IMMEDIATE);
@@ -353,7 +391,8 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
           // --- Kiểm tra & Debug ---
           if (ret == DWT_SUCCESS){
-              while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS)) {};
+              while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))
+              {};
               dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);
               if (is_debug_tx_ready) debug_print("[TAG] Broadcast ADV -> OK!\r\n");
           } else {
@@ -368,7 +407,6 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  /*------------------------------------------------------------------------
    * @brief:
    -----------------------------------------------------------------------*/
-
  static void handle_state_wait_mst_poll(uint16_t elapsed_us) {
      // Xử lý Master Poll bị đẩy vào Queue từ ISR
      if (flag_process_mst_poll) {
@@ -390,7 +428,8 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
              recieved_mst_poll = true;
 
              // Xóa rác queue cũ
-             tag_ev_head = 0; tag_ev_tail = 0;
+             tag_ev_head = 0;
+             tag_ev_tail = 0;
          }
      }
 
@@ -417,31 +456,19 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 }
 
 		 // Debug
-		 if (is_debug_tx_ready) {
-			 debug_print("[TAG] Rec SlvPoll: %02X\r\n", ev.slv_id);
-		 }
+//		 if (is_debug_tx_ready) {
+//			 debug_print("[TAG] Rec SlvPoll: %02X\r\n", ev.slv_id);
+//		 }
 	 }
 
 	 // =============== Timeout chuyển TAG_STATE_PREPARE_TAG_RES ===============
-	 if (elapsed_us >= (MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT)) {
+	 if (elapsed_us >= (MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT - 1000)) {
 //		 dwt_forcetrxoff();
-		 tag_state = TAG_STATE_PREPARE_TAG_RES;
 		 has_prepared_res = false;
+		 tag_state = TAG_STATE_PREPARE_TAG_RES;
+
 	 }
  }
-
-// static void handle_state_wait_slv_poll(uint16_t elapsed_us) {
-//
-//	 // Timeout -> Tắt bộ RX, chuyển sang TAG_STATE_PREPARE_TAG_RES
-//	 if (elapsed_us >= (MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT)) {
-//		 dwt_forcetrxoff();
-//		 tag_state = TAG_STATE_PREPARE_TAG_RES;
-////		 debug_print("[TAG] Current state -> PREPARE_TAG_RES\r\n");
-//		 has_prepared_res = false;
-//	 }
-// }
-
-
  /*------------------------------------------------------------------------
    * @brief:
    -----------------------------------------------------------------------*/
@@ -466,8 +493,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 resp_payload.func_code = FUNC_TAG_RESP;
 		 resp_payload.tag_id = MY_TAG_ID;
 //		 resp_payload.resp_tx_ts = (uint32_t)(res_tx_ts_u64 + TX_ANT_DLY);
-		 uint64_t actual_tx_time_u64 = ((uint64_t)res_tx_ts_u32 << 8);					// Zeros 8-bit thấp
-		 resp_payload.resp_tx_ts = (uint32_t)(actual_tx_time_u64 + TX_ANT_DLY);			// Bù Anten delay
+//		 uint64_t actual_tx_time_u64 = ((uint64_t)res_tx_ts_u32 << 8);
+		 uint64_t actual_tx_time_u64 = (((uint64_t)(res_tx_ts_u32 & 0xFFFFFFFEUL)) << 8);	// Zeros 8-bit thấp
+		 resp_payload.resp_tx_ts = (uint32_t)(actual_tx_time_u64 + TX_ANT_DLY);				// Bù Anten delay
 
 		 // --- Chuẩn bị Response frame ---
 		 resp_frame.frame_ctrl = FRAME_CONTROL;
@@ -478,9 +506,10 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 uint16_t resp_frame_len = MAC_HDR_LEN + payload_len + FCS_LEN;					// Độ dài Response frame
 
 		 // Debug
-		 if (is_debug_tx_ready) {
-		     debug_print("[TAG] Sending RES, %d Slv\r\n", resp_payload.beacon_count);
-		 }
+//		 if (is_debug_tx_ready) {
+//		     debug_print("[TAG] Sending RES, %d Slv\r\n", resp_payload.beacon_count);
+//		 }
+
 
 		 // --- Nạp dữ liệu + Delay TX Response frame ---
 		 dwt_writetxdata(resp_frame_len, (uint8_t*)&resp_frame, 0);
@@ -492,6 +521,11 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 			  while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))					// Đợi cờ truyền xong
 			  {};
 			  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);						// Xóa cờ TX: Transmit Frame Sent
+			  dwt_forcetrxoff();														// Tắt bộ RF
+//			 if (is_debug_tx_ready) {
+//				 debug_print("[TAG] res_tx_ts_u32: %lu | actual: %lu \r\n",
+//						 res_tx_ts_u32, dwt_readtxtimestamplo32());
+//			 }
 //			  debug_print("[TAG] Broadcast RES -> OK!\r\n");
 		  } else {
 			  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXBERR);						// Xóa cờ TX: Transmit Buffer Error
@@ -504,9 +538,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 	 }
 
 	 // ================== Chuyển trạng thái TAG_STATE_WAIT_MST_POLL ========================
-	 if (elapsed_us >= MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT + TAG_RESPONSE_TIMEOUT) {
+	 if (elapsed_us >= ((CYCLE_PERIOD_MS * 1000) - 1000)) {
 		 tag_state = TAG_STATE_WAIT_MST_POLL;
-		 dwt_forcetrxoff();
+//		 dwt_forcetrxoff();
 		 dwt_rxenable(DWT_START_RX_IMMEDIATE);
 		 recieved_mst_poll = false;
 //		 debug_print("[TAG] Current state -> WAIT_MST_POLL\r\n");
@@ -794,12 +828,13 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 uint32_t poll_tx_time_u32 = (uint32_t)(poll_tx_time_u64 >> 8);						// Lấy 32 bit cao
 		 dwt_setdelayedtrxtime(poll_tx_time_u32);
 
-		 // Tính toán timestamp Broadcast Poll
-		 uint64_t actual_tx_time_u64 = ((uint64_t)poll_tx_time_u32 << 8);					// Zeros 8-bit thấp
-		 uint32_t actual_tx_time_u32 = (uint32_t)(actual_tx_time_u64 + TX_ANT_DLY); 		// Bù Anten Delay
-		 for (int i = 0; i < active_tag_count; i++) {
-			 ranging_data[i].poll_tx_ts_u32 = actual_tx_time_u32;
-		 }
+
+//		 // Tính toán timestamp Broadcast Poll
+//		 uint64_t actual_tx_time_u64 = ((uint64_t)poll_tx_time_u32 << 8);					// Zeros 8-bit thấp
+//		 uint32_t actual_tx_time_u32 = (uint32_t)(actual_tx_time_u64 + TX_ANT_DLY); 		// Bù Anten Delay
+//		 for (int i = 0; i < active_tag_count; i++) {
+//			 ranging_data[i].poll_tx_ts_u32 = actual_tx_time_u32;
+//		 }
 
 		 // Chuẩn bị payload Slave Poll (Đính kèm payload chu kỳ trước)
 		 slv_poll_payload.tag_count = prev_active_tag_count;
@@ -813,7 +848,10 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 // Nạp thanh ghi TX
 		 dwt_writetxdata(frame_len, (uint8_t *)&slv_poll_frame, 0);
 		 dwt_writetxfctrl(frame_len, 0, 1);
-		 int ret = dwt_starttx(DWT_START_TX_DELAYED | DWT_RESPONSE_EXPECTED);
+
+		 // Tx sau khoảng Delay, sau khi TX xong tự về IDLE
+		 int ret = dwt_starttx(DWT_START_TX_DELAYED);
+//		 int ret = dwt_starttx(DWT_START_TX_DELAYED | DWT_RESPONSE_EXPECTED);
 
 		 if (ret != DWT_SUCCESS) {
 			 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXBERR);					// Clear cờ
@@ -824,18 +862,25 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 			 while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))			// Đợi cờ truyền xong
 			 {};
 			 dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);					// Clear cờ
-			 if (is_debug_tx_ready) debug_print("[SLV] Sending SLV Poll -> OK\r\n");
+
+			 dwt_forcetrxoff();														// Tắt bộ RF
+
+			 for (int i = 0; i < active_tag_count; i++) {
+				 ranging_data[i].poll_tx_ts_u32 = dwt_readtxtimestamplo32();
+			 }
+//			 if (is_debug_tx_ready) debug_print("[SLV] Sending SLV Poll -> OK\r\n");
+//			 if (is_debug_tx_ready) {
+//				 debug_print("[SLV] actual_tx_time_u32: %lu | poll_tx_ts_u32: %lu",
+//						 actual_tx_time_u32, ranging_data[i].poll_tx_ts_u32);
+//			 }
 		 }
 		 // Khóa cờ Slv Poll
 		 has_prepared_poll_tx = true;
 	 }
-
 	 // ==================== Timeout chuyển SLV_STATE_WAIT_TAG_RES ==============================
-	 if (elapsed_us >= MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT) {
+	 if (elapsed_us >= (MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT - 1000)) {
+		 dwt_rxenable(DWT_START_RX_IMMEDIATE);							// Bật lại RX để lắng nghe Tag
 		 slv_state = SLV_STATE_WAIT_TAG_RES;
-//		 dwt_forcetrxoff();
-//		 dwt_rxreset();
-//		 dwt_rxenable(DWT_START_RX_IMMEDIATE);
 //		 debug_print("[SLV] Current state -> WAIT_TAG_RES\r\n");
 	 }
  }
@@ -866,9 +911,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 				 }
 
 				 // Debug
-				 if (is_debug_tx_ready) {
-					 debug_print("[SLV] Rec TagRes: 0x%04X\r\n", ev.payload.tag_id);
-				 }
+//				 if (is_debug_tx_ready) {
+//					 debug_print("[SLV] Rec TagRes: 0x%02X\r\n", ev.payload.tag_id);
+//				 }
 				 break;
 			 }
 		 }
@@ -876,6 +921,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 	 // ==================== Timeout chuyển SLV_STATE_CALCULATE_DIST ===========================
 	 if (elapsed_us > (MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT + TAG_RESPONSE_TIMEOUT)) {
+		 dwt_forcetrxoff();									// Tắt RF
 		 slv_state = SLV_STATE_CALCULATE_DIST;
 //		 debug_print("[SLV] Current state -> CALCULATE_DIST\r\n");
 	 }
@@ -888,7 +934,6 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
   ----------------------------------------------------------------------*/
  static void handle_slv_calc_ranging(uint16_t elapsed_us) {
 	 if (!has_calculated) {
-
 		 // ================ Xử lý tính Khoảng cách (cm) với từng Tag ===============================
 		 for (int i = 0; i < active_tag_count; i++) {
 			 slv_poll_payload.distances[i].tag_id = ranging_data[i].tag_id;
@@ -901,11 +946,11 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 				 uint32_t t_reply_u32 = ranging_data[i].tag_resp_tx_ts - ranging_data[i].tag_poll_rx_ts;
 
 				 // Tính Clock offset Ratio theo carrier_integ từng Tag
-				 float clockOffsetRatio;
+				 double clockOffsetRatio;
 				 clockOffsetRatio = ranging_data[i].carrier_integ * (FREQ_OFFSET_MULTIPLIER * HERTZ_TO_PPM_MULTIPLIER_CHAN_2 / 1.0e6);
 
 				 // Tính toán ToF và k/c (cm)
-				 double tof = ((t_round_u32 - t_reply_u32 * (1 - clockOffsetRatio)) / 2.0) * DWT_TIME_UNITS;
+				 double tof = ((t_round_u32 - (double)t_reply_u32 * (1 - clockOffsetRatio)) / 2.0) * DWT_TIME_UNITS;
 				 double dist_cm = tof * SPEED_OF_LIGHT * 100;
 
 				 // Lọc và điền payload
@@ -932,19 +977,20 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 prev_active_tag_count = active_tag_count;
 		 has_calculated = true;
 
-//		 slv_state = SLV_STATE_WAIT_MST_POLL;
 //		 debug_print("%02X,%u\r\n",slv_poll_payload.distances[0].tag_id,slv_poll_payload.distances[0].dist_cm);
 
 	 }
 
 	 // =================== Timeout ============================
 	 if (elapsed_us >= ((CYCLE_PERIOD_MS * 1000))) {
-		 slv_state = SLV_STATE_WAIT_MST_POLL;
-//		 debug_print("[SLV] Current state -> WAIT_MST_POLL\r\n");
+		 // Reset cờ
 		 recieved_mst_poll = false;
 		 has_calculated = false;
-		 dwt_forcetrxoff();
+		 // Bật lại RX
+//		 dwt_forcetrxoff();
 		 dwt_rxenable(DWT_START_RX_IMMEDIATE);
+		 slv_state = SLV_STATE_WAIT_MST_POLL;
+//		 debug_print("[SLV] Current state -> WAIT_MST_POLL\r\n");
 	 }
  }
 
@@ -1031,6 +1077,10 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
   ----------------------------------------------------------------------*/
  mst_fsm_state_t mst_state = MST_STATE_PREPARE_MST_POLL;
 
+ // --- Flags ---
+ static bool rf_is_idle = false;
+ uint32_t end_of_rf_activity = TAG_TDMA_BASE_US + (MAX_TAGS * TAG_SLOT_TDMA_US) + 1000;
+
  // --- Tag Queue ---
  typedef struct {
      uint8_t tag_id;
@@ -1111,7 +1161,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
              push_slv_msg(slv_poll_payload);
          }
 
-         dwt_rxenable(DWT_START_RX_IMMEDIATE);
+//         dwt_rxenable(DWT_START_RX_IMMEDIATE);
      }
 
      // =================== Tag Response & Tag ADV =======================
@@ -1140,7 +1190,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
              tag_queue_count++;
          }
 
-         dwt_rxenable(DWT_START_RX_IMMEDIATE);
+//         dwt_rxenable(DWT_START_RX_IMMEDIATE);
      }
      dwt_rxenable(DWT_START_RX_IMMEDIATE);
  }
@@ -1152,8 +1202,6 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  static void handle_mst_prepare_poll (uint16_t elapsed_us) {
 
 	 // ============= Chốt danh sách & cập nhật trạng thái Active Tag ================
-//	 debug_print("\r\n[MST] New cycle -> Prepare Master Poll...\r\n");
-
 	 /* Khóa ngắt RX khi chốt danh sách do nếu trong lúc đang cbi Mst Poll có Tag mới ADV
 	  * -> tag_queue_count bị thay đổi, dẫn tới sai gói tin TX
 	  * */
@@ -1203,7 +1251,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 	 // Reset TIM2 làm mốc 0 hệ thống
 	 __HAL_TIM_SET_COUNTER(&htim2, 0);
-	 elapsed_us = 0;
+//	 elapsed_us = 0;
 
 	 // Debug
 	  if (ret == DWT_SUCCESS){
@@ -1211,11 +1259,11 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		  {};
 		  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);				// Xóa cờ TX: Transmit Frame Sent
 		  mst_state = MST_STATE_LISTENING_PACKET;
-		  debug_print("[MST] Broadcast MST Poll -> OK\r\n");
+//		  debug_print("[MST] Broadcast MST Poll -> OK\r\n");
 //		  debug_print("[MST] Current state -> LISTENING_PACKET\r\n");
 	  } else {
 		  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXBERR);				// Xóa cờ TX: Transmit Buffer Error
-		  debug_print("[MST] Broadcast MST Poll -> FAIL\r\n");
+//		  debug_print("[MST] Broadcast MST Poll -> FAIL\r\n");
 		  dwt_rxreset();													// Reset lại bộ receiver DW1000
 		  dwt_rxenable(DWT_START_RX_IMMEDIATE);
 		  mst_state = MST_STATE_LISTENING_PACKET;
@@ -1233,7 +1281,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 if (pop_slv_msg(&slv_poll_payload)) {
 
 			 char uart_buf[128];
-			 int len = sprintf(uart_buf, "%02X", slv_poll_payload.slv_id);
+			 int len = sprintf(uart_buf, "0x%02X", slv_poll_payload.slv_id);
 			 int tag_count = slv_poll_payload.tag_count;
 			 if (tag_count > MAX_TAGS) {
 				 tag_count = MAX_TAGS;
@@ -1242,22 +1290,30 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 			 // Duyệt qua payload để lấy dsach Tag ID cùng distance đo được
 			 for (int i = 0; i < tag_count; i++) {
 				 uint16_t dist_cm = slv_poll_payload.distances[i].dist_cm;
-//				 if (dist_cm != INVALID_DIST){
+				 if (dist_cm != INVALID_DIST){
 					 uint8_t tag_id = slv_poll_payload.distances[i].tag_id;
-					 len += sprintf(uart_buf + len, ",%02X,%u", tag_id, dist_cm);
-//				 }
+					 len += sprintf(uart_buf + len, ",0x%02X,%u", tag_id, dist_cm);
+				 }
 			 }
 
 			 // Chốt chuỗi
 			 len += sprintf(uart_buf + len, "\r\n");
 
 			 // |BeaconID,TagID_1,Dist_1,TagID_2,Dist_2,...|
-			 send_to_centralMCU((uint8_t*)uart_buf, len);
+//			 send_to_centralMCU((uint8_t*)uart_buf, len);
+			 debug_print(uart_buf);
 		 }
 	 }
 
+	 // ================== Chuyển DW1000 về IDLE đợi chu kỳ sau =====================
+	 if ((elapsed_us > end_of_rf_activity) && !rf_is_idle) {
+		 dwt_forcetrxoff();
+		 rf_is_idle = true;
+	 }
+
 	// ================== Timeout =====================
-	if (elapsed_us >= (CYCLE_PERIOD_MS + 2) * 1000) {
+	if (elapsed_us >= (CYCLE_PERIOD_MS + 1) * 1000) {
+		rf_is_idle = false;
 		mst_state = MST_STATE_PREPARE_MST_POLL;
 //		debug_print("[MST] Current state -> PREPARE_MST_POLL\r\n");
 	}

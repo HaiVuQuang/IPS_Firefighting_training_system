@@ -14,10 +14,13 @@
 
 /* Channel number */
 #define CHANNEL_NUM 2
+//#define CHANNEL_NUM 4
 
 /* Default antenna delay values for 64 MHz PRF*/
-#define TX_ANT_DLY 16436
-#define RX_ANT_DLY 16436
+//#define TX_ANT_DLY 16436
+//#define RX_ANT_DLY 16436
+#define TX_ANT_DLY 16462
+#define RX_ANT_DLY 16462
 
 /* UWB microsecond (uus) to device time unit (dtu, around 15.65 ps) conversion factor.
  * 1 uus = 512 / 499.2 �s and 1 �s = 499.2 * 128 dtu. */
@@ -27,7 +30,7 @@
 #define POLL_RX_TO_RESP_TX_DLY_UUS 5000
 
 /* Delay between frames, in UWB microseconds. */
-#define POLL_TX_TO_RESP_RX_DLY_UUS 140
+#define POLL_TX_TO_RESP_RX_DLY_UUS 330
 
 /* Speed of light in air (m/s) */
 #define SPEED_OF_LIGHT 299702547
@@ -39,9 +42,9 @@
 // Multiplication factors to convert frequency offset in Hertz to PPM crystal offset
 // NB: also changes sign so a positive value means the local RX clock is running slower than the remote TX device.
 #define HERTZ_TO_PPM_MULTIPLIER_CHAN_1     (-1.0e6/3494.4e6)
-#define HERTZ_TO_PPM_MULTIPLIER_CHAN_2     (-1.0e6/3993.6e6)
+#define HERTZ_TO_PPM_MULTIPLIER_CHAN_2     (-1.0e6/3993.6e6)	// Channel 4 cũng dùng được do cùng central frequency
 #define HERTZ_TO_PPM_MULTIPLIER_CHAN_3     (-1.0e6/4492.8e6)
-#define HERTZ_TO_PPM_MULTIPLIER_CHAN_5     (-1.0e6/6489.6e6)
+#define HERTZ_TO_PPM_MULTIPLIER_CHAN_5     (-1.0e6/6489.6e6)	// Channel 7 cũng dùng được do cùng central frequency
 
 /* UWB communication config struct */
 typedef struct {

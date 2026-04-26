@@ -152,6 +152,14 @@ int main(void)
 
   // Initialise Timer 2
   HAL_TIM_Base_Start(&htim2);
+//  int ret = HAL_TIM_Base_Start(&htim2);
+//  if (ret == HAL_OK) {
+//	  debug_print("TIM2 -> OK!\r\n");
+//	  HAL_Delay(20);
+//  } else {
+//	  debug_print("TIM2 -> FAIL!\r\n");
+//	  HAL_Delay(20);
+//  }
 
   Reset_DW1000();
 
@@ -180,11 +188,14 @@ int main(void)
 
   // Configure DW1000 Hardware and RF transceiver
   dwt_configure(&uwb_cfg.config);
+  dwt_configuretxrf(&uwb_cfg.tx_config);
+
   dwt_setrxantennadelay(uwb_cfg.ant_dly_rx);
   dwt_settxantennadelay(uwb_cfg.ant_dly_tx);
 
   // Delay POLL_TX_TO_RESP_RX_DLY_UUS between frames
   dwt_setrxaftertxdelay(POLL_TX_TO_RESP_RX_DLY_UUS);
+//  dwt_setrxaftertxdelay(0);
 
   // Setup DW1000 RX Callback
   dwt_setcallbacks(NULL, rx_ok_cb, rx_err_cb, rx_err_cb);
