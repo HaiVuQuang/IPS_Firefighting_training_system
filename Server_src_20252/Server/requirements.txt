@@ -46,7 +46,7 @@ scipy==1.17.1
 six==1.17.0
 SQLAlchemy==2.0.48
 starlette==0.52.1
-tensorflow==2.21.0
+tensorflow==2.15.0
 termcolor==3.3.0
 threadpoolctl==3.6.0
 typing-inspection==0.4.2
