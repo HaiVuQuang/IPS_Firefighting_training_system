@@ -2,6 +2,7 @@
 #define MQTT_HANDLE_H
 
 #include "config.h"
+#include "ili9341_obj.h"
 #include "data_handle.h"
 
 extern WiFiClient wifi_client;
