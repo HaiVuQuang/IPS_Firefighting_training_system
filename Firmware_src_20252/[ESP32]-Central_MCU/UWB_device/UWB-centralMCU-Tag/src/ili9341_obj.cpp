@@ -106,7 +106,7 @@ void FlamesDisplay::updateData(const char *payload)
     prev_flames = curr_flames;
 
     // Reset flames data buffer
-    for(int i = 0; i < 100, i++) {
+    for(int i = 0; i < 100; i++) {
         curr_flames.data[i].flame_id = 0;
         curr_flames.data[i].flame_lvl = 0; 
     }
@@ -181,9 +181,35 @@ MapDisplay::MapDisplay()
  * @brief 
  */
 /*#############################################################################################################*/
-void MapDisplay::updateData(vector<int> &passable_id, vector<int> &not_passable_ids, float north_offset)
+void MapDisplay::updateData(const char *payload)
 {
+    // Reset map marker array 
+    for(int i = 1; i <= 100; i++) {
+        is_passable_grid_id[i] = true;
+    }
 
+    // Payload buffer
+    char buffer[512];
+    strncpy(buffer, payload, sizeof(buffer) - 1);
+    buffer[sizeof(buffer) - 1] = '\0';
+
+    // The first element is map's north offset angle
+    char* token = strtok(buffer, ",");
+    if(token != NULL) {
+        north_offset = atoi(token);
+    }
+
+    // Mark not passable grid
+    while (token != NULL) {
+        token = strtok(NULL, ",");
+        if(token == NULL) break;
+        
+        int id = atoi(token);
+        if(id >= 1 && id <= 100){
+            is_passable_grid_id[id] = false;            
+        }
+    }
+    is_map_updated = true;
 }
 
 
