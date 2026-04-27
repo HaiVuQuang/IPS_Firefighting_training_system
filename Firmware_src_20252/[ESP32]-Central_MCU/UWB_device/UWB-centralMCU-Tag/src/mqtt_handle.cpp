@@ -7,7 +7,7 @@ WiFiClient wifi_client;
 PubSubClient mqtt_client(wifi_client);
 
 static char mqtt_user_pos_topic[50];           // Server -> Device: Device coordinates data (localization) 
-static char mqtt_fire_data_topic[50];          // Server -> Device: Fire data & status for firefighting 
+static char mqtt_flames_data_topic[50];        // Server -> Device: Flames data & status for firefighting 
 static char mqtt_map_data_topic[50];           // Server -> Device: Firefighting training map configuration
 static char mqtt_user_data_topic[50];          // Device -> Server: Device data (IMU, Valve,...)
 
@@ -69,12 +69,12 @@ void init_connection_with_mqtt_broker()
         return;
     }
     snprintf(mqtt_user_pos_topic, sizeof(mqtt_user_pos_topic), "%d/user_pos/%02X", MY_IPS_ALGO_CODE, MY_DEVICE_ID);
-    snprintf(mqtt_fire_data_topic, sizeof(mqtt_fire_data_topic), "%d/firefighting_data", MY_IPS_ALGO_CODE);
+    snprintf(mqtt_flames_data_topic, sizeof(mqtt_flames_data_topic), "%d/firefighting_data", MY_IPS_ALGO_CODE);
     snprintf(mqtt_map_data_topic, sizeof(mqtt_map_data_topic), "%d/map_data", MY_IPS_ALGO_CODE);
     snprintf(mqtt_user_data_topic, sizeof(mqtt_user_data_topic), "%d/user_data/%02X", MY_IPS_ALGO_CODE, MY_DEVICE_ID);
 
     mqtt_client.subscribe(mqtt_user_pos_topic);
-    mqtt_client.subscribe(mqtt_fire_data_topic);
+    mqtt_client.subscribe(mqtt_flames_data_topic);
     mqtt_client.subscribe(mqtt_map_data_topic);
     mqtt_client.setCallback(mqtt_callback);
     Serial.println("Connect to MQTT broker -> OK");
@@ -93,7 +93,7 @@ void reconnect_mqtt() {
         if (mqtt_client.connect("STM32_Device_C0")) {
             Serial.println("connected");
             mqtt_client.subscribe(mqtt_user_pos_topic);
-            mqtt_client.subscribe(mqtt_fire_data_topic);
+            mqtt_client.subscribe(mqtt_flames_data_topic);
             mqtt_client.subscribe(mqtt_map_data_topic);
         } else {
             Serial.print("failed, rc=");
@@ -124,6 +124,7 @@ bool publish_message(String topic, String message)
     return mqtt_client.publish(topic.c_str(), message.c_str());
 }
 
+
 /*#############################################################################################################*/
 /**
  * @brief MQTT callback for message from subscribed topic
@@ -141,13 +142,13 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
 
     // Redirect callback handle based on topic
     if (strcmp(topic, mqtt_user_pos_topic) == 0) {
-        handle_mqtt_topic_user_pos(message);
+        handle_mqtt_topic_user_pos(user, message);
     }
-    else if(strcmp(topic, mqtt_fire_data_topic) == 0){
-       handle_mqtt_topic_fire_data(message);
+    else if(strcmp(topic, mqtt_flames_data_topic) == 0){
+       handle_mqtt_topic_flames_data(flames, message);
     }
     else if(strcmp(topic, mqtt_map_data_topic) == 0){
-        handle_mqtt_topic_map_data(message);
+        handle_mqtt_topic_map_data(map, message);
     }
 }
 

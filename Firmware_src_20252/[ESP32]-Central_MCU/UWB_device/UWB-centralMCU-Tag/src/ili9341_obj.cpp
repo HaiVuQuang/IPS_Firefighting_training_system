@@ -6,7 +6,7 @@
  */
 /*#############################################################################################################*/
 UserDisplay user;
-FireDisplay fire;
+FlamesDisplay flames;
 MapDisplay map;
 
 
@@ -48,9 +48,18 @@ void UserDisplay::coordinate_to_pixel_position(float coor_x, float coor_y, int &
  * @brief 
  */
 /*#############################################################################################################*/
-void UserDisplay::updateData()
+void UserDisplay::updateData(float coor_x, float coor_y, int score)
 {
-    
+    // Save user's the previous position
+    prev_pos = curr_pos;
+
+    // Update the user's lastest data
+    curr_pos.coor_x = coor_x;
+    curr_pos.coor_y = coor_y;
+    user_score = score;
+
+    // Updated flag
+    is_user_updated = true;
 }
 
 
@@ -81,7 +90,76 @@ void UserDisplay::drawUser(Adafruit_ILI9341 &tft)
  * @brief 
  */
 /*#############################################################################################################*/
-FireDisplay::FireDisplay()
+FlamesDisplay::FlamesDisplay()
+{
+
+}
+
+
+/*#############################################################################################################*/
+/**
+ * @brief 
+ */
+/*#############################################################################################################*/
+void FlamesDisplay::updateData(const char *payload)
+{
+    prev_flames = curr_flames;
+
+    // Reset flames data buffer
+    for(int i = 0; i < 100, i++) {
+        curr_flames.data[i].flame_id = 0;
+        curr_flames.data[i].flame_lvl = 0; 
+    }
+
+    char buffer[strlen(payload) + 1];
+    strcpy(buffer, payload);
+
+    char* token = strtok(buffer, ",");
+
+    // Browse through the payload 
+    while (token != NULL) {
+        // Get ID
+        int id = atoi(token);
+
+        // Get lvl
+        token = strtok(NULL,",");
+        if (token == NULL) break;
+        int lvl = atoi(token);
+
+        // Save flames data
+        if (id >= 1 && id <= 100) {
+            if (lvl > 5) lvl = 5;
+            if (lvl < 0) lvl = 0;
+            
+            curr_flames.data[id].flame_lvl = lvl;
+        }
+
+        // Move to next <id>,<lvl>
+        token = strtok(NULL, ",");
+    }
+
+    // Set flames's updated flag
+    is_flames_updated = true;
+}
+
+
+/*#############################################################################################################*/
+/**
+ * @brief 
+ */
+/*#############################################################################################################*/
+void FlamesDisplay::clearFlames(Adafruit_ILI9341 &tft)
+{
+
+}
+
+
+/*#############################################################################################################*/
+/**
+ * @brief 
+ */
+/*#############################################################################################################*/
+void FlamesDisplay::drawFlames(Adafruit_ILI9341 &tft)
 {
 
 }
@@ -95,4 +173,37 @@ FireDisplay::FireDisplay()
 MapDisplay::MapDisplay()
 {
 
+}
+
+
+/*#############################################################################################################*/
+/**
+ * @brief 
+ */
+/*#############################################################################################################*/
+void MapDisplay::updateData(vector<int> &passable_id, vector<int> &not_passable_ids, float north_offset)
+{
+
+}
+
+
+/*#############################################################################################################*/
+/**
+ * @brief 
+ */
+/*#############################################################################################################*/
+void MapDisplay::clearMap(Adafruit_ILI9341 &tft)
+{
+
+}
+
+
+/*#############################################################################################################*/
+/**
+ * @brief 
+ */
+/*#############################################################################################################*/
+void MapDisplay::drawMap(Adafruit_ILI9341 &tft)
+{
+    
 }
