@@ -1,3 +1,4 @@
+import axios from "axios";
 import React, { useState, useEffect } from "react";
 import {
   Radio,
@@ -21,6 +22,14 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const routers = new Set(mapData.router_location || []);
 
   useEffect(() => {
+    // Nếu mode là uwb gọi API lấy tọa độ của đúng map ID đó
+    if (systemMode === "uwb" && mapData?.map_info_id) {
+      axios
+        .post(`http://localhost:8000/set_active_uwb_map/${mapData.map_info_id}`)
+        .then(() => console.log("Switched to map", mapData.map_info_id))
+        .catch((err) => console.error("Failed to switch map", err));
+    }
+
     const ws = new WebSocket("ws://localhost:8000/ws/realtime_location");
     ws.onopen = () => setWsStatus("connected");
     ws.onmessage = (event) => {
@@ -34,7 +43,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     };
     ws.onclose = () => setWsStatus("error");
     return () => ws.close();
-  }, []);
+  }, [mapData, systemMode]);
 
   // 1. Vẽ Lưới nền (Chỉ vẽ tường và trạm phát)
   const gridCells = [];

@@ -23,7 +23,7 @@ def init_async_bridge(loop: asyncio.AbstractEventLoop, callback):
 #  Callback tự gọi khi kết nối thành công đến broker
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
-        print("Connected to MQTT Broker!")
+        print("✅ Connected to MQTT Broker!")
         client.subscribe("device_info")
         client.subscribe("2/uwb_ranging/#")
     else:

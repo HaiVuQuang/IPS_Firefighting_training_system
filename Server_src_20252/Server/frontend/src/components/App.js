@@ -198,10 +198,16 @@ function App() {
                           <th>ID</th>
                           <th>Total units</th>
                           <th>Area/unit</th>
-                          {systemMode === "fingerprint" && (
+                          {/* KIỂM TRA CHẾ ĐỘ ĐỂ RENDER TIÊU ĐỀ CỘT */}
+                          {systemMode === "fingerprint" ? (
                             <>
                               <th>Router number</th>
                               <th>Router location</th>
+                            </>
+                          ) : (
+                            <>
+                              <th>Beacon number</th>
+                              <th>Beacon location</th>
                             </>
                           )}
                           <th>Walkable</th>
@@ -214,7 +220,9 @@ function App() {
                             <td>{map.map_info_id}</td>
                             <td>{map.total_units}</td>
                             <td>{map.area_of_one_unit}</td>
-                            {systemMode === "fingerprint" && (
+
+                            {/* KIỂM TRA CHẾ ĐỘ ĐỂ RENDER DỮ LIỆU */}
+                            {systemMode === "fingerprint" ? (
                               <>
                                 <td>{map.router_number}</td>
                                 <td>
@@ -228,7 +236,21 @@ function App() {
                                     : map.router_location}
                                 </td>
                               </>
+                            ) : (
+                              <>
+                                <td>{map.beacon_number || 0}</td>
+                                <td>
+                                  {/* Xử lý Object dữ liệu UWB thành chuỗi dễ đọc */}
+                                  {map.beacon_location &&
+                                  typeof map.beacon_location === "object"
+                                    ? Object.entries(map.beacon_location)
+                                        .map(([id, pos]) => `${pos.x}:${pos.y}`)
+                                        .join(", ")
+                                    : ""}
+                                </td>
+                              </>
                             )}
+
                             <td>{map.walkable_area}</td>
                             <td>
                               <div className="row-actions">
@@ -277,7 +299,7 @@ function App() {
                         ))}
                         {maps.length === 0 && (
                           <tr>
-                            <td colSpan={7} className="empty">
+                            <td colSpan={8} className="empty">
                               No maps found.
                             </td>
                           </tr>

@@ -32,14 +32,8 @@ active_websockets = []
 realtime_buffer = deque(maxlen=10)  
 # Buffer gom khoảng cách từ các beacon cho từng Tag theo chiều dọc tin nhắn MQTT
 uwb_distance_buffer = {}
-
-UWB_BEACONS_CONFIG = {
-    "0x01": {"x": 2.5, "y": 0.5},    
-    "0x02": {"x": 5.5, "y": 0.5},
-    "0x03": {"x": 5.5, "y": 10.5},
-    "0x04": {"x": 2.5, "y": 10.5}
-}
-
+# Biến Cache lưu tọa độ Beacon
+BEACONS_CONFIG = {}
 # Theo dõi từng tag
 uwb_trackers = {}
 
@@ -69,7 +63,12 @@ def handle_incoming_mqtt_data(msg_dict):
                 if tag_id not in uwb_trackers:
                     uwb_trackers[tag_id] = ToFPositioning(min_beacons=3, use_kalman=True)
                 
-                result = uwb_trackers[tag_id].compute_position(UWB_BEACONS_CONFIG, uwb_distance_buffer[tag_id])
+                if not BEACONS_CONFIG:
+                    print("Warning: No founds UWB locations on RAM")
+                    uwb_distance_buffer[tag_id].clear()
+                    return
+                
+                result = uwb_trackers[tag_id].compute_position(BEACONS_CONFIG, uwb_distance_buffer[tag_id])
                 
                 if result:
 
@@ -144,7 +143,17 @@ def handle_incoming_mqtt_data(msg_dict):
 # HÀM KHỞI ĐỘNG SERVER (LIFESPAN)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_queue, ai_predictor, mqtt_client
+    global data_queue, ai_predictor, mqtt_client, BEACONS_CONFIG
+    # Load DB lên RAM 1 lần để lấy tọa độ
+    db = SessionLocal()
+    try:
+        uwb_latest_map = db.query(database_models.UwbMapInfo).order_by(database_models.UwbMapInfo.map_info_id.desc()).first()
+        if uwb_latest_map and uwb_latest_map.beacon_location:
+            BEACONS_CONFIG = uwb_latest_map.beacon_location
+            print("✅ UWB locations have been loaded from the database into RAM cache!")
+    finally:
+        db.close()
+
     data_queue = asyncio.Queue(maxsize=500)
     loop = asyncio.get_running_loop()
 
@@ -411,6 +420,7 @@ def update_uwb_map(id: int, map_info: UwbMapInfoSchema, db: Session = Depends(ge
         db_map.blocked_cells = map_info.blocked_cells
     db.commit()
     db.refresh(db_map)
+
     return db_map
 
 @app.delete("/uwb_maps/{id}")
@@ -427,3 +437,18 @@ def delete_uwb_map(id: int, db: Session = Depends(get_db)):
         db.commit()
 
     return {"status": "deleted"}
+
+@app.post("/set_active_uwb_map/{id}")
+def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
+    global BEACONS_CONFIG
+    
+    db_map = db.query(database_models.UwbMapInfo).filter(database_models.UwbMapInfo.map_info_id == id).first()
+    
+    if not db_map:
+        raise HTTPException(status_code=404, detail="Map not found")
+        
+    if db_map.beacon_location:
+        BEACONS_CONFIG = db_map.beacon_location
+    else:
+        BEACONS_CONFIG = {}
+    return {"message": f"Switched uwb map to ID {id}", "active_beacons": BEACONS_CONFIG}

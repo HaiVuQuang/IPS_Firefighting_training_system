@@ -54,6 +54,7 @@
   color: #1d1d1f;
   transition: all 0.2s;
   width: 100%;
+  margin-bottom: 15px;
 }
 .apple-input:focus {
   outline: none;
@@ -61,12 +62,92 @@
   box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
 }
 
+.two-column-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
 /* Các nút bấm (Buttons) */
 .sidebar-actions {
   display: flex;
   gap: 10px;
 }
-.btn-apple-secondary {
+
+.sidebar-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.btn-popup-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-blue {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+}
+
+.btn-blue:hover:not(:disabled) {
+  box-shadow: 0 6px 12px rgba(59, 130, 246, 0.5);
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+}
+
+.btn-blue:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.btn-blue:disabled {
+  background: #64748b;
+  cursor: not-allowed;
+  opacity: 0.8;
+  box-shadow: none;
+}
+
+.btn-pink {
+  flex: 1;
+  background: #fef2f2;
+  color: #ef4444;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-confirm {
+  background: #0f172a;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+}
+.btn-confirm:hover {
+  background: #202b38;
+}
+
+.btn-gray {
   flex: 1;
   background: #f5f5f7;
   color: #1d1d1f;
@@ -78,60 +159,12 @@
   cursor: pointer;
   transition: 0.2s;
 }
-.btn-apple-secondary:hover:not(:disabled) {
+.btn-gray:hover:not(:disabled) {
   background: #e8e8ed;
 }
-.btn-apple-secondary:disabled {
+.btn-gray:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.sidebar-footer {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-.btn-apple-primary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 12px;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease-in-out;
-  box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
-}
-
-.btn-apple-primary:hover:not(:disabled) {
-  box-shadow: 0 6px 12px rgba(59, 130, 246, 0.5);
-  background: linear-gradient(135deg, #60a5fa, #2563eb);
-}
-
-.btn-apple-primary:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-}
-
-.btn-apple-primary:disabled {
-  background: #64748b;
-  cursor: not-allowed;
-  opacity: 0.8;
-  box-shadow: none;
-}
-.btn-apple-danger {
-  flex: 1;
-  background: #fef2f2;
-  color: #ef4444;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 /* Bảng thống kê */
@@ -196,6 +229,7 @@
   max-width: 100%;
   overflow-x: auto;
   padding-bottom: 16px;
+  position: relative;
 }
 
 .corner-empty {
@@ -253,6 +287,7 @@
   border-radius: 16px;
   max-height: none;
   overflow: visible;
+  position: relative;
 }
 
 .map-cell {
@@ -430,6 +465,13 @@
   padding-right: 4px;
 }
 
+.beacon-list-title {
+  font-size: 14px;
+  color: #475569;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
 .beacon-item {
   display: flex;
   align-items: center;
@@ -464,15 +506,36 @@
   color: #0f172a;
 }
 
+/* Khung chứa các nút Action */
+.beacon-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .btn-delete-small {
   background: #fee2e2;
   color: #ef4444;
   border: none;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
+  cursor: pointer;
+  display: flex;
   align-items: center;
   justify-content: center;
+  transition: 0.2s ease;
+}
+
+.btn-edit-small {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   cursor: pointer;
-  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s ease;
 }
