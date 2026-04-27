@@ -22,6 +22,8 @@ class UwbMapInfoSchema(BaseModel):
     total_units: int
     area_of_one_unit: float
     walkable_area: int
+    beacon_number: int
+    beacon_location: dict
     rows: int
     cols: int
     blocked_cells: List[str]

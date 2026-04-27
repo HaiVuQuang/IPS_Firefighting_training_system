@@ -29,6 +29,8 @@ class UwbMapInfo(Base):
     total_units = Column(Integer)
     area_of_one_unit = Column(Float)
     walkable_area = Column(Integer)
+    beacon_number = Column(Integer)
+    beacon_location = Column(JSON, default={})
     rows = Column(Integer)
     cols = Column(Integer)
     blocked_cells = Column(JSON, default=[])
