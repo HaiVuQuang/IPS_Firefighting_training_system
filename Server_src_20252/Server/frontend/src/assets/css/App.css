@@ -101,10 +101,11 @@ body {
   backdrop-filter: blur(10px);
 }
 .card h2 {
-  margin: 0 0 20px 0;
-  color: var(--text-900);
-  font-size: 20px;
-  font-weight: 800;
+  color: rgb(0, 0, 0);
+  margin: 0;
+  margin-bottom: 16px;
+  font-size: 1.4rem;
+  font-weight: 600;
 }
 .scroll-x {
   border-radius: 12px;
@@ -189,6 +190,13 @@ body {
 .btn-colect:hover {
   background: linear-gradient(157deg, #0ecba2, #92c7bb);
 }
+.btn-monitor {
+  background: #ffc259;
+}
+
+.btn-monitor:hover {
+  background: linear-gradient(157deg, #ffa201, #f9cc80);
+}
 
 .row-actions {
   display: flex;
@@ -250,54 +258,6 @@ body {
   border-left-color: var(--primary-500);
 }
 
-/* --- MÀN HÌNH CHỌN CHẾ ĐỘ --- */
-.selection-container {
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  min-height: 60vh;
-  gap: 40px;
-  flex-wrap: wrap;
-}
-
-.mode-card {
-  background: #fff;
-  border: 1px solid var(--surface-border);
-  border-radius: 24px;
-  padding: 40px;
-  width: 380px;
-  text-align: center;
-  cursor: pointer;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  flex-direction: column;
-}
-
-.mode-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
-  border-color: #cbd5e1;
-}
-
-.mode-icon {
-  font-size: 60px;
-  margin-bottom: 20px;
-}
-
-.mode-title {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--text-900);
-  margin-bottom: 12px;
-}
-
-.mode-desc {
-  font-size: 15px;
-  color: var(--text-500);
-  line-height: 1.6;
-}
-
 /* Thông báo */
 .success-msg {
   width: fit-content;
@@ -348,6 +308,7 @@ body {
   }
 }
 
+/* Khung chứa các Blobs */
 .app-visuals {
   position: absolute;
   top: 0;

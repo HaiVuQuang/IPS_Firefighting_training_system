@@ -77,7 +77,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             ) : (
               <WifiOff size={16} />
             )}
-            {wsStatus === "connected" ? "Connected" : "Lost"}
+            {wsStatus === "connected" ? "WebSocket Connected" : "Lost"}
           </div>
           {Object.entries(locations).map(([tagId, loc], idx) => {
             const color = TAG_COLORS[idx % TAG_COLORS.length];
@@ -88,10 +88,10 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 style={{ color: color }}
               >
                 <strong>{tagId}</strong>
-                <span style={{ margin: "0 8px" }}>|</span>
+                <span>|</span>
                 {loc.type === "uwb" ? (
                   <span>
-                    Err: <strong>{loc.error}m</strong>
+                    Error: <strong>{loc.error}m</strong>
                   </span>
                 ) : (
                   <span>
@@ -159,18 +159,18 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   style={{
                     left: `${(loc.x / cols) * 100}%`,
                     top: `${(loc.y / rows) * 100}%`,
-                    // CHỈ GIỮ LẠI TỌA ĐỘ Ở INLINE
                   }}
                 >
                   <div
-                    className="radar-pulse"
-                    style={{ borderColor: color }}
-                  ></div>
-                  <div
-                    className="radar-core"
-                    style={{ backgroundColor: color }}
-                  ></div>
-                  {/* Ép màu cho ID bám theo Tag */}
+                    className="tag-base"
+                    style={{ boxShadow: `0 0 8px ${color}` }}
+                  >
+                    <div
+                      className="tag-core"
+                      style={{ backgroundColor: color }}
+                    ></div>
+                  </div>
+
                   <span className="radar-label" style={{ color: color }}>
                     {tagId}
                   </span>

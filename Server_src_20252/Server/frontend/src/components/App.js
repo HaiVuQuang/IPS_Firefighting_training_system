@@ -186,10 +186,10 @@ function App() {
             </div>
 
             <div className="content-grid">
-              <div className="card list-card">
+              <div className="card">
                 <h2>Maps</h2>
                 {loading ? (
-                  <div className="loader">Loading...</div>
+                  <div>Loading...</div>
                 ) : (
                   <div className="scroll-x">
                     <table className="product-table">
@@ -299,9 +299,7 @@ function App() {
                         ))}
                         {maps.length === 0 && (
                           <tr>
-                            <td colSpan={8} className="empty">
-                              No maps found.
-                            </td>
+                            <td colSpan={8}>No maps found.</td>
                           </tr>
                         )}
                       </tbody>

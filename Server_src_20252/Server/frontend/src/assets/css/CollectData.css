@@ -357,3 +357,31 @@
   cursor: not-allowed;
   background-color: #94a3b8;
 }
+
+.cd-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cd-title-area {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.cd-title-text {
+  color: rgb(0, 0, 0);
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.cd-action-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

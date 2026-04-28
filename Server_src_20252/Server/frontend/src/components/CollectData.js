@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import axios from "axios";
-// Import các Icon từ thư viện lucide-react
 import {
   Loader2,
   CheckCircle,
@@ -238,14 +237,14 @@ function CollectData({ mapData }) {
   return (
     <div className="map-editor">
       {/* --- PHẦN HEADER ĐÃ ĐƯỢC TÁI CẤU TRÚC ĐẸP HƠN --- */}
-      <div className="rm-header">
-        <div className="rm-title-area">
-          <h2 className="rm-title-text">
+      <div className="cd-header">
+        <div className="cd-title-area">
+          <h2 className="cd-title-text">
             Colect Data Map #{mapData.map_info_id}
           </h2>
         </div>
 
-        <div className="rm-action-area">
+        <div className="cd-action-area">
           {/* Render vùng thông báo (vàng, xanh, đỏ tùy trạng thái) */}
           {renderSubmitNotification()}
           {/* Render nút Submit (màu xanh dương gradient) */}

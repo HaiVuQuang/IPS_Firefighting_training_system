@@ -206,7 +206,6 @@
   }
 }
 
-/* Định dạng thẻ thu nhỏ (Xếp ngang) */
 /* Định dạng thẻ thu nhỏ mang phong cách Widget Apple */
 .mode-card.small-card {
   background: rgba(255, 255, 255, 0.75);
@@ -217,8 +216,6 @@
   width: 160px; /* Chỉnh cho thẻ to ra một chút */
   height: 160px; /* Vuông vắn */
   padding: 20px;
-
-  /* Bí quyết dàn layout Widget ở đây */
   display: flex;
   flex-direction: column;
   justify-content: space-between; /* Đẩy Icon lên trên, Text xuống dưới */
