@@ -99,14 +99,15 @@ using namespace std;
 #define LCD_REFRESH_RATE_REALITY_MODE 10        // LCD refresh rate for reality mode (Hz)
 
 // Colour define for LCD
-#define BLUE 0x001F
-#define WHITE 0xFFFF
-#define BLACK 0x0000
-#define GREEN 0x07E0
-#define YELLOW 0xFFE0
-#define ORANGE 0xFD20
-#define RED 0xF800
-#define DARK_RED 0x8800
+#define BLUE                0x001F
+#define WHITE               0xFFFF
+#define BLACK               0x0000
+#define GREEN               0x07E0
+#define YELLOW              0xFFE0
+#define ORANGE              0xFD20
+#define RED                 0xF800
+#define DARK_RED            0x8800
+#define BACKGROUND_COLOR    0x0000      // Black
 
 
 // BUTTON CONFIGURATION
