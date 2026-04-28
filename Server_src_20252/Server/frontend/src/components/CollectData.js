@@ -113,7 +113,7 @@ function CollectData({ mapData }) {
     } catch (err) {
       console.error(err);
       setTrainModelStatus("error");
-      setTrainModelMessage("Training failed. Check Backend terminal.");
+      setTrainModelMessage("Training failed. Check log terminal.");
     }
 
     setTimeout(() => {
@@ -227,19 +227,9 @@ function CollectData({ mapData }) {
           key={key}
           type="button"
           className={`map-cell ${isBlocked ? "blocked" : ""} ${hasRouter ? "router-cell" : ""} ${isCollected ? "collected" : ""}`}
-          style={
-            isSelected
-              ? {
-                  borderColor: "#10b981",
-                  borderWidth: "3px",
-                  transform: "scale(1.1)",
-                  zIndex: 10,
-                }
-              : {}
-          }
           onClick={() => handleCellClick(r, c)}
         >
-          {hasRouter && <span style={{ fontSize: "18px" }}>📡</span>}
+          {hasRouter && <span>📡</span>}
         </button>,
       );
     }
@@ -315,43 +305,19 @@ function CollectData({ mapData }) {
               </strong>
             </p>
 
-            <div style={{ textAlign: "left", marginBottom: "16px" }}>
-              <label
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  color: "#475569",
-                  display: "block",
-                  marginBottom: "8px",
-                }}
-              >
-                Number of samples:
-              </label>
+            <div className="label-form">
+              <label className="label-title">Number of samples:</label>
               <input
                 className="modal-input"
                 type="number"
                 value={samples}
                 onChange={(e) => setSamples(e.target.value)}
-                style={{ marginBottom: 0 }} /* Bỏ margin bottom thừa */
               />
             </div>
 
             {/* Thông báo thành công nằm gọn gàng bên trong */}
             {message && (
-              <div
-                style={{
-                  background: "rgba(16, 185, 129, 0.15)",
-                  color: "#059669",
-                  padding: "10px",
-                  borderRadius: "10px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginBottom: "16px",
-                }}
-              >
+              <div className="success-message">
                 <CheckCircle size={18} /> {message}
               </div>
             )}
@@ -361,7 +327,6 @@ function CollectData({ mapData }) {
               className="btn-modal-submit"
               onClick={handleCollectData}
               disabled={loading}
-              style={{ background: loading ? "#94a3b8" : "#0f172a" }}
             >
               {loading ? "Collecting..." : "Start"}
             </button>

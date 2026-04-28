@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import "../assets/css/RealtimeMonitor.css";
 
-const TAG_COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
+const TAG_COLORS = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"];
 
 function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const [wsStatus, setWsStatus] = useState("connecting");
@@ -79,30 +79,28 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             )}
             {wsStatus === "connected" ? "Connected" : "Lost"}
           </div>
-          {Object.entries(locations).map(([tagId, loc], idx) => (
-            <div
-              key={tagId}
-              className="confidence-badge"
-              style={{
-                borderLeft: `4px solid ${TAG_COLORS[idx % TAG_COLORS.length]}`,
-              }}
-            >
-              <Activity size={16} color={TAG_COLORS[idx % TAG_COLORS.length]} />
-              <strong style={{ color: TAG_COLORS[idx % TAG_COLORS.length] }}>
-                {tagId}
-              </strong>
-              <span style={{ margin: "0 8px" }}>|</span>
-              {loc.type === "uwb" ? (
-                <span>
-                  Err: <strong>{loc.error}m</strong>
-                </span>
-              ) : (
-                <span>
-                  Acc: <strong>{loc.accuracy}%</strong>
-                </span>
-              )}
-            </div>
-          ))}
+          {Object.entries(locations).map(([tagId, loc], idx) => {
+            const color = TAG_COLORS[idx % TAG_COLORS.length];
+            return (
+              <div
+                key={tagId}
+                className="confidence-badge"
+                style={{ color: color }}
+              >
+                <strong>{tagId}</strong>
+                <span style={{ margin: "0 8px" }}>|</span>
+                {loc.type === "uwb" ? (
+                  <span>
+                    Err: <strong>{loc.error}m</strong>
+                  </span>
+                ) : (
+                  <span>
+                    Acc: <strong>{loc.accuracy}%</strong>
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -127,22 +125,31 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         </div>
 
         {/* --- KHU VỰC BẢN ĐỒ CHÍNH --- */}
-        <div className="map-grid" style={{ position: "relative" }}>
+        <div className="map-grid">
           {/* Lớp 1: Lưới ô vuông (Background) */}
           {gridCells}
 
+          {/* LỚP HIỂN THỊ CÁC UWB BEACONS TĨNH */}
+          {systemMode === "uwb" && mapData.beacon_location && (
+            <div className="absolute-position-layer">
+              {Object.entries(mapData.beacon_location).map(([id, pos]) => (
+                <div
+                  key={`beacon-${id}`}
+                  className="beacon-dot-wrapper"
+                  style={{
+                    left: `${(pos.x / cols) * 100}%`,
+                    top: `${(pos.y / rows) * 100}%`,
+                  }}
+                >
+                  <div className="beacon-fixed-dot"></div>
+                  <div className="beacon-number-label">{id}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Lớp 2: Lớp phủ tọa độ tuyệt đối (Overlay) */}
-          <div
-            className="absolute-position-layer"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              pointerEvents: "none", // Để không chặn click vào các ô lưới bên dưới
-            }}
-          >
+          <div className="absolute-position-layer">
             {Object.entries(locations).map(([tagId, loc], idx) => {
               const color = TAG_COLORS[idx % TAG_COLORS.length];
               return (
@@ -150,13 +157,9 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   key={tagId}
                   className="radar-dot"
                   style={{
-                    position: "absolute",
-                    // Tọa độ thực tế / Tổng số ô * 100%
                     left: `${(loc.x / cols) * 100}%`,
                     top: `${(loc.y / rows) * 100}%`,
-                    transform: "translate(-50%, -50%)", // Đưa tâm dấu chấm vào đúng tọa độ
-                    transition: "all 0.3s ease-out", // Hiệu ứng lướt mượt
-                    zIndex: 100,
+                    // CHỈ GIỮ LẠI TỌA ĐỘ Ở INLINE
                   }}
                 >
                   <div
@@ -167,19 +170,8 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                     className="radar-core"
                     style={{ backgroundColor: color }}
                   ></div>
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      fontSize: "11px",
-                      fontWeight: "bold",
-                      color: color,
-                      whiteSpace: "nowrap",
-                      textShadow: "1px 1px 0 #fff",
-                    }}
-                  >
+                  {/* Ép màu cho ID bám theo Tag */}
+                  <span className="radar-label" style={{ color: color }}>
                     {tagId}
                   </span>
                 </div>

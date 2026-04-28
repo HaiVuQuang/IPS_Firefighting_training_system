@@ -282,9 +282,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
           }
           data-coord={`${coordX}, ${coordY}`}
         >
-          {hasRouter && (
-            <span style={{ fontSize: "18px", pointerEvents: "none" }}>📡</span>
-          )}
+          {hasRouter && <span className="router-icon">📡</span>}
         </button>,
       );
     }
@@ -372,7 +370,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
 
         {/* THÊM DANH SÁCH BEACON Ở SIDEBAR (CHỈ HIỆN KHI Ở UWB) */}
         {systemMode === "uwb" && (
-          <div className="inspector-panel" style={{ marginTop: "10px" }}>
+          <div className="inspector-panel">
             <div className="beacon-list-title">UWB Beacons</div>
             <div className="beacon-list-container">
               {Object.entries(uwbBeacons).map(([id, pos]) => (

@@ -22,7 +22,7 @@ body {
   background-color: var(--bg-color);
 }
 
-/* Nền App giữ không gian mờ ảo */
+/* Background App */
 .app-bg {
   min-height: 100vh;
   position: relative;
@@ -298,11 +298,10 @@ body {
   line-height: 1.6;
 }
 
-/* Khung cơ bản của Thông báo */
-.success-msg,
-.error-msg {
-  width: fit-content; /* Khóa chiều ngang, ép khung ôm sát chữ */
-  margin: 24px auto 0 auto; /* Đẩy xuống dưới bảng và căn giữa màn hình */
+/* Thông báo */
+.success-msg {
+  width: fit-content;
+  margin: 24px auto 0 auto;
   padding: 12px 20px;
   border-radius: 8px;
   font-weight: 500;
@@ -311,33 +310,29 @@ body {
   align-items: center;
   justify-content: center;
   gap: 8px;
-
-  /* Hiệu ứng kính mờ */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   animation: fadeInDown 0.3s ease-out;
-}
-
-/* Thông báo Thành công */
-.success-msg {
-  background-color: rgba(
-    16,
-    185,
-    129,
-    0.15
-  ) !important; /* Dùng !important ép nền trong suốt */
+  background-color: rgba(16, 185, 129, 0.15) !important;
   color: #059669 !important;
   border: 1px solid rgba(16, 185, 129, 0.4) !important;
 }
 
-/* Thông báo Lỗi */
 .error-msg {
-  background-color: rgba(
-    239,
-    68,
-    68,
-    0.15
-  ) !important; /* Dùng !important ép nền trong suốt */
+  width: fit-content;
+  margin: 24px auto 0 auto;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeInDown 0.3s ease-out;
+  background-color: rgba(239, 68, 68, 0.15) !important;
   color: #ef4444 !important;
   border: 1px solid rgba(239, 68, 68, 0.4) !important;
 }

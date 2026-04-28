@@ -63,9 +63,8 @@
   border-radius: 50px;
   font-size: 14px;
   font-weight: 600;
-  background-color: rgba(59, 130, 246, 0.15);
   color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgb(71, 141, 192);
 }
 
 .btn-monitor {
@@ -104,15 +103,14 @@
 
 .radar-dot {
   position: absolute;
-  top: 50%;
-  left: 50%;
   transform: translate(-50%, -50%);
-  width: 100%;
-  height: 100%;
+  transition: all 0.3s ease-out;
+  width: 14px;
+  height: 14px;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 20;
+  z-index: 100;
 }
 
 .radar-core {
@@ -132,6 +130,17 @@
   border-radius: 50%;
   z-index: 1;
   animation: radar-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.radar-label {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 1px 1px 0 #fff;
 }
 
 @keyframes radar-ping {
@@ -210,6 +219,7 @@
   border: 1px solid rgba(229, 231, 235, 0.8);
   max-height: none;
   overflow: visible;
+  position: relative;
 }
 
 .map-cell {
@@ -251,4 +261,45 @@
 
 .map-cell.router-cell {
   border: 2px solid #10b981;
+}
+
+/* --- TRẠM BEACON TĨNH TRÊN MÀN HÌNH MONITOR --- */
+.beacon-dot-wrapper {
+  position: absolute;
+  z-index: 50; /* Nằm trên lưới (z-index:1) nhưng dưới tag di chuyển (z-index:100) */
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+}
+
+.beacon-fixed-dot {
+  width: 12px;
+  height: 12px;
+  background: #ef4444;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
+.beacon-number-label {
+  margin-top: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #f8fafc;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.absolute-position-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }

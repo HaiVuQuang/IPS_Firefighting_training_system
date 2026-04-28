@@ -74,13 +74,14 @@ def handle_incoming_mqtt_data(msg_dict):
 
                     x_val = round(result['x'], 1)
                     y_val = round(result['y'], 1)
+                    err_val = result.get('error', result.get('accuracy', 0.0))
                     # Gửi lên Web
                     payload = {
                         "type": "uwb",
                         "tag_id": tag_id, 
                         "x": x_val,
                         "y": y_val,
-                        "accuracy": round(result['accuracy'], 1)
+                        "error": round(err_val, 1)
                     }
                     for ws in active_websockets:
                         asyncio.create_task(ws.send_json(payload))

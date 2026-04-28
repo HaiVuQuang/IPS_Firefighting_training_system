@@ -86,6 +86,19 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+.success-message {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
 /* VẼ MAP */
 .map-grid-section {
   --cell-size: 38px;
@@ -209,6 +222,13 @@
   background-color: rgba(16, 185, 129, 0.2);
 }
 
+.map-cell.selected {
+  border-color: #10b981;
+  border-width: 3px;
+  transform: scale(1.1);
+  z-index: 10;
+}
+
 /* --- POP-UP MODAL --- */
 .modal-overlay {
   position: fixed;
@@ -286,6 +306,19 @@
   margin-bottom: 24px;
 }
 
+.label-form {
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.label-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  display: block;
+  margin-bottom: 8px;
+}
+
 .modal-input {
   width: 100%;
   padding: 12px 16px;
@@ -322,4 +355,5 @@
 .btn-modal-submit:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+  background-color: #94a3b8;
 }
