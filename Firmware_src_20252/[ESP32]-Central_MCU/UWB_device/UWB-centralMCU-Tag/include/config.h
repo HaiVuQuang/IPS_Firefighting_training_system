@@ -99,14 +99,15 @@ using namespace std;
 #define LCD_REFRESH_RATE_REALITY_MODE 10        // LCD refresh rate for reality mode (Hz)
 
 // Colour define for LCD
-#define BLUE 0x001F
-#define WHITE 0xFFFF
-#define BLACK 0x0000
-#define GREEN 0x07E0
-#define YELLOW 0xFFE0
-#define ORANGE 0xFD20
-#define RED 0xF800
-#define DARK_RED 0x8800
+#define BLUE                0x001F
+#define WHITE               0xFFFF
+#define BLACK               0x0000
+#define GREEN               0x07E0
+#define YELLOW              0xFFE0
+#define ORANGE              0xFD20
+#define RED                 0xF800
+#define DARK_RED            0x8800
+#define BACKGROUND_COLOR    0x0000      // Black
 
 
 // BUTTON CONFIGURATION
@@ -125,53 +126,5 @@ using namespace std;
 
 // Analog Thresholds
 #define ANALOG_THRESHOLD 2048                   // Threshold for analog reading (4096/2)
-
-
-// IMU Data structure defines
-/*#############################################################################################################*/
-
-// Quarternion struct
-typedef struct {
-    int16_t w, x, y, z;
-} Raw_quaternion;
-
-typedef struct {
-    float w, x, y, z;
-} Real_quaternion;
-
-// Vector 3D struct
-typedef struct {
-    int16_t x, y, z;
-} Raw_vector3;
-
-typedef struct {
-    float x, y, z;
-} Real_vector3;
-
-// IMU raw data defines
-typedef struct {
-    Raw_vector3 acc_raw;
-    Raw_vector3 mag_raw;
-    Raw_vector3 gyro_raw;
-    Raw_vector3 euler_raw;
-    Raw_quaternion quaternion_raw;
-} IMU_Raw_Data;
-
-// IMU real local data defines
-typedef struct {
-    Real_vector3 acc_local_real;
-    Real_vector3 mag_local_real;
-    Real_vector3 gyro_local_real;
-    Real_vector3 euler_real;
-    Real_quaternion quaternion_real;
-} IMU_Real_local_Data;
-
-// IMU real global data defines
-typedef struct {
-    Real_vector3 gyro;
-    Real_vector3 mag;
-    Real_vector3 acc;
-    Real_vector3 euler;
-} IMU_Data;
 
 #endif

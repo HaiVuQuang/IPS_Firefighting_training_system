@@ -9,7 +9,8 @@ void handle_mqtt_topic_user_pos(UserDisplay &user_instance, const char* payload)
 
 void handle_mqtt_topic_flames_data(FlamesDisplay &flames_instance, const char* payload);
 
-void handle_mqtt_topic_map_data(MapDisplay &map_instance, char* payload);
+void handle_mqtt_topic_map_data(MapDisplay &map_instance, const char* payload);
+
 
 
 #endif

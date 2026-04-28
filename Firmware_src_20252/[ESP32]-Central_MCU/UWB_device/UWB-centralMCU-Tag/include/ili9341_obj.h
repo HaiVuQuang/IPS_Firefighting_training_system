@@ -3,11 +3,11 @@
 
 #include "config.h"
 
-/*#############################################################################################################*/
+/*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief 
+ * @brief
  */
-/*#############################################################################################################*/
+/*--------------------------------------------------------------------------------------------------------*/
 class UserDisplay
 {
 private:
@@ -45,11 +45,12 @@ public:
 
 
 
-/*#############################################################################################################*/
+
+/*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief 
+ * @brief
  */
-/*#############################################################################################################*/
+/*--------------------------------------------------------------------------------------------------------*/
 class FlamesDisplay  
 {
 private:
@@ -61,11 +62,18 @@ private:
 
     } flame_properties_t;
     
-    // Flames data (max 99 flames simultaneously on a 10x10 map )
+    // Flames data (max 100 flames simultaneously on a 10x10 map )
     typedef struct 
     {
         flame_properties_t data[100];
     } flames_t;
+
+    // Size of Flame icon
+    static const int ICON_WIDTH = 16;
+    static const int ICON_HEIGHT = 15;
+
+    // Flame icon bitmap
+    static const unsigned char icon_flame[] PROGMEM;
 
     // Flame lvl colors
     const uint16_t flames_lvl_color[6] = {
@@ -77,12 +85,17 @@ private:
     0xA804  // lv5
     };
 
+
+
     // Flames updated flag
     bool is_flames_updated;
 
     // Flames handle struct
     flames_t prev_flames;
     flames_t curr_flames;
+
+    // Convert from grid ID to grid's central pixel coordinate
+    void grid_id_to_central_coordinate(int id, int &pixel_x, int &pixel_y);
 
 public:
     FlamesDisplay();
@@ -101,31 +114,22 @@ public:
 };
 
 
-/*#############################################################################################################*/
+/*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief 
+ * @brief
  */
-/*#############################################################################################################*/
+/*--------------------------------------------------------------------------------------------------------*/
 class MapDisplay
 {
 private:
-    float north_offset;
+    int north_offset;
     bool is_map_updated;
 
-    typedef struct 
-    {
-        int x, y;                         // Central pixel coordinate of a grid
-    } grid_central_coor_t;
-    
-    vector<int> passable_grid_id;                    // List of passable grid (ID)
-    vector<int> not_passable_grid_id;                // List of unpassable grid (ID)
-    vector<grid_central_coor_t> map_grid;           // List of current passable grid (grid's central pixel coordinate)
-    vector<grid_central_coor_t> not_map_grid;       // List of current unpassable grid (grid's central pixel coordinate)
-    // vector<grid_central_coor_t> prev_map_grid;      // List of previous passable grid (grid's central pixel coordinate)
-    // vector<grid_central_coor_t> prev_not_map_grid;  // List of previous unpassable grid (grid's central pixel coordinate)
+    // Marker array for 10x10 map 
+    bool is_passable_grid_id[101];
 
     // Convert from grid ID to grid's central pixel coordinate
-    void grid_id_to_coordinate(const vector<int> &grid_id, vector<grid_central_coor_t> &grid_coor);
+    void grid_id_to_topleft_coordinate(int id, int &pixel_x, int &pixel_y);
 
 public:
     MapDisplay();
@@ -134,7 +138,7 @@ public:
     void clearFlag() {is_map_updated = false;};
 
     // Update map data
-    void updateData(vector<int> &passable_id, vector<int> &not_passable_ids, float north_offset);
+    void updateData(const char *payload);
 
     // TFT Display handle
     void clearMap(Adafruit_ILI9341 &tft);
@@ -142,11 +146,11 @@ public:
 };
 
 
-/*#############################################################################################################*/
+/*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief 
+ * @brief
  */
-/*#############################################################################################################*/
+/*--------------------------------------------------------------------------------------------------------*/
 extern UserDisplay user;
 extern FlamesDisplay flames;
 extern MapDisplay map;

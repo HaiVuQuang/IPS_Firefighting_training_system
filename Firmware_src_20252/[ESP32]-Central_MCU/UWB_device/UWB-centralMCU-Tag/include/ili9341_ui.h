@@ -5,7 +5,4 @@
 #include "ili9341_obj.h"
 
 
-
-
-
 #endif

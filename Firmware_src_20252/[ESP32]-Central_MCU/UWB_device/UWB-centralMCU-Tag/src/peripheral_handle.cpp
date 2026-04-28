@@ -1,8 +1,15 @@
 #include "peripheral_handle.h"
 
+IMU_Data imu_data;
+IMU_Raw_Data imu_raw_data;
+IMU_Real_local_Data imu_real_local_data;
+Valve_Data valve_data;
+
 /*#############################################################################################################*/
 /**
  * @brief Initialize GPIO pins for buttons and analog inputs
+ * 
+ *          !!! This function should be called in main setup !!!
  */
 /*#############################################################################################################*/
 void init_button_and_valve()
@@ -16,6 +23,8 @@ void init_button_and_valve()
 /*#############################################################################################################*/
 /**
  * @brief Initialize on-device BNO055 
+ * 
+ *          !!! This function should be called in main setup !!!
  */
 /*#############################################################################################################*/
 void init_on_device_bno055()
@@ -38,8 +47,7 @@ void init_on_device_bno055()
  * @return Combined 16-bit value from two 8-bit registers
  */
 /*#############################################################################################################*/
-
-int16_t read_16_bit_LSB_MSB(uint8_t reg)
+static int16_t read_16_bit_LSB_MSB(uint8_t reg)
 {
     // Start I2C transmission with BNO055
     Wire.beginTransmission(BNO055_ADDRESS);
@@ -72,8 +80,7 @@ int16_t read_16_bit_LSB_MSB(uint8_t reg)
  */
 
 /*#############################################################################################################*/
-
-void read_IMU_raw_data(IMU_Raw_Data *imu_raw_data)
+static void read_IMU_raw_data(IMU_Raw_Data *imu_raw_data)
 {
     // Read Accelerometer data (X,Y,Z)
     // Each axis requires 2 registers (LSB + MSB)
@@ -117,8 +124,7 @@ void read_IMU_raw_data(IMU_Raw_Data *imu_raw_data)
  * - Quaternion: Converts from LSB to quaternion units, where 16384 LSB = 1 unit
  */
 /*#############################################################################################################*/
-
-void convert_IMU_raw_data_to_real_local_data(IMU_Raw_Data imu_raw_data, IMU_Real_local_Data *imu_real_local_data)
+static void convert_IMU_raw_data_to_real_local_data(IMU_Raw_Data imu_raw_data, IMU_Real_local_Data *imu_real_local_data)
 {
     // Convert Accelerometer data
     // LSB/mg (milli-g)
@@ -176,8 +182,7 @@ void convert_IMU_raw_data_to_real_local_data(IMU_Raw_Data imu_raw_data, IMU_Real
  * Formula: q^(-1) = conjugate(q)/norm(q), where norm = w^2 + x^2 + y^2 + z^2
  */
 /*#############################################################################################################*/
-
-Real_quaternion quaternion_inverse(Real_quaternion qua)
+static Real_quaternion quaternion_inverse(Real_quaternion qua)
 {
     Real_quaternion result;
     float norm = qua.w * qua.w + qua.x * qua.x + qua.y * qua.y + qua.z * qua.z;
@@ -203,8 +208,7 @@ Real_quaternion quaternion_inverse(Real_quaternion qua)
  * z = w1*z2 + x1*y2 - y1*x2 + z1*w2
  */
 /*#############################################################################################################*/
-
-Real_quaternion quarternion_multiply(Real_quaternion qua_1, Real_quaternion qua_2)
+static Real_quaternion quarternion_multiply(Real_quaternion qua_1, Real_quaternion qua_2)
 {
     Real_quaternion result;
     result.w = qua_1.w * qua_2.w - qua_1.x * qua_2.x - qua_1.y * qua_2.y - qua_1.z * qua_2.z;
@@ -229,8 +233,7 @@ Real_quaternion quarternion_multiply(Real_quaternion qua_1, Real_quaternion qua_
  * The result is then converted back to a 3D vector, but converted to global coordinates.
  */
 /*#############################################################################################################*/
-
-Real_vector3 rotate_vector_by_quarternion(Real_vector3 vec, Real_quaternion qua)
+static Real_vector3 rotate_vector_by_quarternion(Real_vector3 vec, Real_quaternion qua)
 {
     Real_quaternion v_qua = {0, vec.x, vec.y, vec.z}; // Convert vector to quaternion
     Real_quaternion q_inv = quaternion_inverse(qua);  // Calculate inverse of quaternion
@@ -279,8 +282,7 @@ Real_vector3 rotate_vector_by_quarternion(Real_vector3 vec, Real_quaternion qua)
  * Quaternion data is not use anymore
  */
 /*#############################################################################################################*/
-
-void convert_IMU_local_data_to_global_data(IMU_Real_local_Data imu_real_local_data, IMU_Data *imu_real_global_data)
+static void convert_IMU_local_data_to_global_data(IMU_Real_local_Data imu_real_local_data, IMU_Data *imu_real_global_data)
 {
     // Convert Accelerometer data to global frame
     imu_real_global_data->acc = rotate_vector_by_quarternion(imu_real_local_data.acc_local_real, imu_real_local_data.quaternion_real);
@@ -297,46 +299,44 @@ void convert_IMU_local_data_to_global_data(IMU_Real_local_Data imu_real_local_da
 
 /*#############################################################################################################*/
 /**
- * @brief Read IMU sensor data and convert to global coordinates
- * @param 
- *        IMU_Data *imu_data: Pointer to structure where global IMU data will be stored
+ * @brief Read IMU sensor data and convert to global coordinates (main loop)
+ * 
+ *          !!! This function should be called in main loop !!!
  */
 /*#############################################################################################################*/
-
-void read_IMU_data(IMU_Data *imu_data)
+void read_IMU_data()
 {
-    IMU_Raw_Data imu_raw_data;
-    IMU_Real_local_Data imu_real_local_data;
     read_IMU_raw_data(&imu_raw_data);
     convert_IMU_raw_data_to_real_local_data(imu_raw_data, &imu_real_local_data);
-    convert_IMU_local_data_to_global_data(imu_real_local_data, imu_data);
+    convert_IMU_local_data_to_global_data(imu_real_local_data, &imu_data);
 }
 
 
 
 /*#############################################################################################################*/
 /**
- * @brief Read Valve (Potentiometer) open status (0 - 100%)
- * @param 
- *      int *valve_open_status: 
- *      bool* mode_status:
+ * @brief Read Valve (Potentiometer) open status (0 - 100%) or ON-OFF mode 
+ * 
+ *          !!! This function should be called in main loop !!!
  */
 /*#############################################################################################################*/
-void read_valve_open_status(int *valve_open_status, bool* mode_status)
+void read_valve_open_status()
 {
     int raw_value = analogRead(VALVE_PIN);
 
     // Convert ADC value to opening percentage
-    *valve_open_status = (int)((raw_value / 700.0) * 100);
+    valve_data.valve_open_status = (int)((raw_value / 700.0) * 100);
 
     // Limit the result to the range 0 - 100%
-    if (*valve_open_status > 100)
-    {
-        *valve_open_status = 100;
+    if (valve_data.valve_open_status > 100) {
+        valve_data.valve_open_status = 100;
     }
-    else if (*valve_open_status < 0)
-    {
-        *valve_open_status = 0;
+    else if (valve_data.valve_open_status < 0) {
+        valve_data.valve_open_status = 0;
     }
-    if(*valve_open_status > 0) *mode_status = 1;
+
+    // ON-OFF mode
+    if(valve_data.valve_open_status > 0) {
+        valve_data.mode_status= 1;
+    } 
 }
