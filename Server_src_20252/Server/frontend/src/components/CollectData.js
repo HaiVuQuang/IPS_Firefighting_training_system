@@ -1,5 +1,5 @@
-import React, { useState } from "react";
 import axios from "axios";
+import React, { useState } from "react";
 import {
   Loader2,
   CheckCircle,
@@ -7,9 +7,11 @@ import {
   ArrowRight,
   Database,
   X,
-  DatabaseZap,
 } from "lucide-react";
 import "../assets/css/CollectData.css";
+
+// ĐƯA HẰNG SỐ TOÁN HỌC VÀO ĐÂY
+const CELL_SIZE = 38;
 
 function CollectData({ mapData }) {
   const [selectedCell, setSelectedCell] = useState(null);
@@ -18,11 +20,8 @@ function CollectData({ mapData }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // Quản lý trạng thái chi tiết cho nút Submit ( processing, success, error)
   const [submitStatus, setSubmitStatus] = useState("idle");
   const [submitMessage, setSubmitMessage] = useState("");
-
-  // Trạng thái chi tiết cho nút Train Model
   const [trainModelStatus, setTrainModelStatus] = useState("idle");
   const [trainModelMessage, setTrainModelMessage] = useState("");
 
@@ -43,7 +42,6 @@ function CollectData({ mapData }) {
       );
       if (!confirmOverwrite) return;
     }
-    // Mở popup
     setSelectedCell({ r, c, x: (0.5 + c).toFixed(1), y: (0.5 + r).toFixed(1) });
     setMessage("");
   };
@@ -67,32 +65,27 @@ function CollectData({ mapData }) {
       setCollectedCells((prev) => new Set(prev).add(cellKey));
 
       setMessage(res.data.message);
-      setTimeout(() => setSelectedCell(null), 2000); // Tự đóng popup sau 2s
+      setTimeout(() => setSelectedCell(null), 2000);
     } catch (err) {
       alert("Failed to collect data");
     }
     setLoading(false);
   };
 
-  // --- HÀM XỬ LÝ: Submit với cập nhật trạng thái chi tiết ---
   const handleSubmit = async () => {
-    setSubmitStatus("processing"); // Đang xử lý
+    setSubmitStatus("processing");
     setSubmitMessage("WBO Filter is processing RSSI data...");
-
     try {
-      // Gọi API preprocess_map ở Backend
       const res = await axios.post(
         `http://localhost:8000/preprocess_map/${mapData.map_info_id}`,
       );
-      setSubmitStatus("success"); // Thành công
-      setSubmitMessage(res.data.message); // Hiển thị thông báo thành công
+      setSubmitStatus("success");
+      setSubmitMessage(res.data.message);
     } catch (err) {
       console.error(err);
-      setSubmitStatus("error"); // Lỗi
+      setSubmitStatus("error");
       setSubmitMessage("Failed to generate CSV data. Check Backend log.");
     }
-
-    // Tự động xóa thông báo và reset trạng thái nút sau 4 giây
     setTimeout(() => {
       setSubmitMessage("");
       setSubmitStatus("idle");
@@ -102,7 +95,6 @@ function CollectData({ mapData }) {
   const handleTrainModel = async () => {
     setTrainModelStatus("processing");
     setTrainModelMessage("AI is learning... This may take a few minutes.");
-
     try {
       const res = await axios.post(
         `http://localhost:8000/train_model/${mapData.map_info_id}`,
@@ -114,31 +106,26 @@ function CollectData({ mapData }) {
       setTrainModelStatus("error");
       setTrainModelMessage("Training failed. Check log terminal.");
     }
-
     setTimeout(() => {
       setTrainModelMessage("");
       setTrainModelStatus("idle");
     }, 5000);
   };
 
-  // --- HÀM HELPER: Render vùng thông báo dựa trên trạng thái ---
   const renderSubmitNotification = () => {
     if (!submitMessage) return null;
-
     let containerClass = "cd-notification-container";
     let Icon = null;
-
     if (submitStatus === "processing") {
       containerClass += " cd-notification-processing";
-      Icon = <Loader2 size={18} className="spin" />; // Icon load xoay tròn
+      Icon = <Loader2 size={18} className="spin" />;
     } else if (submitStatus === "success") {
       containerClass += " cd-notification-success";
-      Icon = <CheckCircle size={18} />; // Icon tích xanh
+      Icon = <CheckCircle size={18} />;
     } else if (submitStatus === "error") {
       containerClass += " cd-notification-error";
-      Icon = <AlertTriangle size={18} />; // Icon cảnh báo đỏ
+      Icon = <AlertTriangle size={18} />;
     }
-
     return (
       <div className={containerClass}>
         {Icon}
@@ -149,7 +136,6 @@ function CollectData({ mapData }) {
 
   const renderTrainModelNotification = () => {
     if (!trainModelMessage) return null;
-
     let containerClass = "cd-notification-container";
     let Icon = null;
     if (trainModelStatus === "processing") {
@@ -170,20 +156,17 @@ function CollectData({ mapData }) {
     );
   };
 
-  // --- HÀM HELPER: Render nút bấm dựa trên trạng thái ---
   const renderSubmitButton = () => {
     const isProcessing = submitStatus === "processing";
     return (
       <button
-        className="btn-run-model" // Dùng class CSS mới
+        className="btn-run-model"
         onClick={handleSubmit}
-        disabled={isProcessing} // Vô hiệu hóa khi đang chạy
+        disabled={isProcessing}
       >
         {isProcessing ? (
-          // Đang chạy: Hiện icon xoay
           <Loader2 size={18} className="spin" />
         ) : (
-          // Bình thường: Hiện icon mũi tên
           <ArrowRight size={18} />
         )}
         {isProcessing ? "Processing..." : "Submit"}
@@ -211,14 +194,12 @@ function CollectData({ mapData }) {
     );
   };
 
-  // --- Render các ô map (Giữ nguyên) ---
   const cells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const key = `${c}:${r}`;
       const isBlocked = blocked.has(key);
       const hasRouter = routers.has(key);
-      const isSelected = selectedCell?.r === r && selectedCell?.c === c;
       const isCollected = collectedCells.has(key);
 
       cells.push(
@@ -228,7 +209,7 @@ function CollectData({ mapData }) {
           className={`map-cell ${isBlocked ? "blocked" : ""} ${hasRouter ? "router-cell" : ""} ${isCollected ? "collected" : ""}`}
           onClick={() => handleCellClick(r, c)}
         >
-          {hasRouter && <span>📡</span>}
+          {hasRouter && <span className="router-icon">📡</span>}
         </button>,
       );
     }
@@ -236,66 +217,77 @@ function CollectData({ mapData }) {
 
   return (
     <div className="map-editor">
-      {/* --- PHẦN HEADER ĐÃ ĐƯỢC TÁI CẤU TRÚC ĐẸP HƠN --- */}
       <div className="cd-header">
         <div className="cd-title-area">
           <h2 className="cd-title-text">
-            Colect Data Map #{mapData.map_info_id}
+            Collect Data Map #{mapData.map_info_id}
           </h2>
         </div>
-
         <div className="cd-action-area">
-          {/* Render vùng thông báo (vàng, xanh, đỏ tùy trạng thái) */}
           {renderSubmitNotification()}
-          {/* Render nút Submit (màu xanh dương gradient) */}
           {renderSubmitButton()}
-
           {renderTrainModelNotification()}
-          {/* NÚT 2: TRAIN AI MODEL */}
           {renderTrainModelButton()}
         </div>
       </div>
 
-      <div
-        className="map-grid-section"
-        style={{ "--map-cols": cols, "--map-rows": rows }}
-      >
+      <div className="map-grid-section">
         <div className="corner-empty"></div>
-        {/* Render Trục X */}
-        <div className="x-labels">
+        {/* TRỤC X KIỂU MỚI */}
+        <div
+          className="x-axis-container"
+          style={{
+            display: "grid",
+            gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
+          }}
+        >
           {Array.from({ length: cols }, (_, i) => (
-            <div key={i} className="x-label">
-              {(0.5 + i).toFixed(1)}
+            <div key={`x-${i}`} className="axis-label-box">
+              <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
+              <div className="axis-tick-x"></div>
             </div>
           ))}
         </div>
-        {/* Render Trục Y */}
-        <div className="y-labels">
+        {/* TRỤC Y KIỂU MỚI */}
+        <div
+          className="y-axis-container"
+          style={{
+            display: "grid",
+            gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
+          }}
+        >
           {Array.from({ length: rows }, (_, i) => (
-            <div key={i} className="y-label">
-              {(0.5 + i).toFixed(1)}
+            <div key={`y-${i}`} className="axis-label-box">
+              <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
+              <div className="axis-tick-y"></div>
             </div>
           ))}
         </div>
-        <div className="map-grid">{cells}</div>
+
+        {/* LƯỚI BẢN ĐỒ KIỂU MỚI */}
+        <div
+          className="map-grid"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
+            gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
+          }}
+        >
+          {cells}
+        </div>
       </div>
-      {/* POPUP (MODAL) THU THẬP DỮ LIỆU CHUẨN APPLE/FINTECH */}
+
       {selectedCell && (
         <div className="modal-overlay" onClick={() => setSelectedCell(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            {/* Nút X đóng cửa sổ */}
             <button
               className="btn-close-modal"
               onClick={() => setSelectedCell(null)}
             >
               <X size={24} />
             </button>
-
-            {/* Icon minh họa */}
             <div className="modal-icon">
               <Database size={24} />
             </div>
-
             <h2 className="modal-title">Collect RSSI Data</h2>
             <p className="modal-subtitle">
               Coordinate:{" "}
@@ -303,7 +295,6 @@ function CollectData({ mapData }) {
                 X: {selectedCell.x}, Y: {selectedCell.y}
               </strong>
             </p>
-
             <div className="label-form">
               <label className="label-title">Number of samples:</label>
               <input
@@ -313,15 +304,11 @@ function CollectData({ mapData }) {
                 onChange={(e) => setSamples(e.target.value)}
               />
             </div>
-
-            {/* Thông báo thành công nằm gọn gàng bên trong */}
             {message && (
               <div className="success-message">
                 <CheckCircle size={18} /> {message}
               </div>
             )}
-
-            {/* Nút Submit phủ toàn bộ chiều ngang */}
             <button
               className="btn-modal-submit"
               onClick={handleCollectData}

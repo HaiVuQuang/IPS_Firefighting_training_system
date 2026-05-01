@@ -290,291 +290,340 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
 
   return (
     <div className="map-editor-apple">
-      {/* CỘT TRÁI: THANH CÔNG CỤ (SIDEBAR) */}
-      <div className="map-sidebar">
-        <h2 className="map-title">Map Editor</h2>
-        <div className="sidebar-section">
-          <label className="apple-label">
-            Rows
-            <input
-              className="apple-input"
-              type="number"
-              min={1}
-              max={MAX_SIZE}
-              value={rows}
-              onChange={(e) => setRows(clampSize(e.target.value))}
-            />
-          </label>
-          <label className="apple-label">
-            Columns
-            <input
-              className="apple-input"
-              type="number"
-              min={1}
-              max={MAX_SIZE}
-              value={cols}
-              onChange={(e) => setCols(clampSize(e.target.value))}
-            />
-          </label>
-          <label className="apple-label" style={{ gridColumn: "1 / -1" }}>
-            Area of one unit (m²)
-            <input
-              className="apple-input"
-              type="number"
-              min={0}
-              step="0.1"
-              value={areaOfOneUnit}
-              onChange={(e) => setAreaOfOneUnit(e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="sidebar-actions">
-          <button
-            className="btn-gray"
-            type="button"
-            onClick={resetBlocks}
-            disabled={blocked.size === 0}
-          >
-            Clear blocks
-          </button>
-          {systemMode === "fingerprint" && (
-            <button
-              className="btn-gray"
-              type="button"
-              onClick={resetRouters}
-              disabled={routerLocations.size === 0}
-            >
-              Clear routers
-            </button>
-          )}
-        </div>
-        <div className="sidebar-stats">
-          <div className="stat-item">
-            <span>Total:</span> <b>{totalCells}</b>
-          </div>
-          <div className="stat-item">
-            <span>Walkable:</span> <b>{walkableCellIds.length}</b>
-          </div>
-          {/* Cập nhật số lượng động theo chế độ */}
-          <div className="stat-item">
-            <span>
-              {systemMode === "fingerprint" ? "Routers:" : "Beacons:"}
-            </span>
-            <b>
-              {systemMode === "fingerprint"
-                ? routerLocations.size
-                : Object.keys(uwbBeacons).length}
-            </b>
-          </div>
-        </div>
+      {(() => {
+        const CELL_SIZE = 38;
 
-        {/* THÊM DANH SÁCH BEACON Ở SIDEBAR (CHỈ HIỆN KHI Ở UWB) */}
-        {systemMode === "uwb" && (
-          <div className="inspector-panel">
-            <div className="beacon-list-title">UWB Beacons</div>
-            <div className="beacon-list-container">
-              {Object.entries(uwbBeacons).map(([id, pos]) => (
-                <div key={id} className="beacon-item">
-                  <div className="beacon-chip">#{id}</div>
-                  <div className="beacon-info">
-                    <span>
-                      X: <b>{pos.x}</b>
-                    </span>
-                    <span>
-                      Y: <b>{pos.y}</b>
-                    </span>
-                  </div>
-                  <div className="beacon-actions">
-                    <button
-                      className="btn-edit-small"
-                      onClick={() =>
-                        setEditingBeacon({
-                          id: id,
-                          originalId: id,
-                          x: pos.x,
-                          y: pos.y,
-                        })
-                      }
-                    >
-                      <SquarePen size={14} />
-                    </button>
-                    <button
-                      className="btn-delete-small"
-                      onClick={() => deleteBeacon(id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+        return (
+          <>
+            <div className="map-sidebar">
+              <h2 className="map-title">Map Editor</h2>
+              <div className="sidebar-section">
+                <label className="apple-label">
+                  Rows
+                  <input
+                    className="apple-input"
+                    type="number"
+                    min={1}
+                    max={MAX_SIZE}
+                    value={rows}
+                    onChange={(e) => setRows(clampSize(e.target.value))}
+                  />
+                </label>
+                <label className="apple-label">
+                  Columns
+                  <input
+                    className="apple-input"
+                    type="number"
+                    min={1}
+                    max={MAX_SIZE}
+                    value={cols}
+                    onChange={(e) => setCols(clampSize(e.target.value))}
+                  />
+                </label>
+                <label className="apple-label" style={{ gridColumn: "1 / -1" }}>
+                  Area of one unit (m²)
+                  <input
+                    className="apple-input"
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={areaOfOneUnit}
+                    onChange={(e) => setAreaOfOneUnit(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="sidebar-actions">
+                <button
+                  className="btn-gray"
+                  type="button"
+                  onClick={resetBlocks}
+                  disabled={blocked.size === 0}
+                >
+                  Clear blocks
+                </button>
+                {systemMode === "fingerprint" && (
+                  <button
+                    className="btn-gray"
+                    type="button"
+                    onClick={resetRouters}
+                    disabled={routerLocations.size === 0}
+                  >
+                    Clear routers
+                  </button>
+                )}
+              </div>
+              <div className="sidebar-stats">
+                <div className="stat-item">
+                  <span>Total:</span> <b>{totalCells}</b>
+                </div>
+                <div className="stat-item">
+                  <span>Walkable:</span> <b>{walkableCellIds.length}</b>
+                </div>
+                {/* Cập nhật số lượng động theo chế độ */}
+                <div className="stat-item">
+                  <span>
+                    {systemMode === "fingerprint" ? "Routers:" : "Beacons:"}
+                  </span>
+                  <b>
+                    {systemMode === "fingerprint"
+                      ? routerLocations.size
+                      : Object.keys(uwbBeacons).length}
+                  </b>
+                </div>
+              </div>
+
+              {/* THÊM DANH SÁCH BEACON Ở SIDEBAR (CHỈ HIỆN KHI Ở UWB) */}
+              {systemMode === "uwb" && (
+                <div className="inspector-panel">
+                  <div className="beacon-list-title">UWB Beacons</div>
+                  <div className="beacon-list-container">
+                    {Object.entries(uwbBeacons).map(([id, pos]) => (
+                      <div key={id} className="beacon-item">
+                        <div className="beacon-chip">#{id}</div>
+                        <div className="beacon-info">
+                          <span>
+                            X: <b>{pos.x}</b>
+                          </span>
+                          <span>
+                            Y: <b>{pos.y}</b>
+                          </span>
+                        </div>
+                        <div className="beacon-actions">
+                          <button
+                            className="btn-edit-small"
+                            onClick={() =>
+                              setEditingBeacon({
+                                id: id,
+                                originalId: id,
+                                x: pos.x,
+                                y: pos.y,
+                              })
+                            }
+                          >
+                            <SquarePen size={14} />
+                          </button>
+                          <button
+                            className="btn-delete-small"
+                            onClick={() => deleteBeacon(id)}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              )}
 
-        <div className="sidebar-footer">
-          <button
-            className="btn-blue"
-            type="button"
-            onClick={(e) => {
-              applySize(e);
-              saveMap();
-            }}
-          >
-            {mapToEdit ? "Update map" : "Create map"}
-          </button>
-          <button
-            className="btn-pink"
-            type="button"
-            onClick={() => onCancel?.()}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-
-      {/* CỘT PHẢI: KHU VỰC VẼ BẢN ĐỒ (CANVAS) */}
-      <div className="map-canvas">
-        <div className="apple-segmented-control">
-          <button
-            type="button"
-            className={mode === "block" ? "segment-btn active" : "segment-btn"}
-            onClick={() => setMode("block")}
-          >
-            <Box size={20} />
-          </button>
-
-          {/* Rẽ nhánh hiển thị nút Router hoặc Beacon */}
-          {systemMode === "fingerprint" ? (
-            <button
-              type="button"
-              className={
-                mode === "router" ? "segment-btn active" : "segment-btn"
-              }
-              onClick={() => setMode("router")}
-            >
-              <Router size={20} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={
-                mode === "beacon" ? "segment-btn active" : "segment-btn"
-              }
-              onClick={() => setMode("beacon")}
-            >
-              <Router size={20} />
-            </button>
-          )}
-        </div>
-
-        <div
-          className="map-grid-section"
-          key={gridKey}
-          style={{
-            "--map-cols": cols,
-            "--map-rows": rows,
-          }}
-        >
-          <div className="corner-empty"></div>
-          <div className="x-labels">
-            {xLabels.map((x) => (
-              <div key={x} className="x-label">
-                {x}
-              </div>
-            ))}
-          </div>
-          <div className="y-labels">
-            {yLabels.map((y) => (
-              <div key={y} className="y-label">
-                {y}
-              </div>
-            ))}
-          </div>
-          <div
-            className="map-grid"
-            onMouseUp={applySelection}
-            onMouseLeave={applySelection}
-          >
-            {cells}
-
-            {/* HIỂN THỊ SỐ HIỆU VÀ CHẤM RADAR TRÊN BẢN ĐỒ (LỚP PHỦ) */}
-            {systemMode === "uwb" &&
-              Object.entries(uwbBeacons).map(([id, pos]) => (
-                <div
-                  key={id}
-                  className="beacon-dot-wrapper"
-                  style={{
-                    left: `${(pos.x / cols) * 100}%`,
-                    top: `${(pos.y / rows) * 100}%`,
+              <div className="sidebar-footer">
+                <button
+                  className="btn-blue"
+                  type="button"
+                  onClick={(e) => {
+                    applySize(e);
+                    saveMap();
                   }}
                 >
-                  <div className="beacon-dot"></div>
-                  <div className="beacon-number-label">{id}</div>
-                  <div className="beacon-pulse"></div>
-                </div>
-              ))}
-          </div>
-        </div>
-      </div>
-      {/* POPUP SỬA SỐ HIỆU VÀ TỌA ĐỘ */}
-      {editingBeacon && (
-        <div className="modal-overlay">
-          <div className="modal-content apple-modal">
-            <h3>Beacon Config</h3>
-            <div className="modal-form">
-              <label className="apple-label">
-                Beacon ID
-                <input
-                  className="apple-input"
-                  value={editingBeacon.id}
-                  onChange={(e) =>
-                    setEditingBeacon({ ...editingBeacon, id: e.target.value })
-                  }
-                  placeholder="eg: 0x01"
-                />
-              </label>
-              <div className="two-column-grid">
-                <label className="apple-label">
-                  X (m)
-                  <input
-                    className="apple-input"
-                    type="number"
-                    step="0.01"
-                    value={editingBeacon.x}
-                    onChange={(e) =>
-                      setEditingBeacon({ ...editingBeacon, x: e.target.value })
-                    }
-                  />
-                </label>
-                <label className="apple-label">
-                  Y (m)
-                  <input
-                    className="apple-input"
-                    type="number"
-                    step="0.01"
-                    value={editingBeacon.y}
-                    onChange={(e) =>
-                      setEditingBeacon({ ...editingBeacon, y: e.target.value })
-                    }
-                  />
-                </label>
+                  {mapToEdit ? "Update map" : "Create map"}
+                </button>
+                <button
+                  className="btn-pink"
+                  type="button"
+                  onClick={() => onCancel?.()}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
-            <div className="btn-popup-actions">
-              <button className="btn-confirm" onClick={saveBeacon}>
-                Confirm
-              </button>
-              <button
-                className="btn-gray"
-                onClick={() => setEditingBeacon(null)}
-                style={{ flex: 1 }}
+
+            {/* CỘT PHẢI: KHU VỰC VẼ BẢN ĐỒ (CANVAS) */}
+            <div className="map-canvas">
+              <div className="apple-segmented-control">
+                <button
+                  type="button"
+                  className={
+                    mode === "block" ? "segment-btn active" : "segment-btn"
+                  }
+                  onClick={() => setMode("block")}
+                >
+                  <Box size={20} />
+                </button>
+
+                {/* Rẽ nhánh hiển thị nút Router hoặc Beacon */}
+                {systemMode === "fingerprint" ? (
+                  <button
+                    type="button"
+                    className={
+                      mode === "router" ? "segment-btn active" : "segment-btn"
+                    }
+                    onClick={() => setMode("router")}
+                  >
+                    <Router size={20} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={
+                      mode === "beacon" ? "segment-btn active" : "segment-btn"
+                    }
+                    onClick={() => setMode("beacon")}
+                  >
+                    <Router size={20} />
+                  </button>
+                )}
+              </div>
+
+              <div
+                className="map-grid-section"
+                key={gridKey}
+                style={{
+                  "--map-cols": cols,
+                  "--map-rows": rows,
+                }}
               >
-                Cancel
-              </button>
+                <div className="corner-empty"></div>
+
+                {/* TRỤC X MỚI - ĐỒNG BỘ TỌA ĐỘ TUYỆT ĐỐI VỚI BEACON */}
+                <div
+                  className="x-axis-container"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
+                    gap: "0px",
+                  }}
+                >
+                  {Array.from({ length: cols }, (_, i) => (
+                    <div key={`x-${i}`} className="axis-label-box">
+                      <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
+                      <div className="axis-tick-x"></div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* TRỤC Y MỚI - ĐỒNG BỘ TỌA ĐỘ TUYỆT ĐỐI VỚI BEACON */}
+                <div
+                  className="y-axis-container"
+                  style={{
+                    display: "grid",
+                    gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
+                    gap: "0px",
+                  }}
+                >
+                  {Array.from({ length: rows }, (_, i) => (
+                    <div key={`y-${i}`} className="axis-label-box">
+                      <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
+                      <div className="axis-tick-y"></div>
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  className="map-grid"
+                  onMouseUp={applySelection}
+                  onMouseLeave={applySelection}
+                  style={{
+                    gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
+                    gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
+                    gap: "0px",
+                  }}
+                >
+                  {cells}
+
+                  {/* HIỂN THỊ BEACON: DÙNG CHUNG CÔNG THỨC VỚI TRỤC TỌA ĐỘ */}
+                  {systemMode === "uwb" &&
+                    Object.entries(uwbBeacons).map(([id, pos]) => {
+                      // Công thức vàng: Tọa độ * (Kích thước ô + Khoảng cách) - Nửa khoảng cách
+                      const leftPx = pos.x * CELL_SIZE;
+                      const topPx = pos.y * CELL_SIZE;
+
+                      return (
+                        <div
+                          key={id}
+                          className="beacon-dot-wrapper"
+                          style={{
+                            left: `${leftPx}px`,
+                            top: `${topPx}px`,
+                          }}
+                        >
+                          <div className="beacon-dot"></div>
+                          <div className="beacon-number-label">{id}</div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+            {/* POPUP SỬA SỐ HIỆU VÀ TỌA ĐỘ */}
+            {editingBeacon && (
+              <div className="modal-overlay">
+                <div className="modal-content apple-modal">
+                  <h3>Beacon Config</h3>
+                  <div className="modal-form">
+                    <label className="apple-label">
+                      Beacon ID
+                      <input
+                        className="apple-input"
+                        value={editingBeacon.id}
+                        onChange={(e) =>
+                          setEditingBeacon({
+                            ...editingBeacon,
+                            id: e.target.value,
+                          })
+                        }
+                        placeholder="eg: 0x01"
+                      />
+                    </label>
+                    <div className="two-column-grid">
+                      <label className="apple-label">
+                        X (m)
+                        <input
+                          className="apple-input"
+                          type="number"
+                          step="0.01"
+                          value={editingBeacon.x}
+                          onChange={(e) =>
+                            setEditingBeacon({
+                              ...editingBeacon,
+                              x: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="apple-label">
+                        Y (m)
+                        <input
+                          className="apple-input"
+                          type="number"
+                          step="0.01"
+                          value={editingBeacon.y}
+                          onChange={(e) =>
+                            setEditingBeacon({
+                              ...editingBeacon,
+                              y: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="btn-popup-actions">
+                    <button className="btn-confirm" onClick={saveBeacon}>
+                      Confirm
+                    </button>
+                    <button
+                      className="btn-gray"
+                      onClick={() => setEditingBeacon(null)}
+                      style={{ flex: 1 }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
