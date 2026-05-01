@@ -192,7 +192,7 @@ function App() {
                   <div>Loading...</div>
                 ) : (
                   <div className="scroll-x">
-                    <table className="product-table">
+                    <table className="map-table">
                       <thead>
                         <tr>
                           <th>ID</th>

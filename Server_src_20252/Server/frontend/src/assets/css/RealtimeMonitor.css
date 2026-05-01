@@ -1,9 +1,9 @@
-.rm-monitor {
+.rm-container {
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
-
+/* KHUNG TRÊN CHỨA NÚT VÀ TEXT */
 .rm-header {
   display: flex;
   justify-content: space-between;
@@ -12,26 +12,22 @@
   padding-bottom: 15px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
-
 .rm-title-area {
   display: flex;
   align-items: center;
   gap: 15px;
 }
-
 .rm-title-text {
   color: rgb(0, 0, 0);
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
 }
-
 .rm-action-area {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-
 .status-badge {
   display: flex;
   align-items: center;
@@ -41,20 +37,17 @@
   font-size: 14px;
   font-weight: 600;
 }
-
 .status-badge.connected {
   background-color: rgba(16, 185, 129, 0.15);
   color: #10b981;
   border: 1px solid rgb(181, 185, 188);
 }
-
 .status-badge.error {
   background-color: rgba(239, 68, 68, 0.15);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
-
-.confidence-badge {
+.error-badge {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -64,16 +57,15 @@
   font-weight: 600;
   border: 1px solid rgb(181, 185, 188);
 }
-
+/* CLASS VẼ MAP KẾ THỪA TỪ MapEditor.css */
+/* CÁC Ô TRONG MAP */
 .monitor-cell {
   cursor: default !important;
 }
-
 .monitor-cell:hover {
   transform: none !important;
   border-color: rgba(148, 163, 184, 0.6) !important;
 }
-
 .router-icon {
   font-size: 18px;
   position: absolute;
@@ -82,7 +74,7 @@
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
-/* Tag di chuyển */
+/* TAG */
 .radar-dot {
   position: absolute;
   z-index: 100;
@@ -94,7 +86,6 @@
   align-items: center;
   transition: all 0.3s ease-out;
 }
-
 /* Nhãn ID bên dưới*/
 .radar-label {
   position: absolute;
@@ -108,8 +99,6 @@
   backdrop-filter: blur(4px);
   background: rgba(255, 255, 255, 0.6);
 }
-
-/* Vòng tròn trắng bên ngoài (Kích thước y hệt beacon: 12px + 2px viền) */
 .tag-base {
   width: 12px;
   height: 12px;
@@ -120,15 +109,12 @@
   justify-content: center;
   align-items: center;
 }
-
-/* Lõi màu nhấp nháy to nhỏ bên trong */
 .tag-core {
   width: 100%;
   height: 100%;
   border-radius: 50%;
   animation: tag-pulse 0.6s alternate infinite ease-in-out;
 }
-
 @keyframes tag-pulse {
   0% {
     transform: scale(0.6);

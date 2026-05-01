@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import "../assets/css/CollectData.css";
 
-// ĐƯA HẰNG SỐ TOÁN HỌC VÀO ĐÂY
 const CELL_SIZE = 38;
 
 function CollectData({ mapData }) {
@@ -74,7 +73,7 @@ function CollectData({ mapData }) {
 
   const handleSubmit = async () => {
     setSubmitStatus("processing");
-    setSubmitMessage("WBO Filter is processing RSSI data...");
+    setSubmitMessage("Processing RSSI data...");
     try {
       const res = await axios.post(
         `http://localhost:8000/preprocess_map/${mapData.map_info_id}`,
@@ -94,7 +93,9 @@ function CollectData({ mapData }) {
 
   const handleTrainModel = async () => {
     setTrainModelStatus("processing");
-    setTrainModelMessage("AI is learning... This may take a few minutes.");
+    setTrainModelMessage(
+      "Model AI is learning... This may take a few minutes.",
+    );
     try {
       const res = await axios.post(
         `http://localhost:8000/train_model/${mapData.map_info_id}`,
@@ -216,24 +217,25 @@ function CollectData({ mapData }) {
   }
 
   return (
-    <div className="map-editor">
-      <div className="cd-header">
-        <div className="cd-title-area">
-          <h2 className="cd-title-text">
+    <div className="rm-container">
+      <div className="rm-header">
+        <div className="rm-title-area">
+          <h2 className="rm-title-text">
             Collect Data Map #{mapData.map_info_id}
           </h2>
         </div>
-        <div className="cd-action-area">
+
+        <div className="rm-action-area">
           {renderSubmitNotification()}
-          {renderSubmitButton()}
           {renderTrainModelNotification()}
+          {renderSubmitButton()}
           {renderTrainModelButton()}
         </div>
       </div>
 
       <div className="map-grid-section">
         <div className="corner-empty"></div>
-        {/* TRỤC X KIỂU MỚI */}
+        {/* TRỤC X */}
         <div
           className="x-axis-container"
           style={{
@@ -248,7 +250,7 @@ function CollectData({ mapData }) {
             </div>
           ))}
         </div>
-        {/* TRỤC Y KIỂU MỚI */}
+        {/* TRỤC Y */}
         <div
           className="y-axis-container"
           style={{
@@ -264,7 +266,7 @@ function CollectData({ mapData }) {
           ))}
         </div>
 
-        {/* LƯỚI BẢN ĐỒ KIỂU MỚI */}
+        {/* LƯỚI BẢN ĐỒ */}
         <div
           className="map-grid"
           style={{
@@ -275,7 +277,6 @@ function CollectData({ mapData }) {
           {cells}
         </div>
       </div>
-
       {selectedCell && (
         <div className="modal-overlay" onClick={() => setSelectedCell(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>

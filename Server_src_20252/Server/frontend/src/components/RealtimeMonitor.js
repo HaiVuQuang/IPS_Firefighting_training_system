@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Wifi, WifiOff, ArrowLeft } from "lucide-react";
 import "../assets/css/RealtimeMonitor.css";
 
-const TAG_COLORS = ["#3b82f6", "#10b981", "#ef4444", "#8b5cf6", "#f59e0b"];
+const TAG_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#ef4444", "#f59e0b"];
 const CELL_SIZE = 38;
 
 function RealtimeMonitor({ mapData, systemMode, onBack }) {
@@ -54,7 +54,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   }
 
   return (
-    <div className="rm-monitor">
+    <div className="rm-container">
       <div className="rm-header">
         <div className="rm-title-area">
           <button className="btn btn-secondary" onClick={onBack}>
@@ -74,11 +74,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           {Object.entries(locations).map(([tagId, loc], idx) => {
             const color = TAG_COLORS[idx % TAG_COLORS.length];
             return (
-              <div
-                key={tagId}
-                className="confidence-badge"
-                style={{ color: color }}
-              >
+              <div key={tagId} className="error-badge" style={{ color: color }}>
                 <strong>{tagId}</strong>
                 <span>|</span>
                 {loc.type === "uwb" ? (
@@ -98,7 +94,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
       <div className="map-grid-section">
         <div className="corner-empty"></div>
-        {/* TRỤC X KIỂU MỚI */}
+        {/* TRỤC X */}
         <div
           className="x-axis-container"
           style={{
@@ -114,7 +110,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           ))}
         </div>
 
-        {/* TRỤC Y KIỂU MỚI */}
+        {/* TRỤC Y */}
         <div
           className="y-axis-container"
           style={{
@@ -130,7 +126,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           ))}
         </div>
 
-        {/* LƯỚI BẢN ĐỒ KIỂU MỚI */}
+        {/* LƯỚI BẢN ĐỒ */}
         <div
           className="map-grid"
           style={{
@@ -140,7 +136,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         >
           {gridCells}
 
-          {/* LỚP BEACON TĨNH */}
+          {/* VẼ BEACON VỚI MODE UWB */}
           {systemMode === "uwb" &&
             mapData.beacon_location &&
             Object.entries(mapData.beacon_location).map(([id, pos]) => (
@@ -157,7 +153,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
               </div>
             ))}
 
-          {/* LỚP TAG DI CHUYỂN */}
+          {/* VẼ TAG DI CHUYỂN */}
           {Object.entries(locations).map(([tagId, loc], idx) => {
             const color = TAG_COLORS[idx % TAG_COLORS.length];
             return (

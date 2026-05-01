@@ -75,13 +75,13 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
     const key = `${c}:${r}`;
 
     if (mode === "block") {
-      // Chế độ vẽ tường: Khởi tạo việc kéo thả
+      // Chế độ vẽ tường: Kéo thả
       const isCurrentlyBlocked = blocked.has(key);
       setDragAction(isCurrentlyBlocked ? "unblock" : "block");
       setDragStart({ r, c });
       setDragEnd({ r, c });
     } else if (mode === "router") {
-      // Chế độ Router: Click 1 phát là đặt/xóa luôn, không cần kéo
+      // Chế độ vẽ Router
       setRouterLocations((prev) => {
         const next = new Set(prev);
         if (next.has(key)) next.delete(key);
@@ -100,15 +100,12 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   };
 
   const handleMouseEnter = (r, c) => {
-    // Chỉ cập nhật tọa độ kéo thả nếu đang ấn giữ chuột (dragStart có dữ liệu)
-    // và đang ở chế độ vẽ tường (block)
     if (mode === "block" && dragStart) {
       setDragEnd({ r, c });
     }
   };
 
   const applySelection = () => {
-    // Nếu đang ở chế độ Router thì bỏ qua hàm kéo thả này
     if (mode !== "block" || !dragStart || !dragEnd) return;
 
     const minR = Math.min(dragStart.r, dragEnd.r);
@@ -158,7 +155,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
     if (systemMode === "uwb" && mode === "beacon") {
       const nextNumber = Object.keys(uwbBeacons).length + 1;
       setEditingBeacon({
-        id: nextNumber.toString(), // Tự động gợi ý số thứ tự tiếp theo
+        id: nextNumber.toString(), // Tự động gợi ý id tiếp
         x: (0.5 + c).toFixed(2),
         y: (0.5 + r).toFixed(2),
         isNew: true,
@@ -171,7 +168,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
     setUwbBeacons((prev) => {
       const next = { ...prev };
 
-      // Nếu là edit và người dùng đổi sang ID khác, thì phải xóa ID cũ đi
+      // Chế độ edit Beacon
       if (
         editingBeacon.originalId &&
         editingBeacon.originalId !== editingBeacon.id
@@ -267,7 +264,6 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
         <button
           key={key}
           type="button"
-          // Class CSS: Nếu có router thì thêm viền xanh, nếu đang preview vẽ tường thì mờ đi
           className={`map-cell ${isBlocked ? "blocked" : ""} ${hasRouter ? "router-cell" : ""} ${inSelection && mode === "block" ? "preview" : ""}`}
           onMouseDown={() => handleMouseDown(r, c)}
           onMouseEnter={() => handleMouseEnter(r, c)}
@@ -289,7 +285,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   }
 
   return (
-    <div className="map-editor-apple">
+    <div className="map-editor">
       {(() => {
         const CELL_SIZE = 38;
 
@@ -297,11 +293,13 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
           <>
             <div className="map-sidebar">
               <h2 className="map-title">Map Editor</h2>
+
+              {/* CÁC INPUT NHẬP Ở SIDEBAR */}
               <div className="sidebar-section">
-                <label className="apple-label">
+                <label className="input-label">
                   Rows
                   <input
-                    className="apple-input"
+                    className="input-field"
                     type="number"
                     min={1}
                     max={MAX_SIZE}
@@ -309,10 +307,10 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                     onChange={(e) => setRows(clampSize(e.target.value))}
                   />
                 </label>
-                <label className="apple-label">
+                <label className="input-label">
                   Columns
                   <input
-                    className="apple-input"
+                    className="input-field"
                     type="number"
                     min={1}
                     max={MAX_SIZE}
@@ -320,10 +318,10 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                     onChange={(e) => setCols(clampSize(e.target.value))}
                   />
                 </label>
-                <label className="apple-label" style={{ gridColumn: "1 / -1" }}>
+                <label className="input-label" style={{ gridColumn: "1 / -1" }}>
                   Area of one unit (m²)
                   <input
-                    className="apple-input"
+                    className="input-field"
                     type="number"
                     min={0}
                     step="0.1"
@@ -359,7 +357,6 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                 <div className="stat-item">
                   <span>Walkable:</span> <b>{walkableCellIds.length}</b>
                 </div>
-                {/* Cập nhật số lượng động theo chế độ */}
                 <div className="stat-item">
                   <span>
                     {systemMode === "fingerprint" ? "Routers:" : "Beacons:"}
@@ -372,7 +369,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                 </div>
               </div>
 
-              {/* THÊM DANH SÁCH BEACON Ở SIDEBAR (CHỈ HIỆN KHI Ở UWB) */}
+              {/* DANH SÁCH BEACON Ở SIDEBAR */}
               {systemMode === "uwb" && (
                 <div className="inspector-panel">
                   <div className="beacon-list-title">UWB Beacons</div>
@@ -436,9 +433,9 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
               </div>
             </div>
 
-            {/* CỘT PHẢI: KHU VỰC VẼ BẢN ĐỒ (CANVAS) */}
+            {/* KHU VỰC VẼ BẢN ĐỒ */}
             <div className="map-canvas">
-              <div className="apple-segmented-control">
+              <div className="segmented-control">
                 <button
                   type="button"
                   className={
@@ -449,7 +446,6 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                   <Box size={20} />
                 </button>
 
-                {/* Rẽ nhánh hiển thị nút Router hoặc Beacon */}
                 {systemMode === "fingerprint" ? (
                   <button
                     type="button"
@@ -483,7 +479,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
               >
                 <div className="corner-empty"></div>
 
-                {/* TRỤC X MỚI - ĐỒNG BỘ TỌA ĐỘ TUYỆT ĐỐI VỚI BEACON */}
+                {/* TRỤC X TỌA ĐỘ TUYỆT ĐỐI VỚI BEACON VÀ TAG*/}
                 <div
                   className="x-axis-container"
                   style={{
@@ -500,7 +496,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                   ))}
                 </div>
 
-                {/* TRỤC Y MỚI - ĐỒNG BỘ TỌA ĐỘ TUYỆT ĐỐI VỚI BEACON */}
+                {/* TRỤC Y TỌA ĐỘ TUYỆT ĐỐI VỚI BEACON VÀ TAG */}
                 <div
                   className="y-axis-container"
                   style={{
@@ -529,10 +525,9 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                 >
                   {cells}
 
-                  {/* HIỂN THỊ BEACON: DÙNG CHUNG CÔNG THỨC VỚI TRỤC TỌA ĐỘ */}
+                  {/* HIỂN THỊ BEACON UWB: Tọa độ tuyệt đối*/}
                   {systemMode === "uwb" &&
                     Object.entries(uwbBeacons).map(([id, pos]) => {
-                      // Công thức vàng: Tọa độ * (Kích thước ô + Khoảng cách) - Nửa khoảng cách
                       const leftPx = pos.x * CELL_SIZE;
                       const topPx = pos.y * CELL_SIZE;
 
@@ -553,16 +548,16 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                 </div>
               </div>
             </div>
-            {/* POPUP SỬA SỐ HIỆU VÀ TỌA ĐỘ */}
+            {/* POPUP CẤU HÌNH BEACON */}
             {editingBeacon && (
               <div className="modal-overlay">
-                <div className="modal-content apple-modal">
+                <div className="modal-content">
                   <h3>Beacon Config</h3>
                   <div className="modal-form">
-                    <label className="apple-label">
+                    <label className="input-label">
                       Beacon ID
                       <input
-                        className="apple-input"
+                        className="input-field"
                         value={editingBeacon.id}
                         onChange={(e) =>
                           setEditingBeacon({
@@ -574,10 +569,10 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                       />
                     </label>
                     <div className="two-column-grid">
-                      <label className="apple-label">
+                      <label className="input-label">
                         X (m)
                         <input
-                          className="apple-input"
+                          className="input-field"
                           type="number"
                           step="0.01"
                           value={editingBeacon.x}
@@ -589,10 +584,10 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                           }
                         />
                       </label>
-                      <label className="apple-label">
+                      <label className="input-label">
                         Y (m)
                         <input
-                          className="apple-input"
+                          className="input-field"
                           type="number"
                           step="0.01"
                           value={editingBeacon.y}
