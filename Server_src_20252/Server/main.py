@@ -12,7 +12,7 @@ from collections import deque
 import mqtt
 import database_models
 from database import SessionLocal, engine
-from models import MapInfoSchema, CollectDataRequestSchema, UwbMapInfoSchema, UserSchema
+from models import RSSIMapInfoSchema, CollectDataRequestSchema, UwbMapInfoSchema, UserSchema
 from wbo_filter import Preprocessor
 from ml_model import MLModel
 from kalmanFilter import LinearKalmanFilter
@@ -221,29 +221,29 @@ def login(user: UserSchema, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"message": "Login successful"}
 
-@app.get("/maps")
+@app.get("/rssi_maps")
 def get_all_maps(db: Session = Depends(get_db)):
-    db_maps = db.query(database_models.MapInfo).all()
+    db_maps = db.query(database_models.RSSIMapInfo).all()
     return db_maps
 
-@app.post("/maps")
-def create_map(map_info: MapInfoSchema, db: Session = Depends(get_db)):
-    db_map = database_models.MapInfo(**map_info.model_dump())
+@app.post("/rssi_maps")
+def create_map(map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
+    db_map = database_models.RSSIMapInfo(**map_info.model_dump())
     db.add(db_map)
     db.commit()
     db.refresh(db_map)
     return db_map
 
-@app.get("/maps/{id}")
+@app.get("/rssi_maps/{id}")
 def get_map_by_id(id: int, db: Session = Depends(get_db)):
-    db_map = db.query(database_models.MapInfo).filter(database_models.MapInfo.map_info_id == id).first()
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     if not db_map:
         raise HTTPException(status_code=404, detail="Map not found")
     return db_map
 
-@app.put("/maps/{id}")
-def update_map(id: int, map_info: MapInfoSchema, db: Session = Depends(get_db)):
-    db_map = db.query(database_models.MapInfo).filter(database_models.MapInfo.map_info_id == id).first()
+@app.put("/rssi_maps/{id}")
+def update_map(id: int, map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     if not db_map:
         raise HTTPException(status_code=404, detail="Map not found")
     else:
@@ -259,17 +259,17 @@ def update_map(id: int, map_info: MapInfoSchema, db: Session = Depends(get_db)):
     db.refresh(db_map)
     return db_map
 
-@app.delete("/maps/{id}")
+@app.delete("/rssi_maps/{id}")
 def delete_map(id: int, db: Session = Depends(get_db)):
-    db_map = db.query(database_models.MapInfo).filter(database_models.MapInfo.map_info_id == id).first()
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     if not db_map:
         raise HTTPException(status_code=404, detail="Map not found")
 
     db.delete(db_map)
     db.commit()
 
-    if db.query(database_models.MapInfo).count() == 0:
-        db.execute(text("ALTER TABLE map_info AUTO_INCREMENT = 1"))
+    if db.query(database_models.RSSIMapInfo).count() == 0:
+        db.execute(text("ALTER TABLE rssi_map_info AUTO_INCREMENT = 1"))
         db.commit()
 
     return {"status": "deleted"}
