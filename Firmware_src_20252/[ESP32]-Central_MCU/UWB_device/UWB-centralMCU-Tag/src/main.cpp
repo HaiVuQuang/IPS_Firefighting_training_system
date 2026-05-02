@@ -5,8 +5,7 @@
 #include "mqtt_handle.h"
 #include "peripheral_handle.h"
 
-// Initialize Adafruit ILI9341 TFT display
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
+
 
 void setup() {
 
@@ -20,8 +19,9 @@ void setup() {
     init_on_device_bno055();
 
     // --- Initialize TFT display ---
-    tft.begin();
-    tft.setRotation(LCD_ROTATION);
+    TFT_setup(tft);
+    tft_setup_intro(tft);
+    tft_setup_static_ui(tft);
 
     // --- Set up WiFi and MQTT connection ---
     init_connection_with_mqtt_broker();
@@ -35,6 +35,13 @@ void loop() {
     }
     mqtt_client.loop();
 
-    
+    read_IMU_data();
+
+    read_valve_open_status();
+
+    packing_mqtt_payload_device_data();
+    publish_mqtt_payload_device_data();
+
+    tft_main_loop_handler(tft, user, flames, exercise_map, imu_data, valve_data);
 }
 

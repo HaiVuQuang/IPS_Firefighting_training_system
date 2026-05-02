@@ -16,7 +16,7 @@ void handle_mqtt_topic_user_pos(UserDisplay &user_instance, const char* payload)
         String y = data.substring(commaIndex1 + 1, commaIndex2);
         String score = data.substring(commaIndex2 + 1);
 
-        user_instance.hasNewData();
+        // user_instance.hasNewData();
         user_instance.updateData(x.toFloat(), y.toFloat(), score.toInt());
         // Serial.println("User position updated!"\r\n);
     }
@@ -30,7 +30,7 @@ void handle_mqtt_topic_user_pos(UserDisplay &user_instance, const char* payload)
 /*--------------------------------------------------------------------------------------------------------*/
 void handle_mqtt_topic_flames_data(FlamesDisplay &flames_instance, const char* payload)
 {
-    flames_instance.hasNewData();
+    // flames_instance.hasNewData();
     flames_instance.updateData(payload);
     // Serial.println("Flames updated!\r\n");
 }
@@ -43,7 +43,7 @@ void handle_mqtt_topic_flames_data(FlamesDisplay &flames_instance, const char* p
 /*--------------------------------------------------------------------------------------------------------*/
 void handle_mqtt_topic_map_data(MapDisplay &map_instance, const char* payload)
 {
-    map_instance.hasNewData();
+    // map_instance.hasNewData();
     map_instance.updateData(payload);
     // Serial.println("Map updated!\r\n");
 }
@@ -54,5 +54,15 @@ void handle_mqtt_topic_map_data(MapDisplay &map_instance, const char* payload)
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void packing_mqtt_payload_device_data(){
+
+}
+
+
+/*--------------------------------------------------------------------------------------------------------*/
+/**
+ * @brief
+ */
+/*--------------------------------------------------------------------------------------------------------*/
+void publish_mqtt_payload_device_data(){
 
 }
