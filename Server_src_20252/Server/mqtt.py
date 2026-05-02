@@ -24,7 +24,7 @@ def init_async_bridge(loop: asyncio.AbstractEventLoop, callback):
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
         print("✅ Connected to MQTT Broker!")
-        client.subscribe("device_info")
+        client.subscribe("device_info/#")
         client.subscribe("2/uwb_ranging/#")
     else:
         print(f"Failed to connect MQTT, return code {reason_code}")
@@ -44,13 +44,15 @@ def on_message(client, userdata, msg):
     payload = msg.payload.decode()  #chuyển tin nhắn từ bytes -> string
 
 # Xử lý tin nhắn với topic "device_info"
-    if topic == "device_info":
+    if topic.startswith("device_info/"):
 
         try:
+            hex_id = topic.split('/')[1]
             payload_dict = json.loads(payload)  
             validated = RSSIForTrainingSchema(**payload_dict)
             msg_dict = validated.model_dump()
             msg_dict["data_type"] = "rssi"      # Thêm nhãn data_type
+            msg_dict["hex_id"] = hex_id
             _loop.call_soon_threadsafe(safe_callback, msg_dict)
             print(f"Received MQTT message {msg_dict}")     
             

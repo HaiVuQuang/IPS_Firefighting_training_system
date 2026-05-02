@@ -186,6 +186,10 @@
   }
 }
 /* Định dạng thẻ thu nhỏ style Widget */
+.mode-cards-row {
+  display: flex;
+  gap: 20px;
+}
 .mode-card.small-card {
   background: rgba(255, 255, 255, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.9);
@@ -235,4 +239,242 @@
   font-size: 13px;
   color: #64748b;
   line-height: 1.5;
+}
+
+/* --- CSS CHO DEVICE MANAGER --- */
+.dm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.dm-modal {
+  background: #ffffff;
+  width: 900px;
+  max-width: 95%;
+  height: 80vh;
+  border-radius: 24px;
+  padding: 40px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.dm-close-btn {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.dm-close-btn:hover {
+  color: #0f172a;
+}
+.dm-title {
+  margin: 0 0 30px;
+  color: rgb(0, 0, 0);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.dm-sections {
+  display: flex;
+  gap: 30px;
+  flex: 1;
+  overflow: hidden;
+}
+.dm-column {
+  flex: 1;
+  background: #f8fafc;
+  border-radius: 16px;
+  padding: 24px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+}
+.dm-subtitle {
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 10px;
+}
+/* --- THAY ĐỔI Ô VUÔNG THIẾT BỊ TRONG POPUP --- */
+.dm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.dm-device-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 24px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+.dm-device-card:hover {
+  border-color: #3b82f6;
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px -10px rgba(59, 130, 246, 0.15);
+}
+
+.dm-device-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* Ép icon sát viền trái */
+}
+
+.dm-device-info h4 {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  color: #0f172a;
+  font-weight: 800; /* In đậm chữ y hệt thẻ ngoài */
+  line-height: 1.2;
+  word-break: break-word;
+}
+.dm-device-info p {
+  margin: 0;
+  font-size: 11px;
+  color: #64748b;
+  font-family: monospace;
+  text-transform: uppercase;
+}
+.dm-empty {
+  width: 100%;
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 20px;
+}
+.dm-btn-delete {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  cursor: pointer;
+  opacity: 0.7; /* Ẩn theo mặc định */
+  transition: all 0.2s ease;
+}
+.dm-device-card:hover .dm-btn-delete {
+  opacity: 0.6;
+}
+.dm-btn-delete:hover {
+  opacity: 1 !important;
+  background: #fee2e2;
+  color: #ef4444;
+  transform: scale(1.1);
+}
+
+/* --- RENAME POPUP --- */
+.dm-rename-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1010;
+  border-radius: 24px;
+}
+.dm-rename-modal {
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 20px;
+  width: 350px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  border: 1px solid #e2e8f0;
+}
+.dm-rename-modal h3 {
+  margin: 0 0 10px;
+  color: #0f172a;
+}
+.dm-rename-modal p {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 20px;
+}
+.dm-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 15px;
+  outline: none;
+  transition: 0.2s;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+.dm-input:focus {
+  border-color: #3b82f6;
+}
+.dm-rename-actions {
+  display: flex;
+  gap: 12px;
+}
+.dm-btn-save {
+  flex: 1;
+  background: #0f172a;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.dm-btn-save:hover {
+  background: #1e293b;
+}
+.dm-btn-cancel {
+  flex: 1;
+  background: #f1f5f9;
+  color: #475569;
+  border: none;
+  padding: 12px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.dm-btn-cancel:hover {
+  background: #e2e8f0;
 }

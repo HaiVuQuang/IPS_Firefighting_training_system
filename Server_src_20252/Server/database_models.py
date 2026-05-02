@@ -10,6 +10,18 @@ class User(Base):
     username = Column(String(50), unique=True, index=True)
     password = Column(String(100))
 
+class DeviceRSSI(Base):
+    __tablename__ = "device_rssi"
+    device_id = Column(Integer, primary_key=True, index=True)
+    device_name = Column(String(50), unique=True, index=True)
+    device_hex_id = Column(String(10))
+
+class DeviceUWB(Base):
+    __tablename__ = "device_uwb"
+    device_id = Column(Integer, primary_key=True, index=True)
+    device_name = Column(String(50), unique=True, index=True)
+    device_hex_id = Column(String(10))
+
 class RSSIMapInfo(Base):
     __tablename__ = "rssi_map_info"
 
