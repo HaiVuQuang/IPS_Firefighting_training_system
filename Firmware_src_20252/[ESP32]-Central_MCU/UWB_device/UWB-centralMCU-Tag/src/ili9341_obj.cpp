@@ -5,7 +5,7 @@
 //==========================================================================================================
 UserDisplay user;
 FlamesDisplay flames;
-MapDisplay map;
+MapDisplay exercise_map;
 
 
 /*--------------------------------------------------------------------------------------------------------*/
@@ -15,7 +15,13 @@ MapDisplay map;
 /*--------------------------------------------------------------------------------------------------------*/
 UserDisplay::UserDisplay()
 {
-    
+    curr_pos = {0.0f, 0.0f, 0, 0};
+    prev_pos = {0.0f, 0.0f, 0, 0};
+    curr_yaw_angle = 0.0f;
+    prev_yaw_angle = 0.0f;
+    user_score = 0;
+    user_speed = 0;
+    is_user_updated = false;
 }
 
 
@@ -50,9 +56,13 @@ void UserDisplay::updateData(float coor_x, float coor_y, int score)
     prev_pos = curr_pos;
 
     // Update the user's lastest data
+    if (coor_x <= 0 && coor_y <= 0) return;
     curr_pos.coor_x = coor_x;
     curr_pos.coor_y = coor_y;
     user_score = score;
+
+    // Convert absolute coordinate to pixel coordinate
+    coordinate_to_pixel_position(curr_pos.coor_x, curr_pos.coor_y, curr_pos.pixel_x, curr_pos.pixel_y);
 
     // Updated flag
     is_user_updated = true;
@@ -66,7 +76,36 @@ void UserDisplay::updateData(float coor_x, float coor_y, int score)
 /*--------------------------------------------------------------------------------------------------------*/
 void UserDisplay::clearUser(Adafruit_ILI9341 &tft)
 {
+    // tft.fillCircle(prev_pos.pixel_x, prev_pos.pixel_y, vision_range + 1, BLACK);
+    int cx = prev_pos.pixel_x;
+    int cy = prev_pos.pixel_y;
     
+    const int num_segments = 6; 
+    float total_view_angle_rad = view_cone_angle * (PI / 180.0f);
+    float angle_step = total_view_angle_rad / num_segments;
+    
+    
+    float start_angle = prev_yaw_angle - (total_view_angle_rad / 2.0f);
+
+    int prev_x = cx + round(vision_range * sinf(start_angle));
+    int prev_y = cy - round(vision_range * cosf(start_angle));
+
+    for (int i = 1; i <= num_segments; i++) 
+    {
+        float current_angle = start_angle + (i * angle_step);
+        
+        int next_x = cx + round(vision_range * sinf(current_angle));
+        int next_y = cy - round(vision_range * cosf(current_angle));
+
+        tft.fillTriangle(cx, cy, prev_x, prev_y, next_x, next_y, BACKGROUND_COLOR);
+
+        prev_x = next_x;
+        prev_y = next_y;
+    }
+
+    // Delete user
+    tft.fillCircle(cx, cy, 3, BACKGROUND_COLOR);
+
 }
 
 
@@ -75,9 +114,60 @@ void UserDisplay::clearUser(Adafruit_ILI9341 &tft)
  * @brief
  */
 /*--------------------------------------------------------------------------------------------------------*/
-void UserDisplay::drawUser(Adafruit_ILI9341 &tft)
+void UserDisplay::drawUser(Adafruit_ILI9341 &tft, MapDisplay &map_instance)
 {
+
+    // float half_view_cone_angle = view_cone_angle * (PI / 180);
+    // float user_yaw_angle = (imu_data.euler.x - map_instance.north_offset) * (PI / 180.0f);
+
+    // // Draw User dot
+    // tft.fillCircle(curr_pos.pixel_x, curr_pos.pixel_y, 3, BLUE);
+
+    // // Draw view 
+    // for (float a = - half_view_cone_angle; a <= half_view_cone_angle; a += (1.5 * PI / 180.0f))
+    // {
+    //     float angle = user_yaw_angle + a;
+    //     int x_edge = curr_pos.pixel_x + round(vision_range * sin(angle));
+    //     int y_edge = curr_pos.pixel_y - round(vision_range * cos(angle));
+    //     tft.drawLine(curr_pos.pixel_x, curr_pos.pixel_y, x_edge, y_edge, GREEN);
+    // }
+
+    curr_yaw_angle = (imu_data.euler.x - map_instance.north_offset) * (PI / 180.0f);
     
+    // User pixel coordinate
+    int cx = curr_pos.pixel_x;
+    int cy = curr_pos.pixel_y;
+
+    // Number of triangle segments
+    const int num_segments = 6; 
+    
+    // View angle & angle step
+    float total_view_angle_rad = view_cone_angle * (PI / 180.0f);
+    float angle_step = total_view_angle_rad / num_segments;
+    
+    // Start angle 
+    float start_angle = curr_yaw_angle - (total_view_angle_rad / 2.0f);
+
+    int prev_x = cx + round(vision_range * sin(start_angle));
+    int prev_y = cy - round(vision_range * cos(start_angle));
+
+    // Draw num_segments triangle
+    for (int i = 1; i <= num_segments; i++) 
+    {
+        float current_angle = start_angle + (i * angle_step);
+        
+        int next_x = cx + round(vision_range * sinf(current_angle));
+        int next_y = cy - round(vision_range * cosf(current_angle));
+
+        tft.fillTriangle(cx, cy, prev_x, prev_y, next_x, next_y, USER_VIEW_CONE_COLOR);
+
+        prev_x = next_x;
+        prev_y = next_y;
+    }
+
+    // Draw user
+    tft.fillCircle(cx, cy, 3, USER_DOT_COLOR);
+    prev_yaw_angle = curr_yaw_angle;
 }
 
 
@@ -101,7 +191,16 @@ const unsigned char FlamesDisplay::icon_flame[] PROGMEM = {
 /*--------------------------------------------------------------------------------------------------------*/
 FlamesDisplay::FlamesDisplay()
 {
-
+    is_flames_updated = false;
+    
+    // Browse through & Reset all Flames 
+    for(int i = 0; i <= 100; i++) {
+        curr_flames.data[i].flame_id = i;
+        curr_flames.data[i].flame_lvl = 0;
+        
+        prev_flames.data[i].flame_id = i;
+        prev_flames.data[i].flame_lvl = 0;
+    }
 }
 
 
@@ -243,7 +342,13 @@ void FlamesDisplay::drawFlames(Adafruit_ILI9341 &tft)
 /*--------------------------------------------------------------------------------------------------------*/
 MapDisplay::MapDisplay()
 {
-
+    north_offset = 0;
+    is_map_updated = false;
+    
+    // Defaut true
+    for(int i = 0; i <= 100; i++) {
+        is_passable_grid_id[i] = true;
+    }
 }
 
 /*--------------------------------------------------------------------------------------------------------*/
@@ -319,8 +424,8 @@ void MapDisplay::updateData(const char *payload)
 /*--------------------------------------------------------------------------------------------------------*/
 void MapDisplay::clearMap(Adafruit_ILI9341 &tft)
 {
-    // Draw huge fuking big black box :))
-    tft.drawRect(10, 21, 200, 200, BLACK);
+    // Draw fuking huge big black box :))
+    tft.drawRect(10, 21, 200, 200, BACKGROUND_COLOR);
 }
 
 
@@ -336,14 +441,14 @@ void MapDisplay::drawMap(Adafruit_ILI9341 &tft)
         // Draw passable map grid
         if(is_passable_grid_id[i]){
             grid_id_to_topleft_coordinate(i, pixel_x, pixel_y);
-            tft.drawRect(pixel_x, pixel_y, 20, 20, WHITE);
+            tft.drawRect(pixel_x, pixel_y, 20, 20, MAP_GRID_COLOR);
         }
         // Draw unpassable map grid
         else{
             grid_id_to_topleft_coordinate(i, pixel_x, pixel_y);
-            tft.drawLine(pixel_x + 10, pixel_y, pixel_x, pixel_y + 10, BLUE);
+            tft.drawLine(pixel_x + 10, pixel_y, pixel_x, pixel_y + 10, NOT_MAP_GRID_COLOR);
             // tft.drawLine(x_coord + 20, y_coord, x_coord, y_coord + 20, WHITE);
-            tft.drawLine(pixel_x + 20, pixel_y + 10, pixel_x + 10, pixel_y + 20, BLUE);
+            tft.drawLine(pixel_x + 20, pixel_y + 10, pixel_x + 10, pixel_y + 20, NOT_MAP_GRID_COLOR);
         }
     }
 }

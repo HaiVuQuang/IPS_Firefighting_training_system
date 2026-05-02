@@ -149,7 +149,7 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
        handle_mqtt_topic_flames_data(flames, message);
     }
     else if(strcmp(topic, mqtt_map_data_topic) == 0){
-        handle_mqtt_topic_map_data(map, message);
+        handle_mqtt_topic_map_data(exercise_map, message);
     }
 }
 

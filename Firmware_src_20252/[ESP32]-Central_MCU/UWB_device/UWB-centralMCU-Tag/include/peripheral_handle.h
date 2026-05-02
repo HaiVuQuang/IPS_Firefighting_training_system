@@ -67,6 +67,7 @@ extern IMU_Data imu_data;
 extern IMU_Raw_Data imu_raw_data;
 extern IMU_Real_local_Data imu_real_local_data;
 extern Valve_Data valve_data;
+extern Adafruit_ILI9341 tft;
 
 /*#############################################################################################################*/
 // Global function define 
@@ -74,6 +75,8 @@ extern Valve_Data valve_data;
 void init_button_and_valve();
 
 void init_on_device_bno055();
+
+void TFT_setup(Adafruit_ILI9341 &tft);
 
 void read_IMU_data();
 

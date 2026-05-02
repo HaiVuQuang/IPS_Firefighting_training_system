@@ -5,7 +5,7 @@
  * @brief
  */
 /*--------------------------------------------------------------------------------------------------------*/
-void draw_progress_bar(Adafruit_ILI9341 &tft, int x, int y, int width, int height, int percentage)
+static void draw_progress_bar(Adafruit_ILI9341 &tft, int x, int y, int width, int height, int percentage)
 {
     if (percentage < 0)
         percentage = 0;
@@ -28,20 +28,9 @@ void draw_progress_bar(Adafruit_ILI9341 &tft, int x, int y, int width, int heigh
     //
     int filled_width = round((percentage * width) / 100);
     // Cập nhật thanh progress
-    tft.drawRect(x, y, width, height, WHITE);
-    tft.fillRect(x + 1, y + 1, width - 2, height - 2, BLACK);
+    tft.drawRect(x, y, width, height, STATIC_TEXT_COLOR);
+    tft.fillRect(x + 1, y + 1, width - 2, height - 2, BACKGROUND_COLOR);
     tft.fillRect(x + 1, y + 1, filled_width - 2, height - 2, color);
-}
-
-
-/*--------------------------------------------------------------------------------------------------------*/
-/**
- * @brief
- */
-/*--------------------------------------------------------------------------------------------------------*/
-void tft_setup_intro(Adafruit_ILI9341 &tft)
-{
-
 }
 
 
@@ -52,16 +41,13 @@ void tft_setup_intro(Adafruit_ILI9341 &tft)
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_setup_map_axes_outline(Adafruit_ILI9341 &tft)
 {
-    tft.setTextColor(WHITE);
+    tft.setTextColor(STATIC_TEXT_COLOR);
     tft.setTextSize(1);
-    tft.setCursor(26, 5);
-    tft.println("Map layout - Reality mode");
-    tft.println("- Firefighting Map layout -");
     
     // Vẽ các trục của map
-    tft.drawFastVLine(9, 19, 202, WHITE);
-    tft.drawFastHLine(9, 221, 202, WHITE);
-    tft.drawFastVLine(217, 0, 240, WHITE);
+    tft.drawFastVLine(9, 19, 202, MAP_GRID_COLOR);
+    tft.drawFastHLine(9, 221, 202, MAP_GRID_COLOR);
+    tft.drawFastVLine(217, 0, 240, MAP_GRID_COLOR);
 
     // Trục Y - Hướng north của map
     tft.setCursor(0, 16);
@@ -118,8 +104,11 @@ void tft_setup_map_axes_outline(Adafruit_ILI9341 &tft)
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_setup_static_text_outline(Adafruit_ILI9341 &tft)
 {
-    tft.setTextColor(WHITE);
+    tft.setTextColor(STATIC_TEXT_COLOR);
     tft.setTextSize(1);
+    tft.setCursor(26, 5);
+    tft.println("- Firefighting Map layout -");
+
     // Setup text tĩnh
     tft.setCursor(220, 5);
     tft.println("Device Id:");
@@ -135,12 +124,15 @@ void tft_setup_static_text_outline(Adafruit_ILI9341 &tft)
     tft.println("X:");
     tft.setCursor(220, 149);
     tft.println("Y:");
+    tft.setCursor(220, 162);
+    tft.println("User speed:");
+
     // Bảng User score
-    tft.drawFastVLine(220, 21, 49, WHITE);
-    tft.drawFastVLine(319, 21, 49, WHITE);
-    tft.drawFastHLine(220, 21, 99, WHITE);
-    tft.drawFastHLine(220, 35, 99, WHITE);
-    tft.drawFastHLine(220, 70, 99, WHITE);
+    tft.drawFastVLine(220, 21, 49, STATIC_TEXT_COLOR);
+    tft.drawFastVLine(319, 21, 49, STATIC_TEXT_COLOR);
+    tft.drawFastHLine(220, 21, 99, STATIC_TEXT_COLOR);
+    tft.drawFastHLine(220, 35, 99, STATIC_TEXT_COLOR);
+    tft.drawFastHLine(220, 70, 99, STATIC_TEXT_COLOR);
 }
 
 
@@ -149,7 +141,7 @@ void tft_setup_static_text_outline(Adafruit_ILI9341 &tft)
  * @brief
  */
 /*--------------------------------------------------------------------------------------------------------*/
-void tft_update_user_info_text(Adafruit_ILI9341 &tft)
+void tft_setup_intro(Adafruit_ILI9341 &tft)
 {
 
 }
@@ -160,8 +152,63 @@ void tft_update_user_info_text(Adafruit_ILI9341 &tft)
  * @brief
  */
 /*--------------------------------------------------------------------------------------------------------*/
-void tft_render_new_frame(Adafruit_ILI9341 &tft)
+void tft_setup_static_ui(Adafruit_ILI9341 &tft)
 {
+    tft_setup_map_axes_outline(tft);
+    tft_setup_static_text_outline(tft);
+}
+
+
+/*--------------------------------------------------------------------------------------------------------*/
+/**
+ * @brief Score, speed, current pos, imu data, valve data
+ */
+/*--------------------------------------------------------------------------------------------------------*/
+void tft_update_device_info_text(Adafruit_ILI9341 &tft, UserDisplay &user, IMU_Data &imu_data, Valve_Data &valve_data)
+{
+    // User score
+
+    // Speed & position
+
+    // Valve open status
+    draw_progress_bar(tft, 220, 88, 100, 30, valve_data.valve_open_status);
+}
+
+
+/*--------------------------------------------------------------------------------------------------------*/
+/**
+ * @brief
+ */
+/*--------------------------------------------------------------------------------------------------------*/
+void tft_render_new_exercise_frame(Adafruit_ILI9341 &tft, UserDisplay &user, FlamesDisplay &flames, MapDisplay &map)
+{
+    // --- Clear user previous position ---
+    user.clearUser(tft);
+
+    // --- Draw map axes ---
+    tft_setup_map_axes_outline(tft);
+
+    // --- Update & Draw Map ---
+    if (map.hasNewData()) {
+        map.clearMap(tft);  
+        map.drawMap(tft);   
+        map.clearFlag();    
+    } else {
+        map.drawMap(tft);
+    }
+
+    // --- Update & Draw Flame ---
+    if (flames.hasNewData()) {
+        flames.clearFlames(tft); 
+        flames.drawFlames(tft);  
+        flames.clearFlag();      
+    } else {
+        flames.drawFlames(tft);
+    }
+
+    // --- Draw User ---
+    user.drawUser(tft, map);
+    user.clearFlag();
 
 }
 
@@ -171,7 +218,12 @@ void tft_render_new_frame(Adafruit_ILI9341 &tft)
  * @brief
  */
 /*--------------------------------------------------------------------------------------------------------*/
-void tft_main_loop_handler(Adafruit_ILI9341 &tft)
+void tft_main_loop_handler(Adafruit_ILI9341 &tft, UserDisplay &user, FlamesDisplay &flames, 
+                            MapDisplay &map, IMU_Data &imu_data, Valve_Data &valve_data)
 {
+    // Render User, Flames, Map
+    tft_render_new_exercise_frame(tft, user, flames, map); 
 
+    // Render static device info text
+    tft_update_device_info_text(tft, user, imu_data, valve_data);
 }

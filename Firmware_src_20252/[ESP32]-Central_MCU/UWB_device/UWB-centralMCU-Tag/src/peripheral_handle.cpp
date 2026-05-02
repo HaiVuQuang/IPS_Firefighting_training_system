@@ -4,6 +4,8 @@ IMU_Data imu_data;
 IMU_Raw_Data imu_raw_data;
 IMU_Real_local_Data imu_real_local_data;
 Valve_Data valve_data;
+// Initialize Adafruit ILI9341 TFT display
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
 /*#############################################################################################################*/
 /**
@@ -39,6 +41,24 @@ void init_on_device_bno055()
     Wire.endTransmission();
     delay(BNO055_CONFIG_DELAY); // Wait for mode switch
 }
+
+
+/*#############################################################################################################*/
+/**
+ * @brief Initialize ILI9341 TFT display & setup background color
+ * 
+ *          !!! This function should be called in main setup !!!
+ */
+/*#############################################################################################################*/
+void TFT_setup(Adafruit_ILI9341 &tft)
+{
+    tft.begin();
+    delay(100);
+    tft.setRotation(LCD_ROTATION);
+    tft.fillScreen(BACKGROUND_COLOR);
+    Serial.println("TFT display ready!");
+}
+
 
 /*#############################################################################################################*/
 /**

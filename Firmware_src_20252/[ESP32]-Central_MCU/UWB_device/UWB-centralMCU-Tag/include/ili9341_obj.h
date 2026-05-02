@@ -2,6 +2,42 @@
 #define ILI9341_OBJ_H
 
 #include "config.h"
+#include "peripheral_handle.h"
+
+/*--------------------------------------------------------------------------------------------------------*/
+/**
+ * @brief
+ */
+/*--------------------------------------------------------------------------------------------------------*/
+class MapDisplay
+{
+private:
+    // int north_offset;
+    bool is_map_updated;
+
+    // Marker array for 10x10 map 
+    bool is_passable_grid_id[101];
+
+    // Convert from grid ID to grid's central pixel coordinate
+    void grid_id_to_topleft_coordinate(int id, int &pixel_x, int &pixel_y);
+
+public:
+    MapDisplay();
+    
+    int north_offset;
+
+    // Flag handle
+    bool hasNewData() {return is_map_updated;};
+    void clearFlag() {is_map_updated = false;};
+
+    // Update map data
+    void updateData(const char *payload);
+
+    // TFT Display handle
+    void clearMap(Adafruit_ILI9341 &tft);
+    void drawMap(Adafruit_ILI9341 &tft);
+};
+
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
@@ -13,17 +49,22 @@ class UserDisplay
 private:
     typedef struct 
     {
-        float coor_x, coor_y;           // User absolute coordinate
-        int pixel_x, pixel_y;           // User pixel coordinate (mapping for TFT drawing)
+        float coor_x, coor_y;               // User absolute coordinate
+        int pixel_x, pixel_y;               // User pixel coordinate (mapping for TFT drawing)
     } user_position_t;
 
-    user_position_t prev_pos;           // Previous position 
-    user_position_t curr_pos;           // Current position
+    user_position_t prev_pos;               // Previous position 
+    user_position_t curr_pos;               // Current position
 
-    int vision_range;                   // User vision range (Fire's impact range)
-    int user_score;                     // User score
-    int user_speed;                     // User speed
-    bool is_user_updated;               // Updated flag 
+    float curr_yaw_angle;                   // User current yaw angle
+    float prev_yaw_angle;                   // User previous yaw angle
+
+    static const int vision_range = 30;     // User vision range (Fire's impact range)
+    static const int view_cone_angle = 60;// User's POV (Fire's impact angle)  
+
+    int user_score;                         // User score
+    int user_speed;                         // User speed
+    bool is_user_updated;                   // Updated flag 
 
     void coordinate_to_pixel_position(float coor_x, float coor_y, int &pixel_x, int &pixel_y);
 public:
@@ -31,7 +72,7 @@ public:
     UserDisplay();
 
     // Flag handle
-    bool hasNewData() {is_user_updated = true;};
+    bool hasNewData() {return is_user_updated;};
     void clearFlag() {is_user_updated = false;};
 
     // Update User data
@@ -39,7 +80,7 @@ public:
 
     // TFT Display handle
     void clearUser(Adafruit_ILI9341 &tft);
-    void drawUser(Adafruit_ILI9341 &tft);
+    void drawUser(Adafruit_ILI9341 &tft, MapDisplay &map_instance);
 
 };
 
@@ -65,7 +106,7 @@ private:
     // Flames data (max 100 flames simultaneously on a 10x10 map )
     typedef struct 
     {
-        flame_properties_t data[100];
+        flame_properties_t data[101];
     } flames_t;
 
     // Size of Flame icon
@@ -101,7 +142,7 @@ public:
     FlamesDisplay();
 
     // Flag handle
-    bool hasNewData() {is_flames_updated = true;};
+    bool hasNewData() {return is_flames_updated;};
     void clearFlag() {is_flames_updated = false;};
 
     // Update Flames data
@@ -114,36 +155,7 @@ public:
 };
 
 
-/*--------------------------------------------------------------------------------------------------------*/
-/**
- * @brief
- */
-/*--------------------------------------------------------------------------------------------------------*/
-class MapDisplay
-{
-private:
-    int north_offset;
-    bool is_map_updated;
 
-    // Marker array for 10x10 map 
-    bool is_passable_grid_id[101];
-
-    // Convert from grid ID to grid's central pixel coordinate
-    void grid_id_to_topleft_coordinate(int id, int &pixel_x, int &pixel_y);
-
-public:
-    MapDisplay();
-    // Flag handle
-    bool hasNewData() {is_map_updated = true;};
-    void clearFlag() {is_map_updated = false;};
-
-    // Update map data
-    void updateData(const char *payload);
-
-    // TFT Display handle
-    void clearMap(Adafruit_ILI9341 &tft);
-    void drawMap(Adafruit_ILI9341 &tft);
-};
 
 
 /*--------------------------------------------------------------------------------------------------------*/
@@ -153,6 +165,7 @@ public:
 /*--------------------------------------------------------------------------------------------------------*/
 extern UserDisplay user;
 extern FlamesDisplay flames;
-extern MapDisplay map;
+extern MapDisplay exercise_map;
+
 
 #endif
