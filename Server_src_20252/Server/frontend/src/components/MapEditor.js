@@ -62,7 +62,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
     const ids = [];
     for (let r = 0; r < rows; r += 1) {
       for (let c = 0; c < cols; c += 1) {
-        const key = `${c}:${r}`;
+        const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
         if (!blocked.has(key)) {
           ids.push(r * cols + c + 1);
         }
@@ -72,7 +72,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   }, [rows, cols, blocked]);
 
   const handleMouseDown = (r, c) => {
-    const key = `${c}:${r}`;
+    const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
 
     if (mode === "block") {
       // Chế độ vẽ tường: Kéo thả
@@ -117,7 +117,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
       const next = new Set(prev);
       for (let r = minR; r <= maxR; r++) {
         for (let c = minC; c <= maxC; c++) {
-          const key = `${c}:${r}`;
+          const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
           if (dragAction === "block") next.add(key);
           else next.delete(key);
         }
@@ -213,7 +213,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
         payload.beacon_location = uwbBeacons;
       }
 
-      const endpoint = systemMode === "fingerprint" ? "/maps" : "/uwb_maps";
+      const endpoint = systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
 
       if (mapToEdit?.map_info_id) {
         const res = await axios.put(
@@ -241,11 +241,11 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   const cells = [];
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {
-      const key = `${c}:${r}`;
-      const actuallyBlocked = blocked.has(key);
-      const coordX = c.toFixed(1);
-      const coordY = r.toFixed(1);
+      const coordX = (c + 0.5).toFixed(1);
+      const coordY = (r + 0.5).toFixed(1);
 
+      const key = `${coordX}:${coordY}`;
+      const actuallyBlocked = blocked.has(key);
       // Kiểm tra xem ô này có nằm trong vùng đang quét chuột không
       let inSelection = false;
       if (dragStart && dragEnd) {

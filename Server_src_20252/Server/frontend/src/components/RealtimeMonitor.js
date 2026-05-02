@@ -41,7 +41,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const gridCells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const key = `${c}:${r}`;
+      const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
       gridCells.push(
         <div
           key={key}

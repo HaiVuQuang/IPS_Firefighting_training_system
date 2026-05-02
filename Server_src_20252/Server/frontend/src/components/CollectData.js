@@ -30,7 +30,7 @@ function CollectData({ mapData }) {
   const routers = new Set(mapData.router_location || []);
 
   const handleCellClick = (r, c) => {
-    const key = `${c}:${r}`;
+    const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
     if (blocked.has(key)) {
       alert("Cannot collect data on a blocked cell!");
       return;
@@ -198,7 +198,7 @@ function CollectData({ mapData }) {
   const cells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const key = `${c}:${r}`;
+      const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
       const isBlocked = blocked.has(key);
       const hasRouter = routers.has(key);
       const isCollected = collectedCells.has(key);
