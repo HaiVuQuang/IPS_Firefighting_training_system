@@ -31,7 +31,7 @@ mqtt_client = None
 active_websockets = []
 device_manager_websockets = []
 # Buffer tối đa 10 phần tử RSSI real-time cho AI dự đoán
-realtime_buffer = deque(maxlen=10)  
+rssi_buffers = {}  
 # Buffer gom khoảng cách từ các beacon cho từng Tag theo chiều dọc tin nhắn MQTT
 uwb_distance_buffer = {}
 # Biến Cache lưu tọa độ Beacon
@@ -42,7 +42,7 @@ uwb_trackers = {}
 KNOWN_RSSI_DEVICES = set()
 KNOWN_UWB_DEVICES = set()
 
-kalman_filter = LinearKalmanFilter()
+kalman_filters = {}
 
 # HÀM ĐƯỢC GỌI KHI CÓ TIN NHẮN MQTT
 def handle_incoming_mqtt_data(msg_dict):
@@ -79,7 +79,7 @@ def handle_incoming_mqtt_data(msg_dict):
                 
             uwb_distance_buffer[tag_id][beacon_id] = distance
 
-            if not active_websockets: return 
+            if not active_websockets: continue 
             
             if len(uwb_distance_buffer[tag_id]) >= 3:
                 if tag_id not in uwb_trackers:
@@ -113,6 +113,7 @@ def handle_incoming_mqtt_data(msg_dict):
                         topic = f"user_pos/{tag_id}"
                         message = f"{x_val},{y_val}"
                         mqtt_client.publish(topic, message)
+                        print(f'Sent MQTT message: {message} to topic: {topic}')
                     
                     # Sau khi tính xong, xóa buffer này để tính tiếp
                     uwb_distance_buffer[tag_id].clear()
@@ -160,15 +161,20 @@ def handle_incoming_mqtt_data(msg_dict):
             msg_dict["rssi_ble_3"], msg_dict["rssi_ble_4"],
             msg_dict["magnetic_field_y"], msg_dict["magnetic_field_z"]
         ]
-        
-        realtime_buffer.append(features)
+        if hex_id not in rssi_buffers:
+            rssi_buffers[hex_id] = deque(maxlen=10)
+        if hex_id not in kalman_filters:
+            kalman_filters[hex_id] = LinearKalmanFilter()
+        rssi_buffers[hex_id].append(features)
 
-        if len(realtime_buffer) == 10:
-                window_data = np.array(realtime_buffer)
+        if len(rssi_buffers[hex_id]) == 10:
+                window_data = np.array(rssi_buffers[hex_id])
                 try:
                     raw_x, raw_y, accuracy = ai_predictor.predict_realtime(window_data)
-                    raw_x_smooth, raw_y_smooth = kalman_filter.update(raw_x, raw_y)
+                    raw_x_smooth, raw_y_smooth = kalman_filters[hex_id].update(raw_x, raw_y)
                     payload = {
+                        "type": "rssi",
+                        "tag_id": hex_id,
                         "x": round(raw_x_smooth, 1),
                         "y": round(raw_y_smooth, 1),
                         "accuracy": round(accuracy * 100, 1)
@@ -176,6 +182,13 @@ def handle_incoming_mqtt_data(msg_dict):
                     
                     for ws in active_websockets:
                         asyncio.create_task(ws.send_json(payload))
+
+                    # Gửi lên MQTT
+                    if mqtt_client:
+                        topic = f"user_pos/{hex_id}"
+                        message = f"{raw_x_smooth},{raw_y_smooth}"
+                        mqtt_client.publish(topic, message)
+                        print(f'Sent MQTT message: {message} to topic: {topic}')
                         
                 except Exception as e:
                     print(f"Real-time prediction error: {e}")
@@ -184,7 +197,7 @@ def handle_incoming_mqtt_data(msg_dict):
 # HÀM KHỞI ĐỘNG SERVER (LIFESPAN)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_queue, ai_predictor, mqtt_client, BEACONS_CONFIG
+    global data_queue, mqtt_client, BEACONS_CONFIG
     # Load DB lên RAM 1 lần để lấy tọa độ
     db = SessionLocal()
     try:
@@ -202,13 +215,6 @@ async def lifespan(app: FastAPI):
 
     data_queue = asyncio.Queue(maxsize=500)
     loop = asyncio.get_running_loop()
-
-    # Nạp Model AI vào RAM
-    ai_predictor = MLModel(csv_path="")
-    try:
-        ai_predictor.load_saved_model()
-    except Exception as e:
-        print(f"⚠️ Warning: Unable to load AI model. Error: {e}")
     
     # Khởi động kết nối MQTT
     mqtt.init_async_bridge(loop, handle_incoming_mqtt_data)
@@ -292,7 +298,23 @@ def delete_rssi_device(device_id: int, db: Session = Depends(get_db)):
         
     db.delete(dev)
     db.commit()
+    if db.query(database_models.DeviceRSSI).count() == 0:
+        db.execute(text("ALTER TABLE device_rssi AUTO_INCREMENT = 1"))
+        db.commit()
+
     return {"message": "RSSI device deleted successfully"}
+
+@app.get("/devices/uwb")
+def get_uwb_devices(db: Session = Depends(get_db)):
+    return db.query(database_models.DeviceUWB).all()
+
+@app.put("/devices/uwb/{device_id}")
+def rename_uwb_device(device_id: int, payload: DeviceRenameSchema, db: Session = Depends(get_db)):
+    dev = db.query(database_models.DeviceUWB).filter_by(device_id=device_id).first()
+    if not dev: raise HTTPException(status_code=404)
+    dev.device_name = payload.device_name
+    db.commit()
+    return dev
 
 # API Xóa thiết bị UWB
 @app.delete("/devices/uwb/{device_id}")
@@ -308,19 +330,10 @@ def delete_uwb_device(device_id: int, db: Session = Depends(get_db)):
         
     db.delete(dev)
     db.commit()
+    if db.query(database_models.DeviceUWB).count() == 0:
+        db.execute(text("ALTER TABLE device_uwb AUTO_INCREMENT = 1"))
+        db.commit()
     return {"message": "UWB device deleted successfully"}
-
-@app.get("/devices/uwb")
-def get_uwb_devices(db: Session = Depends(get_db)):
-    return db.query(database_models.DeviceUWB).all()
-
-@app.put("/devices/uwb/{device_id}")
-def rename_uwb_device(device_id: int, payload: DeviceRenameSchema, db: Session = Depends(get_db)):
-    dev = db.query(database_models.DeviceUWB).filter_by(device_id=device_id).first()
-    if not dev: raise HTTPException(status_code=404)
-    dev.device_name = payload.device_name
-    db.commit()
-    return dev
 
 @app.websocket("/ws/devices")
 async def websocket_devices_endpoint(websocket: WebSocket):
@@ -361,6 +374,7 @@ def update_map(id: int, map_info: RSSIMapInfoSchema, db: Session = Depends(get_d
         db_map.total_units = map_info.total_units
         db_map.area_of_one_unit = map_info.area_of_one_unit
         db_map.walkable_area = map_info.walkable_area    
+        db_map.north_offset = map_info.north_offset
         db_map.router_location = map_info.router_location
         db_map.router_number = map_info.router_number
         db_map.cols = map_info.cols
@@ -457,7 +471,7 @@ def preprocess_map_data(map_info_id: int, db: Session = Depends(get_db)):
     df = pd.DataFrame(data_dicts)
 
     # Đưa vào bộ lọc WBO
-    processor = Preprocessor(data_df=df)
+    processor = Preprocessor(data_df=df, map_id=map_info_id)
     filtered_path, raw_path = processor.preprocess()
 
     return {
@@ -466,19 +480,64 @@ def preprocess_map_data(map_info_id: int, db: Session = Depends(get_db)):
         "raw_file": raw_path
     }
 
+@app.post("/set_active_rssi_map/{id}")
+def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
+    global ai_predictor, rssi_buffers, kalman_filters, mqtt_client
+    
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
+    if not db_map:
+        raise HTTPException(status_code=404, detail="Map not found")
+        
+    try:
+        print(f"🔄 Switching AI Model path to Map ID: {id}...")
+        # Xóa sạch cũ (Ngoại trừ danh sách thiết bị KNOWN_RSSI_DEVICES)
+        rssi_buffers.clear()
+        kalman_filters.clear()
+        
+        # Load model mới
+        ai_predictor = MLModel(csv_path="", map_id=id)
+        ai_predictor.load_saved_model()
+
+        # Gửi Map xuống Device
+        if mqtt_client:
+            cols = 10
+            offset = db_map.north_offset if db_map.north_offset else 0
+            blocked_ids = []
+            
+            if db_map.blocked_cells:
+                for cell in db_map.blocked_cells:
+                    try:
+                        x_str, y_str = cell.split(':')
+                        x_idx = int(float(x_str))
+                        y_idx = int(float(y_str))
+                        cell_id = y_idx * cols + x_idx + 1
+                        blocked_ids.append(str(cell_id))
+                    except Exception:
+                        pass
+            
+            payload = f"{offset}"
+            if blocked_ids:
+                payload += "," + ",".join(blocked_ids)
+                
+            mqtt_client.publish("map_data", payload)
+            print(f"🗺️ Sent RSSI Map Data to MQTT: {payload}")
+        
+        return {"message": f"Successfully loaded AI Model for Map {id}"}
+    except Exception as e:
+        print(f"❌ Failed to load model for Map {id}: {e}")
+        raise HTTPException(status_code=400, detail=f"AI Model for Map {id} not found. Please train it first!")
+
 @app.post("/train_model/{map_info_id}")
-async def train_model(map_info_id: int):
+async def train_model(map_info_id: int): # Có tham số map_info_id
     try:
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        csv_file_path = os.path.join(BASE_DIR, 'rssi_data', 'rssi_preprocess.csv')
-        
-        cnn_model = MLModel(csv_path=csv_file_path) 
-        
+        csv_file_path = os.path.join(BASE_DIR, 'rssi_data', f'rssi_preprocess_map_{map_info_id}.csv')
+        cnn_model = MLModel(csv_path=csv_file_path, map_id=map_info_id) 
         cnn_model.train_model()
         
         return {
             "status": "success",
-            "message": f"Trained successfully!"
+            "message": f"Trained successfully for Map {map_info_id}!"
         }
     except Exception as e:
         print(f"Training Error: {e}")
@@ -525,6 +584,7 @@ def update_uwb_map(id: int, map_info: UwbMapInfoSchema, db: Session = Depends(ge
         db_map.total_units = map_info.total_units
         db_map.area_of_one_unit = map_info.area_of_one_unit
         db_map.walkable_area = map_info.walkable_area    
+        db_map.north_offset = map_info.north_offset
         db_map.beacon_number = map_info.beacon_number
         db_map.beacon_location = map_info.beacon_location
         db_map.cols = map_info.cols
@@ -552,7 +612,7 @@ def delete_uwb_map(id: int, db: Session = Depends(get_db)):
 
 @app.post("/set_active_uwb_map/{id}")
 def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
-    global BEACONS_CONFIG
+    global BEACONS_CONFIG, mqtt_client
     
     db_map = db.query(database_models.UwbMapInfo).filter(database_models.UwbMapInfo.map_info_id == id).first()
     
@@ -563,4 +623,31 @@ def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
         BEACONS_CONFIG = db_map.beacon_location
     else:
         BEACONS_CONFIG = {}
+    
+    # Gửi Map xuống Device
+    if mqtt_client:
+        cols = 10
+        offset = db_map.north_offset if db_map.north_offset else 0
+        blocked_ids = []
+        
+        # Chuyển đổi tọa độ thành danh sách ID
+        if db_map.blocked_cells:
+            for cell in db_map.blocked_cells:
+                try:
+                    x_str, y_str = cell.split(':')
+                    x_idx = int(float(x_str))
+                    y_idx = int(float(y_str))
+                    cell_id = y_idx * cols + x_idx + 1
+                    blocked_ids.append(str(cell_id))
+                except Exception:
+                    pass
+        
+        payload = f"{offset}"
+        if blocked_ids:
+            payload += "," + ",".join(blocked_ids)
+            
+        mqtt_client.publish("map_data", payload)
+        print(f"🗺️ Sent UWB Map Data to MQTT: {payload}")
+        
     return {"message": f"Switched uwb map to ID {id}", "active_beacons": BEACONS_CONFIG}
+
