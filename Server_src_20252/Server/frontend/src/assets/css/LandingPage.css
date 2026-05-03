@@ -162,16 +162,16 @@
   border-radius: 999px;
   font-size: 14px;
 }
-/* Khung chứa 2 thẻ nổi trên nền Landing Page */
+/* Khung chứa các thẻ nổi trên nền Landing Page */
 .landing-selection-cards {
   position: absolute;
   top: 50%;
   right: 60px;
   transform: translateY(-50%);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 20px;
-  width: 420px;
+  width: auto;
   z-index: 20;
   animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -185,7 +185,13 @@
     transform: translate(0, -50%);
   }
 }
-/* Định dạng thẻ thu nhỏ style Widget */
+/* Cột chứa 3 thẻ cũ (RSSI, UWB, Manage) */
+.mode-cards-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+/* Hàng chứa 2 thẻ UWB và Manage */
 .mode-cards-row {
   display: flex;
   gap: 20px;
@@ -239,6 +245,86 @@
   font-size: 13px;
   color: #64748b;
   line-height: 1.5;
+}
+/* CSS CHO THẺ WIDGET HISTORY (Cao bằng 2 thẻ kia gộp lại) */
+.mode-card.history-card {
+  width: 320px; /* Rộng gấp đôi thẻ nhỏ */
+  height: 340px; /* Cao bằng 2 thẻ nhỏ (160 + 160 + gap 20) */
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(15px);
+  transition: all 0.3s ease;
+  overflow: hidden; /* Cắt phần cuộn dư thừa */
+}
+.mode-card.history-card:hover {
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+  border-color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 12px;
+}
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto; /* Cho phép cuộn bên trong */
+  padding-right: 4px;
+  flex: 1;
+}
+
+/* Tùy chỉnh thanh cuộn cho History */
+.history-list::-webkit-scrollbar {
+  width: 4px;
+}
+.history-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.history-item {
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: 0.2s;
+}
+.history-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.hi-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hi-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
+}
+.hi-subtitle {
+  font-size: 11px;
+  color: #64748b;
+}
+.hi-score {
+  font-weight: 800;
+  font-size: 18px;
+  color: #10b981;
 }
 
 /* --- CSS CHO DEVICE MANAGER --- */
