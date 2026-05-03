@@ -5,6 +5,7 @@ import MapEditor from "./MapEditor";
 import CollectData from "./CollectData";
 import RealtimeMonitor from "./RealtimeMonitor";
 import LandingPage from "./LandingPage";
+import Scenarios from "./Scenarios";
 import {
   House,
   RotateCw,
@@ -16,6 +17,7 @@ import {
   Video,
   AlertTriangle,
   CheckCircle2,
+  Flame,
 } from "lucide-react";
 
 const api = axios.create({
@@ -37,7 +39,8 @@ function App() {
     if (currentMode === "selection") return;
     setLoading(true);
     try {
-      const endpoint = currentMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
+      const endpoint =
+        currentMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
       const res = await api.get(endpoint);
       setMaps(res.data);
       setError("");
@@ -80,7 +83,8 @@ function App() {
     setError("");
 
     try {
-      const endpoint = systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
+      const endpoint =
+        systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
       await api.delete(`${endpoint}/${id}`);
       setMessage("Map deleted successfully");
       fetchMaps(systemMode);
@@ -275,6 +279,21 @@ function App() {
                                 )}
 
                                 <button
+                                  className="btn btn-colect"
+                                  onClick={() => {
+                                    setSelectedMap(map);
+                                    setView("scenarios");
+                                  }}
+                                  title="Training Scenarios"
+                                  style={{
+                                    color: "#ef4444",
+                                    background: "#fef2f2",
+                                  }}
+                                >
+                                  <Flame size={20} />
+                                </button>
+
+                                <button
                                   className="btn btn-monitor"
                                   onClick={() => {
                                     setSelectedMap(map);
@@ -345,6 +364,17 @@ function App() {
 
         {view === "monitor" && (
           <RealtimeMonitor
+            mapData={selectedMap}
+            systemMode={systemMode}
+            onBack={() => {
+              setSelectedMap(null);
+              setView("maps");
+            }}
+          />
+        )}
+
+        {view === "scenarios" && (
+          <Scenarios
             mapData={selectedMap}
             systemMode={systemMode}
             onBack={() => {

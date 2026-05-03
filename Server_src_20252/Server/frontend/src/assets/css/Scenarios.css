@@ -1,0 +1,106 @@
+/* Scenarios.css */
+/* Kế thừa bố cục từ MapEditor.css cho phần lưới bản đồ */
+@import "./MapEditor.css";
+
+/* Bố cục chính của màn hình Scenarios */
+.scenarios-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Nút quay lại và tiêu đề */
+.scenarios-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+/* KHUNG CHỌN BÀI TẬP (Dropdown) */
+.scenario-selector-box {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 16px 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.scenario-select {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d2d2d7;
+  font-size: 15px;
+  font-weight: 500;
+  outline: none;
+}
+
+/* Ô LƯỚI BẢN ĐỒ CÓ CHỨA NGỌN LỬA */
+.fire-icon {
+  font-size: 20px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
+  animation: fire-flicker 0.5s infinite alternate;
+}
+
+/* Hiệu ứng nhấp nháy cho ngọn lửa */
+@keyframes fire-flicker {
+  0% {
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.05);
+    opacity: 1;
+  }
+}
+
+/* Chế độ chọn ô trống để đặt lửa */
+.segment-btn.fire-mode {
+  color: #ef4444;
+}
+.segment-btn.fire-mode.active {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+/* DANH SÁCH NGỌN LỬA Ở SIDEBAR */
+.fire-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 8px;
+}
+.fire-chip {
+  font-size: 18px;
+  background: #fef2f2;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fire-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #64748b;
+}
+.fire-info strong {
+  color: #0f172a;
+}

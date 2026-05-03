@@ -4,6 +4,7 @@ import "../assets/css/MapEditor.css";
 import { Router, Box, Trash2, Plus, SquarePen } from "lucide-react";
 
 const MAX_SIZE = 20;
+const CELL_SIZE = 38;
 
 function clampSize(value) {
   const n = Number(value);
@@ -277,7 +278,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
               ? `Router (${coordX}, ${coordY})`
               : isBlocked
                 ? `Blocked (${coordX}, ${coordY})`
-                : `Free (${coordX}, ${coordY})`
+                : `Blank (${coordX}, ${coordY})`
           }
           data-coord={`${coordX}, ${coordY}`}
         >
@@ -290,8 +291,6 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   return (
     <div className="map-editor">
       {(() => {
-        const CELL_SIZE = 38;
-
         return (
           <>
             <div className="map-sidebar">

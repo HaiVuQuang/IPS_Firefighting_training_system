@@ -11,6 +11,8 @@ import {
   Tag,
   FingerprintPattern,
   SatelliteDish,
+  History,
+  Trophy,
 } from "lucide-react";
 import axios from "axios";
 
@@ -23,6 +25,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
   const [uwbDevices, setUwbDevices] = useState([]);
   const [editingDevice, setEditingDevice] = useState(null);
   const [newDeviceName, setNewDeviceName] = useState("");
+  const [trainingHistory, setTrainingHistory] = useState([]);
 
   const openLoginModal = (mode) => {
     setIsLoginModalOpen(true);
@@ -65,6 +68,15 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
       }
     };
   }, [showDeviceManager]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      axios
+        .get("http://localhost:8000/training_history")
+        .then((res) => setTrainingHistory(res.data))
+        .catch((err) => console.error("Failed to fetch history:", err));
+    }
+  }, [isLoggedIn]);
 
   const openDeviceManager = async () => {
     setShowDeviceManager(true);
@@ -162,31 +174,65 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
       {isLoggedIn &&
         // prettier-ignore
         <div className="landing-selection-cards">
-          {/* Widget RSSI Fingerprinting */}
-          <div className="mode-card small-card" onClick={() => onSelectMode("fingerprint")}>
-            <div className="mode-icon-box">
-              <FingerprintPattern size={34} color="#475569" />
+
+          {/* CỘT 1: WIDGET LỊCH SỬ HUẤN LUYỆN */}
+          <div className="mode-card history-card">
+            <div className="history-header">
+              <div className="mode-icon-box" style={{ width: 32, height: 32 }}>
+                <History size={24} color="#475569" />
+              </div>
+              <h3 className="mode-title-small">Training History</h3>
             </div>
-            <div className="mode-title-small">RSSI<br />Fingerprinting</div>
+            
+            <div className="history-list">
+              {trainingHistory.length === 0 ? (
+                <div style={{textAlign: 'center', color: '#94a3b8', fontSize: 13, marginTop: 20}}>
+                  No training records found.
+                </div>
+              ) : (
+                trainingHistory.map((record) => (
+                  <div key={record.history_id} className="history-item">
+                    <div className="hi-left">
+                      <span className="hi-title">Scenario #{record.scenario_id}</span>
+                      <span className="hi-subtitle">
+                        {new Date(record.start_time).toLocaleDateString()} • {record.device_hex_id}
+                      </span>
+                    </div>
+                    <div className="hi-score" title="Score">
+                      {record.score}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-
-          {/* Widget UWB Trilateration và Manage Devices */}
-          <div className="mode-cards-row">
-            {/* Widget UWB */}
-            <div className="mode-card small-card" onClick={() => onSelectMode("uwb")}>
+          <div className="mode-cards-column">
+            {/* Widget RSSI Fingerprinting */}
+            <div className="mode-card small-card" onClick={() => onSelectMode("fingerprint")}>
               <div className="mode-icon-box">
-                {/* <img src={uwbIcon} alt="icon" /> */}
-                <SatelliteDish size={34} color="#475569" />
+                <FingerprintPattern size={34} color="#475569" />
               </div>
-              <div className="mode-title-small">UWB<br />Trilateration</div>
+              <div className="mode-title-small">RSSI<br />Fingerprinting</div>
             </div>
 
-            {/* Widget Manage Devices */}
-            <div className="mode-card small-card" onClick={openDeviceManager}>
-              <div className="mode-icon-box" style={{ background: "transparent", border: "none" }}>
-                <Settings size={34} color="#475569" />
+            {/* Widget UWB Trilateration và Manage Devices */}
+            <div className="mode-cards-row">
+              {/* Widget UWB */}
+              <div className="mode-card small-card" onClick={() => onSelectMode("uwb")}>
+                <div className="mode-icon-box">
+                  {/* <img src={uwbIcon} alt="icon" /> */}
+                  <SatelliteDish size={34} color="#475569" />
+                </div>
+                <div className="mode-title-small">UWB<br />Trilateration</div>
               </div>
-              <div className="mode-title-small">Manage<br />Devices</div>
+
+              {/* Widget Manage Devices */}
+              <div className="mode-card small-card" onClick={openDeviceManager}>
+                <div className="mode-icon-box" style={{ background: "transparent", border: "none" }}>
+                  <Settings size={34} color="#475569" />
+                </div>
+                <div className="mode-title-small">Manage<br />Devices</div>
+              </div>
             </div>
           </div>
         </div>}
