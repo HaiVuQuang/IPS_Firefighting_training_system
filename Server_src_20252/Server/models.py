@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
 class UserSchema(BaseModel):
     id: int | None = None
@@ -88,3 +89,21 @@ class CollectDataRequestSchema(BaseModel):
     coord_x: float
     coord_y: float
     samples: int = 1
+
+class ScenarioFireSchema(BaseModel):
+    coord_x: float
+    coord_y: float
+    level: int
+    delay_time: int
+
+class ScenarioSchema(BaseModel):
+    map_info_id: int
+    map_type: str
+    scenario_name: str
+    fires: List[ScenarioFireSchema] = []
+
+class TrainingHistorySchema(BaseModel):
+    username: str
+    scenario_id: int
+    device_hex_id: str
+    score: int

@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, JSON, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -102,3 +103,36 @@ class RSSIForTraining(Base):
     samples = Column(Integer, default=1)
 
     map_reference = relationship("RSSIMapInfo", back_populates="rssi_data")
+
+class Scenario(Base):
+    __tablename__ = "scenarios"
+    scenario_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    map_info_id = Column(Integer, index=True)
+    map_type = Column(String(50))
+    scenario_name = Column(String(255))
+
+    fires = relationship("ScenarioFire", back_populates="scenario", cascade="all, delete-orphan")
+    histories = relationship("TrainingHistory", back_populates="scenario", cascade="all, delete-orphan")
+
+class ScenarioFire(Base):
+    __tablename__ = "scenario_fires"
+    fire_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    scenario_id = Column(Integer, ForeignKey("scenarios.scenario_id", ondelete="CASCADE"))
+    coord_x = Column(Float)
+    coord_y = Column(Float)
+    level = Column(Integer) # Mức độ cháy: 1, 2, 3
+    delay_time = Column(Integer) # Số giây đếm ngược trước khi lửa bùng lên
+
+    scenario = relationship("Scenario", back_populates="fires")
+
+class TrainingHistory(Base):
+    __tablename__ = "training_history"
+    history_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    username = Column(String(255))
+    scenario_id = Column(Integer, ForeignKey("scenarios.scenario_id", ondelete="CASCADE"))
+    device_hex_id = Column(String(100))
+    start_time = Column(DateTime(timezone=True), server_default=func.now())
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    score = Column(Integer)
+
+    scenario = relationship("Scenario", back_populates="histories")
