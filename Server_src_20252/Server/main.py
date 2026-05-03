@@ -12,7 +12,7 @@ from collections import deque
 import mqtt
 import database_models
 from database import SessionLocal, engine
-from models import RSSIMapInfoSchema, CollectDataRequestSchema, UwbMapInfoSchema, UserSchema, DeviceRenameSchema
+from models import RSSIMapInfoSchema, CollectDataRequestSchema, UwbMapInfoSchema, UserSchema, DeviceRenameSchema, ScenarioSchema, TrainingHistorySchema
 from wbo_filter import Preprocessor
 from ml_model import MLModel
 from kalmanFilter import LinearKalmanFilter
@@ -249,7 +249,11 @@ def get_db():
     finally:
         db.close()
 
-# /----------------------------- API ENDPOINTS ----------------------------------/
+# /----------------------------- API ENDPOINTS -------------------------------------/
+
+# =====================================================================
+# API ĐĂNG KÝ VÀ ĐĂNG NHẬP TÀI KHOẢN
+# =====================================================================
 @app.post("/register")
 def register(user: UserSchema, db: Session = Depends(get_db)):
     existing_user = db.query(database_models.User).filter(database_models.User.username == user.username).first()
@@ -271,7 +275,9 @@ def login(user: UserSchema, db: Session = Depends(get_db)):
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"message": "Login successful"}
-
+# =====================================================================
+# API QUẢN LÝ THIẾT BỊ 
+# =====================================================================
 @app.get("/devices/rssi")
 def get_rssi_devices(db: Session = Depends(get_db)):
     return db.query(database_models.DeviceRSSI).all()
@@ -284,7 +290,6 @@ def rename_rssi_device(device_id: int, payload: DeviceRenameSchema, db: Session 
     db.commit()
     return dev
 
-# API Xóa thiết bị RSSI
 @app.delete("/devices/rssi/{device_id}")
 def delete_rssi_device(device_id: int, db: Session = Depends(get_db)):
     global KNOWN_RSSI_DEVICES
@@ -316,7 +321,6 @@ def rename_uwb_device(device_id: int, payload: DeviceRenameSchema, db: Session =
     db.commit()
     return dev
 
-# API Xóa thiết bị UWB
 @app.delete("/devices/uwb/{device_id}")
 def delete_uwb_device(device_id: int, db: Session = Depends(get_db)):
     global KNOWN_UWB_DEVICES
@@ -334,7 +338,9 @@ def delete_uwb_device(device_id: int, db: Session = Depends(get_db)):
         db.execute(text("ALTER TABLE device_uwb AUTO_INCREMENT = 1"))
         db.commit()
     return {"message": "UWB device deleted successfully"}
-
+# =====================================================================
+# API KẾT NỐI WS ĐỂ BACKEND ĐẨY DỮ LIỆU DEVICES CHO FRONTEND
+# =====================================================================
 @app.websocket("/ws/devices")
 async def websocket_devices_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -344,7 +350,9 @@ async def websocket_devices_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         device_manager_websockets.remove(websocket)
-
+# =====================================================================
+# API QUẢN LÝ MAP RSSI
+# =====================================================================
 @app.get("/rssi_maps")
 def get_all_maps(db: Session = Depends(get_db)):
     db_maps = db.query(database_models.RSSIMapInfo).all()
@@ -398,7 +406,9 @@ def delete_map(id: int, db: Session = Depends(get_db)):
         db.commit()
 
     return {"status": "deleted"}
-
+# =====================================================================
+# API THU THẬP DỮ LIỆU CHO FINGERPRINTING
+# =====================================================================
 @app.post("/collect_data")
 async def collect_data(request: CollectDataRequestSchema, db: Session = Depends(get_db)):
 
@@ -445,7 +455,9 @@ async def collect_data(request: CollectDataRequestSchema, db: Session = Depends(
 
     db.commit()
     return {"message": f"Successfully collected {collected}/{request.samples} samples."}
-
+# =====================================================================
+# API TIỀN XỬ LÝ DATA TRƯỚC KHI TRAIN MODEL
+# =====================================================================
 @app.post("/preprocess_map/{map_info_id}")
 def preprocess_map_data(map_info_id: int, db: Session = Depends(get_db)):
     # Lấy dữ liệu từ DB của đúng Map đó
@@ -479,7 +491,9 @@ def preprocess_map_data(map_info_id: int, db: Session = Depends(get_db)):
         "filtered_file": filtered_path,
         "raw_file": raw_path
     }
-
+# =====================================================================
+# API CHỌN MAP ĐỂ LOAD MODEL AI VÀ GỬI THÔNG TIN MAP (North Offset, Ô bị cản) XUỐNG DEVICE QUA MQTT
+# =====================================================================
 @app.post("/set_active_rssi_map/{id}")
 def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
     global ai_predictor, rssi_buffers, kalman_filters, mqtt_client
@@ -520,15 +534,17 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
                 payload += "," + ",".join(blocked_ids)
                 
             mqtt_client.publish("map_data", payload)
-            print(f"🗺️ Sent RSSI Map Data to MQTT: {payload}")
+            print(f"🗺️  Sent RSSI Map Data to MQTT: {payload}")
         
         return {"message": f"Successfully loaded AI Model for Map {id}"}
     except Exception as e:
         print(f"❌ Failed to load model for Map {id}: {e}")
         raise HTTPException(status_code=400, detail=f"AI Model for Map {id} not found. Please train it first!")
-
+# =====================================================================
+# API TRAIN MODEL AI CHO MAP ĐÃ CHỌN
+# =====================================================================
 @app.post("/train_model/{map_info_id}")
-async def train_model(map_info_id: int): # Có tham số map_info_id
+async def train_model(map_info_id: int):
     try:
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         csv_file_path = os.path.join(BASE_DIR, 'rssi_data', f'rssi_preprocess_map_{map_info_id}.csv')
@@ -542,7 +558,9 @@ async def train_model(map_info_id: int): # Có tham số map_info_id
     except Exception as e:
         print(f"Training Error: {e}")
         raise HTTPException(status_code=500, detail=f"Model training failed: {str(e)}")
-    
+# =====================================================================
+# API KẾT NÔI WS ĐỂ BACKEND ĐẨY DỮ LIỆU VỊ TRÍ REAL-TIME CHO FRONTEND
+# =====================================================================
 @app.websocket("/ws/realtime_location")
 async def websocket_realtime_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -554,7 +572,9 @@ async def websocket_realtime_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         active_websockets.remove(websocket)
         print("A Client disconnected from Real-time Location")
-
+# =====================================================================
+# API QUẢN LÝ MAP UWB
+# =====================================================================
 @app.get("/uwb_maps")
 def get_all_uwb_maps(db: Session = Depends(get_db)):
     db_maps = db.query(database_models.UwbMapInfo).all()
@@ -609,7 +629,9 @@ def delete_uwb_map(id: int, db: Session = Depends(get_db)):
         db.commit()
 
     return {"status": "deleted"}
-
+# =====================================================================
+# API CHỌN MAP UWB ĐỂ GỬI THÔNG TIN MAP (North Offset, Ô bị cản) XUỐNG DEVICE QUA MQTT
+# =====================================================================
 @app.post("/set_active_uwb_map/{id}")
 def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
     global BEACONS_CONFIG, mqtt_client
@@ -647,7 +669,99 @@ def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
             payload += "," + ",".join(blocked_ids)
             
         mqtt_client.publish("map_data", payload)
-        print(f"🗺️ Sent UWB Map Data to MQTT: {payload}")
+        print(f"🗺️  Sent UWB Map Data to MQTT: {payload}")
         
     return {"message": f"Switched uwb map to ID {id}", "active_beacons": BEACONS_CONFIG}
+# =====================================================================
+# API QUẢN LÝ KỊCH BẢN HUẤN LUYỆN (SCENARIOS & FIRES)
+# =====================================================================
+@app.post("/scenarios")
+def create_scenario(payload: ScenarioSchema, db: Session = Depends(get_db)):
+
+    # Tạo kịch bản mới
+    new_scenario = database_models.Scenario(
+        map_info_id=payload.map_info_id,
+        map_type=payload.map_type,
+        scenario_name=payload.scenario_name
+    )
+    db.add(new_scenario)
+    db.commit()
+    db.refresh(new_scenario)
+
+    # Tạo danh sách ngọn lửa
+    for fire in payload.fires:
+        new_fire = database_models.ScenarioFire(
+            scenario_id=new_scenario.scenario_id,
+            coord_x=fire.coord_x,
+            coord_y=fire.coord_y,
+            level=fire.level,
+            delay_time=fire.delay_time
+        )
+        db.add(new_fire)
+    
+    db.commit()
+    return {"message": "Scenario created successfully", "scenario_id": new_scenario.scenario_id}
+
+@app.get("/scenarios/{map_type}/{map_id}")
+def get_scenarios(map_type: str, map_id: int, db: Session = Depends(get_db)):
+    # Lấy kịch bản kèm theo toàn bộ ngọn lửa
+    scenarios = db.query(database_models.Scenario).filter(
+        database_models.Scenario.map_type == map_type,
+        database_models.Scenario.map_info_id == map_id
+    ).all()
+    
+    result = []
+    for sc in scenarios:
+        result.append({
+            "scenario_id": sc.scenario_id,
+            "scenario_name": sc.scenario_name,
+            "fires": [
+                {
+                    "fire_id": f.fire_id,
+                    "coord_x": f.coord_x,
+                    "coord_y": f.coord_y,
+                    "level": f.level,
+                    "delay_time": f.delay_time
+                } for f in sc.fires
+            ]
+        })
+    return result
+
+@app.delete("/scenarios/{scenario_id}")
+def delete_scenario(scenario_id: int, db: Session = Depends(get_db)):
+    sc = db.query(database_models.Scenario).filter_by(scenario_id=scenario_id).first()
+    if not sc:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    
+    db.delete(sc)
+    db.commit()
+
+    if db.query(database_models.Scenario).count() == 0:
+        db.execute(text("ALTER TABLE scenarios AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE scenario_fires AUTO_INCREMENT = 1"))
+        db.commit()
+
+    return {"message": "Scenario deleted successfully"}
+
+# =====================================================================
+# API QUẢN LÝ LỊCH SỬ HUẤN LUYỆN (TRAINING HISTORY)
+# =====================================================================
+@app.post("/training_history")
+def save_training_history(payload: TrainingHistorySchema, db: Session = Depends(get_db)):
+    history = database_models.TrainingHistory(
+        username=payload.username,
+        scenario_id=payload.scenario_id,
+        device_hex_id=payload.device_hex_id,
+        score=payload.score
+    )
+    db.add(history)
+    db.commit()
+    return {"message": "Training session saved successfully!"}
+
+@app.get("/training_history")
+def get_training_history(db: Session = Depends(get_db)):
+    # Trả về danh sách lịch sử mới nhất xếp lên đầu
+    return db.query(database_models.TrainingHistory).order_by(
+        database_models.TrainingHistory.history_id.desc()
+    ).all()
 
