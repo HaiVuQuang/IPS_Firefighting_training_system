@@ -12,8 +12,9 @@ import pickle
 from wbo_filter import WBOFilter
 
 class MLModel:
-    def __init__(self, csv_path):
+    def __init__(self, csv_path, map_id=1):
         self.csv_path = csv_path
+        self.map_id = map_id
         self.model = None
         self.label_encoder = LabelEncoder()
 
@@ -102,33 +103,33 @@ class MLModel:
         return history.history["accuracy"][-1], history.history["val_accuracy"][-1]
 
     def save_model(self, X_min, X_max):
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        model_dir = os.path.join(BASE_DIR, "model")
-        os.makedirs(model_dir, exist_ok=True)
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            # TẠO THƯ MỤC RIÊNG CHO TỪNG MAP
+            model_dir = os.path.join(BASE_DIR, "model", f"map_{self.map_id}")
+            os.makedirs(model_dir, exist_ok=True)
 
-        self.model.save(os.path.join(model_dir, "ml_model.keras"))
-        with open(os.path.join(model_dir, "model_meta.pkl"), "wb") as f:
-            pickle.dump({
-                "label_encoder": self.label_encoder,
-                "X_min": X_min,
-                "X_max": X_max
-            }, f)
+            self.model.save(os.path.join(model_dir, "ml_model.keras"))
+            with open(os.path.join(model_dir, "model_meta.pkl"), "wb") as f:
+                pickle.dump({
+                    "label_encoder": self.label_encoder,
+                    "X_min": X_min,
+                    "X_max": X_max
+                }, f)
 
     def load_saved_model(self):
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        model_dir = os.path.join(BASE_DIR, "model")
+        # TRỎ ĐẾN ĐÚNG THƯ MỤC CỦA MAP
+        model_dir = os.path.join(BASE_DIR, "model", f"map_{self.map_id}")
         
-        # Load Model Keras lên RAM 1 lần duy nhất khi khởi động server
         self.model = tf.keras.models.load_model(os.path.join(model_dir, "ml_model.keras"))
         
-        # Load các thông số scale và label encoder
         with open(os.path.join(model_dir, "model_meta.pkl"), "rb") as f:
             meta = pickle.load(f)
             self.label_encoder = meta["label_encoder"]
             self.X_min = meta["X_min"]
             self.X_max = meta["X_max"]
             
-        print("✅ AI Model Loaded successfully!")
+        print(f"✅ AI Model for Map {self.map_id} Loaded successfully!")
 
     def predict_realtime(self, window_data):
             """Hàm này nhận 1 mảng 10x10 từ MQTT, LỌC WBO, chuẩn hóa và đưa AI phán đoán"""

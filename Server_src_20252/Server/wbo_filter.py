@@ -49,9 +49,10 @@ class WBOFilter:
         return self.get_filter_value()
 
 class Preprocessor:
-    def __init__(self, data_df, time_steps=10):
+    def __init__(self, data_df, time_steps=10, map_id=1):
         self.data = data_df
         self.time_steps = time_steps
+        self.map_id = map_id
         
         self.rssi_cols = [
             'rssi_wifi_1', 'rssi_wifi_2', 'rssi_wifi_3', 'rssi_wifi_4',
@@ -125,24 +126,19 @@ class Preprocessor:
             final_filtered_df = pd.DataFrame(final_filtered_rows, columns=col_names)
 
             # 4. Xuất ra file CSV
-            # Tạo tên cột: Cột từ 0 đến 99 là Features, cột cuối cùng là "label"
             col_names = [str(i) for i in range(len(self.all_cols) * self.time_steps)] + ["label", "split"]
             
-            # Tạo DataFrame cho cả 2 bộ dữ liệu
             final_filtered_df = pd.DataFrame(final_filtered_rows, columns=col_names)
             final_raw_df = pd.DataFrame(final_raw_rows, columns=col_names)
             
-            # Xác định đường dẫn thư mục lưu trữ (Thư mục 'rssi_data' cùng cấp với file script)
             BASE_DIR = os.path.dirname(os.path.abspath(__file__))
             os.makedirs(os.path.join(BASE_DIR, 'rssi_data'), exist_ok=True)
             
-            # Lưu file đã lọc WBO (Bản gốc)
-            filtered_file_path = os.path.join(BASE_DIR, 'rssi_data', 'rssi_preprocess.csv') 
+            # ---> SỬA TÊN FILE Ở ĐÂY: Nối chuỗi map_id vào đuôi tên file <---
+            filtered_file_path = os.path.join(BASE_DIR, 'rssi_data', f'rssi_preprocess_map_{self.map_id}.csv') 
             final_filtered_df.to_csv(filtered_file_path, index=False)
             
-            # ---> Lưu file THÔ (Raw data không lọc WBO)
-            raw_file_path = os.path.join(BASE_DIR, 'rssi_data', 'rssi_preprocess_raw.csv') 
+            raw_file_path = os.path.join(BASE_DIR, 'rssi_data', f'rssi_preprocess_raw_map_{self.map_id}.csv') 
             final_raw_df.to_csv(raw_file_path, index=False)
             
-            # Trả về cả 2 đường dẫn để API có thể báo cáo (hoặc chỉ trả về file gốc tùy bạn)
             return filtered_file_path, raw_file_path
