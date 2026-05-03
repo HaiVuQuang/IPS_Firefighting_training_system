@@ -37,7 +37,7 @@ function App() {
     if (currentMode === "selection") return;
     setLoading(true);
     try {
-      const endpoint = currentMode === "fingerprint" ? "/maps" : "/uwb_maps";
+      const endpoint = currentMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
       const res = await api.get(endpoint);
       setMaps(res.data);
       setError("");
@@ -80,7 +80,7 @@ function App() {
     setError("");
 
     try {
-      const endpoint = systemMode === "fingerprint" ? "/maps" : "/uwb_maps";
+      const endpoint = systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
       await api.delete(`${endpoint}/${id}`);
       setMessage("Map deleted successfully");
       fetchMaps(systemMode);
@@ -178,7 +178,7 @@ function App() {
       </header>
 
       <div className="container">
-        {/* --- MÀN HÌNH 1: DANH SÁCH MAPS --- */}
+        {/* MÀN HÌNH 1: DANH SÁCH MAPS */}
         {systemMode !== "selection" && view === "maps" && (
           <>
             <div className="stats">
@@ -186,19 +186,19 @@ function App() {
             </div>
 
             <div className="content-grid">
-              <div className="card list-card">
+              <div className="card">
                 <h2>Maps</h2>
                 {loading ? (
-                  <div className="loader">Loading...</div>
+                  <div>Loading...</div>
                 ) : (
                   <div className="scroll-x">
-                    <table className="product-table">
+                    <table className="map-table">
                       <thead>
                         <tr>
                           <th>ID</th>
                           <th>Total units</th>
                           <th>Area/unit</th>
-                          {/* KIỂM TRA CHẾ ĐỘ ĐỂ RENDER TIÊU ĐỀ CỘT */}
+                  
                           {systemMode === "fingerprint" ? (
                             <>
                               <th>Router number</th>
@@ -221,7 +221,6 @@ function App() {
                             <td>{map.total_units}</td>
                             <td>{map.area_of_one_unit}</td>
 
-                            {/* KIỂM TRA CHẾ ĐỘ ĐỂ RENDER DỮ LIỆU */}
                             {systemMode === "fingerprint" ? (
                               <>
                                 <td>{map.router_number}</td>
@@ -240,7 +239,6 @@ function App() {
                               <>
                                 <td>{map.beacon_number || 0}</td>
                                 <td>
-                                  {/* Xử lý Object dữ liệu UWB thành chuỗi dễ đọc */}
                                   {map.beacon_location &&
                                   typeof map.beacon_location === "object"
                                     ? Object.entries(map.beacon_location)
@@ -262,7 +260,6 @@ function App() {
                                   <SquarePen size={20} />
                                 </button>
 
-                                {/* ẨN NÚT COLLECT DATA NẾU LÀ CHẾ ĐỘ UWB */}
                                 {systemMode === "fingerprint" && (
                                   <button
                                     className="btn btn-colect"
@@ -299,9 +296,7 @@ function App() {
                         ))}
                         {maps.length === 0 && (
                           <tr>
-                            <td colSpan={8} className="empty">
-                              No maps found.
-                            </td>
+                            <td colSpan={8}>No maps found.</td>
                           </tr>
                         )}
                       </tbody>
@@ -324,7 +319,7 @@ function App() {
           </>
         )}
 
-        {/* Các màn hình con: Truyền thêm prop systemMode để chúng biết đang ở chế độ nào */}
+        {/* Các màn hình con */}
         {view === "map" && (
           <MapEditor
             mapToEdit={selectedMap}

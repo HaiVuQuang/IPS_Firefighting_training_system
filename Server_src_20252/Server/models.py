@@ -6,7 +6,20 @@ class UserSchema(BaseModel):
     username: str
     password: str
 
-class MapInfoSchema(BaseModel):
+class DeviceRSSISchema(BaseModel):
+    device_id: int | None = None
+    device_name: str
+    device_hex_id: str
+
+class DeviceUWBSchema(BaseModel):
+    device_id: int | None = None
+    device_name: str
+    device_hex_id: str
+
+class DeviceRenameSchema(BaseModel):
+    device_name: str
+
+class RSSIMapInfoSchema(BaseModel):
     map_info_id: int | None = None
     total_units: int
     area_of_one_unit: float

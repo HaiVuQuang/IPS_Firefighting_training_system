@@ -12,11 +12,12 @@ from collections import deque
 import mqtt
 import database_models
 from database import SessionLocal, engine
-from models import MapInfoSchema, CollectDataRequestSchema, UwbMapInfoSchema, UserSchema
+from models import RSSIMapInfoSchema, CollectDataRequestSchema, UwbMapInfoSchema, UserSchema, DeviceRenameSchema
 from wbo_filter import Preprocessor
 from ml_model import MLModel
 from kalmanFilter import LinearKalmanFilter
 from positioning import ToFPositioning
+
 
 
 
@@ -28,6 +29,7 @@ ai_predictor = None
 mqtt_client = None
 # List các client (ReactJS) đang kết nối Websocket
 active_websockets = []
+device_manager_websockets = []
 # Buffer tối đa 10 phần tử RSSI real-time cho AI dự đoán
 realtime_buffer = deque(maxlen=10)  
 # Buffer gom khoảng cách từ các beacon cho từng Tag theo chiều dọc tin nhắn MQTT
@@ -36,28 +38,48 @@ uwb_distance_buffer = {}
 BEACONS_CONFIG = {}
 # Theo dõi từng tag
 uwb_trackers = {}
+# Set theo dõi xem thiết bị đã được lưu vào DB chưa
+KNOWN_RSSI_DEVICES = set()
+KNOWN_UWB_DEVICES = set()
 
 kalman_filter = LinearKalmanFilter()
 
 # HÀM ĐƯỢC GỌI KHI CÓ TIN NHẮN MQTT
 def handle_incoming_mqtt_data(msg_dict):
 
-    global data_queue, ai_predictor, mqtt_client
+    global data_queue, ai_predictor, mqtt_client, KNOWN_RSSI_DEVICES, KNOWN_UWB_DEVICES
     data_type = msg_dict.get("data_type")
 
     # /------------------------- XỬ LÝ DỮ LIỆU UWB RANGING ----------------------------/
     if data_type == "uwb":
-        if not active_websockets: return 
         
         beacon_id = msg_dict["beacon_id"]
         measurements = msg_dict["measurements"] 
         
         for tag_id, distance in measurements.items():
+            # Lưu UWB Device
+            if tag_id not in KNOWN_UWB_DEVICES:
+                db = SessionLocal()
+                try:
+                    new_dev = database_models.DeviceUWB(device_name=f"{tag_id}", device_hex_id=tag_id)
+                    db.add(new_dev)
+                    db.commit()
+                    KNOWN_UWB_DEVICES.add(tag_id)
+                    print(f"🌟 Found new UWB Device: {tag_id}")
+                    # Bắn thông báo qua Websocket cho Frontend biết có thiết bị mới
+                    for ws in device_manager_websockets:
+                        asyncio.create_task(ws.send_json({"type": "new_device"}))
+                except Exception as e:
+                    pass
+                finally:
+                    db.close()
             # Khởi tạo buffer cho Tag này nếu chưa có
             if tag_id not in uwb_distance_buffer:
                 uwb_distance_buffer[tag_id] = {}
                 
             uwb_distance_buffer[tag_id][beacon_id] = distance
+
+            if not active_websockets: return 
             
             if len(uwb_distance_buffer[tag_id]) >= 3:
                 if tag_id not in uwb_trackers:
@@ -99,6 +121,24 @@ def handle_incoming_mqtt_data(msg_dict):
     
     # /-------------------------- XỬ LÝ DỮ LIỆU RSSI -----------------------------------/
     if data_type == "rssi":
+        # Lưu RSSI Device
+        hex_id = msg_dict.get("hex_id")
+        if hex_id and hex_id not in KNOWN_RSSI_DEVICES:
+            db = SessionLocal()
+            try:
+                new_dev = database_models.DeviceRSSI(device_name=f"{hex_id}", device_hex_id=hex_id)
+                db.add(new_dev)
+                db.commit()
+                KNOWN_RSSI_DEVICES.add(hex_id)
+                print(f"🌟 Found new RSSI Device: {hex_id}")
+                # Bắn thông báo qua Websocket cho Frontend biết có thiết bị mới
+                for ws in device_manager_websockets:
+                    asyncio.create_task(ws.send_json({"type": "new_device"}))
+            except Exception as e:
+                pass
+            finally:
+                db.close()
+
         # Đẩy data vào queue cho API collect data
         # Logic: Nếu queue đầy đẩy phần tử cũ nhất ra thêm dữ liệu mới
         if data_queue is not None:
@@ -148,6 +188,11 @@ async def lifespan(app: FastAPI):
     # Load DB lên RAM 1 lần để lấy tọa độ
     db = SessionLocal()
     try:
+        # Load danh sách thiết bị đã biết lên RAM
+        for d in db.query(database_models.DeviceRSSI).all():
+            KNOWN_RSSI_DEVICES.add(d.device_hex_id)
+        for d in db.query(database_models.DeviceUWB).all():
+            KNOWN_UWB_DEVICES.add(d.device_hex_id)
         uwb_latest_map = db.query(database_models.UwbMapInfo).order_by(database_models.UwbMapInfo.map_info_id.desc()).first()
         if uwb_latest_map and uwb_latest_map.beacon_location:
             BEACONS_CONFIG = uwb_latest_map.beacon_location
@@ -221,29 +266,95 @@ def login(user: UserSchema, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"message": "Login successful"}
 
-@app.get("/maps")
+@app.get("/devices/rssi")
+def get_rssi_devices(db: Session = Depends(get_db)):
+    return db.query(database_models.DeviceRSSI).all()
+
+@app.put("/devices/rssi/{device_id}")
+def rename_rssi_device(device_id: int, payload: DeviceRenameSchema, db: Session = Depends(get_db)):
+    dev = db.query(database_models.DeviceRSSI).filter_by(device_id=device_id).first()
+    if not dev: raise HTTPException(status_code=404)
+    dev.device_name = payload.device_name
+    db.commit()
+    return dev
+
+# API Xóa thiết bị RSSI
+@app.delete("/devices/rssi/{device_id}")
+def delete_rssi_device(device_id: int, db: Session = Depends(get_db)):
+    global KNOWN_RSSI_DEVICES
+    dev = db.query(database_models.DeviceRSSI).filter_by(device_id=device_id).first()
+    if not dev: 
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    # Xóa khỏi Cache RAM
+    if dev.device_hex_id in KNOWN_RSSI_DEVICES:
+        KNOWN_RSSI_DEVICES.remove(dev.device_hex_id)
+        
+    db.delete(dev)
+    db.commit()
+    return {"message": "RSSI device deleted successfully"}
+
+# API Xóa thiết bị UWB
+@app.delete("/devices/uwb/{device_id}")
+def delete_uwb_device(device_id: int, db: Session = Depends(get_db)):
+    global KNOWN_UWB_DEVICES
+    dev = db.query(database_models.DeviceUWB).filter_by(device_id=device_id).first()
+    if not dev: 
+        raise HTTPException(status_code=404, detail="Device not found")
+        
+    # Xóa khỏi Cache RAM
+    if dev.device_hex_id in KNOWN_UWB_DEVICES:
+        KNOWN_UWB_DEVICES.remove(dev.device_hex_id)
+        
+    db.delete(dev)
+    db.commit()
+    return {"message": "UWB device deleted successfully"}
+
+@app.get("/devices/uwb")
+def get_uwb_devices(db: Session = Depends(get_db)):
+    return db.query(database_models.DeviceUWB).all()
+
+@app.put("/devices/uwb/{device_id}")
+def rename_uwb_device(device_id: int, payload: DeviceRenameSchema, db: Session = Depends(get_db)):
+    dev = db.query(database_models.DeviceUWB).filter_by(device_id=device_id).first()
+    if not dev: raise HTTPException(status_code=404)
+    dev.device_name = payload.device_name
+    db.commit()
+    return dev
+
+@app.websocket("/ws/devices")
+async def websocket_devices_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    device_manager_websockets.append(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        device_manager_websockets.remove(websocket)
+
+@app.get("/rssi_maps")
 def get_all_maps(db: Session = Depends(get_db)):
-    db_maps = db.query(database_models.MapInfo).all()
+    db_maps = db.query(database_models.RSSIMapInfo).all()
     return db_maps
 
-@app.post("/maps")
-def create_map(map_info: MapInfoSchema, db: Session = Depends(get_db)):
-    db_map = database_models.MapInfo(**map_info.model_dump())
+@app.post("/rssi_maps")
+def create_map(map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
+    db_map = database_models.RSSIMapInfo(**map_info.model_dump())
     db.add(db_map)
     db.commit()
     db.refresh(db_map)
     return db_map
 
-@app.get("/maps/{id}")
+@app.get("/rssi_maps/{id}")
 def get_map_by_id(id: int, db: Session = Depends(get_db)):
-    db_map = db.query(database_models.MapInfo).filter(database_models.MapInfo.map_info_id == id).first()
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     if not db_map:
         raise HTTPException(status_code=404, detail="Map not found")
     return db_map
 
-@app.put("/maps/{id}")
-def update_map(id: int, map_info: MapInfoSchema, db: Session = Depends(get_db)):
-    db_map = db.query(database_models.MapInfo).filter(database_models.MapInfo.map_info_id == id).first()
+@app.put("/rssi_maps/{id}")
+def update_map(id: int, map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     if not db_map:
         raise HTTPException(status_code=404, detail="Map not found")
     else:
@@ -259,17 +370,17 @@ def update_map(id: int, map_info: MapInfoSchema, db: Session = Depends(get_db)):
     db.refresh(db_map)
     return db_map
 
-@app.delete("/maps/{id}")
+@app.delete("/rssi_maps/{id}")
 def delete_map(id: int, db: Session = Depends(get_db)):
-    db_map = db.query(database_models.MapInfo).filter(database_models.MapInfo.map_info_id == id).first()
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     if not db_map:
         raise HTTPException(status_code=404, detail="Map not found")
 
     db.delete(db_map)
     db.commit()
 
-    if db.query(database_models.MapInfo).count() == 0:
-        db.execute(text("ALTER TABLE map_info AUTO_INCREMENT = 1"))
+    if db.query(database_models.RSSIMapInfo).count() == 0:
+        db.execute(text("ALTER TABLE rssi_map_info AUTO_INCREMENT = 1"))
         db.commit()
 
     return {"status": "deleted"}

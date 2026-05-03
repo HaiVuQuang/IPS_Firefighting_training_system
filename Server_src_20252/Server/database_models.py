@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, JSON, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
@@ -9,8 +10,20 @@ class User(Base):
     username = Column(String(50), unique=True, index=True)
     password = Column(String(100))
 
-class MapInfo(Base):
-    __tablename__ = "map_info"
+class DeviceRSSI(Base):
+    __tablename__ = "device_rssi"
+    device_id = Column(Integer, primary_key=True, index=True)
+    device_name = Column(String(50), unique=True, index=True)
+    device_hex_id = Column(String(10))
+
+class DeviceUWB(Base):
+    __tablename__ = "device_uwb"
+    device_id = Column(Integer, primary_key=True, index=True)
+    device_name = Column(String(50), unique=True, index=True)
+    device_hex_id = Column(String(10))
+
+class RSSIMapInfo(Base):
+    __tablename__ = "rssi_map_info"
 
     map_info_id = Column(Integer, primary_key=True)
     total_units = Column(Integer)
@@ -21,6 +34,13 @@ class MapInfo(Base):
     rows = Column(Integer)
     cols = Column(Integer)
     blocked_cells = Column(JSON, default=[])
+
+    # Thuộc tính Cascade để xóa các bảng con phụ thuộc
+    rssi_data = relationship(
+        "RSSIForTraining", 
+        back_populates="map_reference", 
+        cascade="all, delete-orphan"
+    )
 
 class UwbMapInfo(Base):
     __tablename__ = "uwb_map_info"
@@ -64,7 +84,7 @@ class RSSIForTraining(Base):
     __tablename__ = "rssi_for_training"
 
     rssi_for_training_id = Column(Integer, primary_key=True)
-    map_info_id = Column(Integer, ForeignKey("map_info.map_info_id"))
+    map_info_id = Column(Integer, ForeignKey("rssi_map_info.map_info_id"))
     coord_x = Column(Float)
     coord_y = Column(Float)
     rssi_wifi_1 = Column(Float)
@@ -78,3 +98,5 @@ class RSSIForTraining(Base):
     magnetic_field_y = Column(Float)
     magnetic_field_z = Column(Float)
     samples = Column(Integer, default=1)
+
+    map_reference = relationship("RSSIMapInfo", back_populates="rssi_data")
