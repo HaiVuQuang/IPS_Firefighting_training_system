@@ -23,6 +23,7 @@ class RSSIMapInfoSchema(BaseModel):
     map_info_id: int | None = None
     total_units: int
     area_of_one_unit: float
+    north_offset: int
     walkable_area: int
     router_number: int
     router_location: List[str]
@@ -34,6 +35,7 @@ class UwbMapInfoSchema(BaseModel):
     map_info_id: int | None = None
     total_units: int
     area_of_one_unit: float
+    north_offset: int
     walkable_area: int
     beacon_number: int
     beacon_location: dict
