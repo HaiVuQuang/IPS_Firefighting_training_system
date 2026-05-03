@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Wifi, WifiOff, ArrowLeft } from "lucide-react";
 import "../assets/css/RealtimeMonitor.css";
 
@@ -15,33 +15,70 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const blocked = new Set(mapData.blocked_cells || []);
   const routers = new Set(mapData.router_location || []);
 
-  useEffect(() => {
-    if (systemMode === "uwb" && mapData?.map_info_id) {
-      axios
-        .post(`http://localhost:8000/set_active_uwb_map/${mapData.map_info_id}`)
-        .then(() => console.log("Switched to map", mapData.map_info_id))
-        .catch((err) => console.error("Failed to switch map", err));
-    }
+  // Flag chống Spam API
+  const hasInitialized = useRef(false);
 
-    const ws = new WebSocket("ws://localhost:8000/ws/realtime_location");
-    ws.onopen = () => setWsStatus("connected");
-    ws.onmessage = (event) => {
+  useEffect(() => {
+    // 3. CHẶN ĐỨNG GỌI 2 LẦN NGAY TỪ CỬA
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    let ws = null;
+
+    const initSystem = async () => {
       try {
-        const data = JSON.parse(event.data);
-        const tagId = data.tag_id || "Device_1";
-        setLocations((prev) => ({ ...prev, [tagId]: data }));
+        if (systemMode === "uwb" && mapData?.map_info_id) {
+          await axios.post(
+            `http://localhost:8000/set_active_uwb_map/${mapData.map_info_id}`,
+          );
+          console.log("Switched UWB to map", mapData.map_info_id);
+        } else if (systemMode === "fingerprint" && mapData?.map_info_id) {
+          await axios.post(
+            `http://localhost:8000/set_active_rssi_map/${mapData.map_info_id}`,
+          );
+          console.log("Loaded AI Model for RSSI map", mapData.map_info_id);
+        }
+
+        ws = new WebSocket("ws://localhost:8000/ws/realtime_location");
+        ws.onopen = () => setWsStatus("connected");
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            const tagId = data.tag_id;
+            if (tagId) {
+              setLocations((prev) => ({ ...prev, [tagId]: data }));
+            }
+          } catch (err) {
+            console.error("Error parsing WS:", err);
+          }
+        };
+        ws.onclose = () => setWsStatus("error");
       } catch (err) {
-        console.error("Error parsing WS:", err);
+        console.error("Setup failed:", err);
+        if (systemMode === "fingerprint") {
+          alert(
+            `Warning: AI Model for Map #${mapData?.map_info_id} is missing or not trained yet!`,
+          );
+        } else {
+          alert(`Failed to load Map #${mapData?.map_info_id}.`);
+        }
+        onBack();
       }
     };
-    ws.onclose = () => setWsStatus("error");
-    return () => ws.close();
-  }, [mapData, systemMode]);
+
+    initSystem();
+
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [mapData?.map_info_id, systemMode]);
 
   const gridCells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
+      const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
       gridCells.push(
         <div
           key={key}
@@ -120,7 +157,9 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         >
           {Array.from({ length: rows }, (_, i) => (
             <div key={`y-${i}`} className="axis-label-box">
-              <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
+              <span className="axis-text">
+                {(rows - 1 - i + 0.5).toFixed(1)}
+              </span>
               <div className="axis-tick-y"></div>
             </div>
           ))}
@@ -145,7 +184,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 className="beacon-dot-wrapper"
                 style={{
                   left: `${pos.x * CELL_SIZE}px`,
-                  top: `${pos.y * CELL_SIZE}px`,
+                  top: `${(rows - pos.y) * CELL_SIZE}px`,
                 }}
               >
                 <div className="beacon-dot"></div>
@@ -162,7 +201,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 className="radar-dot"
                 style={{
                   left: `${loc.x * CELL_SIZE}px`,
-                  top: `${loc.y * CELL_SIZE}px`,
+                  top: `${(rows - loc.y) * CELL_SIZE}px`,
                 }}
               >
                 <div

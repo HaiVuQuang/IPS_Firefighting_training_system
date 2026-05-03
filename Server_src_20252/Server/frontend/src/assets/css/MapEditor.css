@@ -262,7 +262,7 @@
   --cell-size: 38px;
   display: grid;
   grid-template-columns: auto auto;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   gap: 0;
   width: fit-content;
   margin: 0 auto;
@@ -272,11 +272,11 @@
   border-radius: 24px;
   box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.6);
-  padding: 30px 40px 40px 20px;
+  padding: 40px 40px 16px 20px;
 }
 .corner-empty {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 3;
 }
 /* Lưới map */
 .map-grid {
@@ -305,7 +305,7 @@
 .map-grid::after {
   content: "";
   position: absolute;
-  top: -1px;
+  bottom: -1px;
   left: -20px;
   right: -20px;
   height: 2px;
@@ -315,8 +315,8 @@
 /* Vẽ các số trong trục tọa độ*/
 .x-axis-container {
   grid-column: 2;
-  grid-row: 1;
-  margin-bottom: 11px;
+  grid-row: 3;
+  margin-top: 11px;
 }
 .y-axis-container {
   grid-column: 1;
@@ -338,7 +338,7 @@
 }
 .axis-tick-x {
   position: absolute;
-  bottom: -12px;
+  top: -12px;
   left: 50%;
   transform: translateX(-50%);
   width: 2px;

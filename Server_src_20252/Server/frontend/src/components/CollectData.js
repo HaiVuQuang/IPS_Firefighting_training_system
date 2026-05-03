@@ -30,7 +30,7 @@ function CollectData({ mapData }) {
   const routers = new Set(mapData.router_location || []);
 
   const handleCellClick = (r, c) => {
-    const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
+    const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
     if (blocked.has(key)) {
       alert("Cannot collect data on a blocked cell!");
       return;
@@ -41,7 +41,12 @@ function CollectData({ mapData }) {
       );
       if (!confirmOverwrite) return;
     }
-    setSelectedCell({ r, c, x: (0.5 + c).toFixed(1), y: (0.5 + r).toFixed(1) });
+    setSelectedCell({
+      r,
+      c,
+      x: (0.5 + c).toFixed(1),
+      y: (rows - 1 - r + 0.5).toFixed(1),
+    });
     setMessage("");
   };
 
@@ -198,7 +203,7 @@ function CollectData({ mapData }) {
   const cells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
+      const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
       const isBlocked = blocked.has(key);
       const hasRouter = routers.has(key);
       const isCollected = collectedCells.has(key);
@@ -260,7 +265,9 @@ function CollectData({ mapData }) {
         >
           {Array.from({ length: rows }, (_, i) => (
             <div key={`y-${i}`} className="axis-label-box">
-              <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
+              <span className="axis-text">
+                {(rows - 1 - i + 0.5).toFixed(1)}
+              </span>
               <div className="axis-tick-y"></div>
             </div>
           ))}

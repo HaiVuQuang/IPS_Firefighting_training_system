@@ -305,7 +305,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
             />
             <div className="dm-rename-actions">
               <button className="dm-btn-save" onClick={handleRenameDevice}>
-                Save Changes
+                Save
               </button>
               <button
                 className="dm-btn-cancel"

@@ -198,7 +198,8 @@ function App() {
                           <th>ID</th>
                           <th>Total units</th>
                           <th>Area/unit</th>
-                  
+                          <th>North Offset</th>
+
                           {systemMode === "fingerprint" ? (
                             <>
                               <th>Router number</th>
@@ -220,7 +221,7 @@ function App() {
                             <td>{map.map_info_id}</td>
                             <td>{map.total_units}</td>
                             <td>{map.area_of_one_unit}</td>
-
+                            <td>{map.north_offset}</td>
                             {systemMode === "fingerprint" ? (
                               <>
                                 <td>{map.router_number}</td>

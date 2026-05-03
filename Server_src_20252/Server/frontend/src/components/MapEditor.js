@@ -20,6 +20,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   const [editingBeacon, setEditingBeacon] = useState(null);
   const [gridKey, setGridKey] = useState(0);
   const [areaOfOneUnit, setAreaOfOneUnit] = useState(1);
+  const [northOffset, setNorthOffset] = useState(90);
   const [mode, setMode] = useState("block");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -30,7 +31,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   React.useEffect(() => {
     if (mapToEdit) {
       setAreaOfOneUnit(mapToEdit.area_of_one_unit ?? 1);
-
+      setNorthOffset(mapToEdit.north_offset ?? 90);
       if (mapToEdit.rows && mapToEdit.cols) {
         setRows(mapToEdit.rows);
         setCols(mapToEdit.cols);
@@ -62,7 +63,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
     const ids = [];
     for (let r = 0; r < rows; r += 1) {
       for (let c = 0; c < cols; c += 1) {
-        const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
+        const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
         if (!blocked.has(key)) {
           ids.push(r * cols + c + 1);
         }
@@ -72,7 +73,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   }, [rows, cols, blocked]);
 
   const handleMouseDown = (r, c) => {
-    const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
+    const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
 
     if (mode === "block") {
       // Chế độ vẽ tường: Kéo thả
@@ -93,7 +94,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
       setEditingBeacon({
         id: nextNumber.toString(),
         x: (0.5 + c).toFixed(2),
-        y: (0.5 + r).toFixed(2),
+        y: (rows - 1 - r + 0.5).toFixed(2),
         isNew: true,
       });
     }
@@ -117,7 +118,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
       const next = new Set(prev);
       for (let r = minR; r <= maxR; r++) {
         for (let c = minC; c <= maxC; c++) {
-          const key = `${(c + 0.5).toFixed(1)}:${(r + 0.5).toFixed(1)}`;
+          const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
           if (dragAction === "block") next.add(key);
           else next.delete(key);
         }
@@ -157,7 +158,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
       setEditingBeacon({
         id: nextNumber.toString(), // Tự động gợi ý id tiếp
         x: (0.5 + c).toFixed(2),
-        y: (0.5 + r).toFixed(2),
+        y: (rows - 1 - r + 0.5).toFixed(2),
         isNew: true,
       });
     }
@@ -200,6 +201,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
       const payload = {
         total_units: totalCells,
         area_of_one_unit: Number(areaOfOneUnit),
+        north_offset: Number(northOffset),
         walkable_area: Number(walkableCellIds.length),
         cols: cols,
         rows: rows,
@@ -213,7 +215,8 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
         payload.beacon_location = uwbBeacons;
       }
 
-      const endpoint = systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
+      const endpoint =
+        systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
 
       if (mapToEdit?.map_info_id) {
         const res = await axios.put(
@@ -242,7 +245,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {
       const coordX = (c + 0.5).toFixed(1);
-      const coordY = (r + 0.5).toFixed(1);
+      const coordY = (rows - 1 - r + 0.5).toFixed(1);
 
       const key = `${coordX}:${coordY}`;
       const actuallyBlocked = blocked.has(key);
@@ -318,8 +321,8 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                     onChange={(e) => setCols(clampSize(e.target.value))}
                   />
                 </label>
-                <label className="input-label" style={{ gridColumn: "1 / -1" }}>
-                  Area of one unit (m²)
+                <label className="input-label">
+                  Area/unit (m²)
                   <input
                     className="input-field"
                     type="number"
@@ -327,6 +330,17 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                     step="0.1"
                     value={areaOfOneUnit}
                     onChange={(e) => setAreaOfOneUnit(e.target.value)}
+                  />
+                </label>
+                <label className="input-label">
+                  North Offset (°)
+                  <input
+                    className="input-field"
+                    type="number"
+                    min={0}
+                    step="10"
+                    value={northOffset}
+                    onChange={(e) => setNorthOffset(e.target.value)}
                   />
                 </label>
               </div>
@@ -507,7 +521,9 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                 >
                   {Array.from({ length: rows }, (_, i) => (
                     <div key={`y-${i}`} className="axis-label-box">
-                      <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
+                      <span className="axis-text">
+                        {(rows - 1 - i + 0.5).toFixed(1)}
+                      </span>
                       <div className="axis-tick-y"></div>
                     </div>
                   ))}
@@ -529,7 +545,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                   {systemMode === "uwb" &&
                     Object.entries(uwbBeacons).map(([id, pos]) => {
                       const leftPx = pos.x * CELL_SIZE;
-                      const topPx = pos.y * CELL_SIZE;
+                      const topPx = (rows - pos.y) * CELL_SIZE;
 
                       return (
                         <div
@@ -603,7 +619,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                   </div>
                   <div className="btn-popup-actions">
                     <button className="btn-confirm" onClick={saveBeacon}>
-                      Confirm
+                      Save
                     </button>
                     <button
                       className="btn-gray"
