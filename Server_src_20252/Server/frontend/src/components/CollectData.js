@@ -203,7 +203,10 @@ function CollectData({ mapData }) {
   const cells = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
+      const coordX = (c + 0.5).toFixed(1);
+      const coordY = (rows - 1 - r + 0.5).toFixed(1);
+
+      const key = `${coordX}:${coordY}`;
       const isBlocked = blocked.has(key);
       const hasRouter = routers.has(key);
       const isCollected = collectedCells.has(key);
@@ -214,6 +217,13 @@ function CollectData({ mapData }) {
           type="button"
           className={`map-cell ${isBlocked ? "blocked" : ""} ${hasRouter ? "router-cell" : ""} ${isCollected ? "collected" : ""}`}
           onClick={() => handleCellClick(r, c)}
+          title={
+            hasRouter
+              ? `Router (${coordX}, ${coordY})`
+              : isBlocked
+                ? `Blocked (${coordX}, ${coordY})`
+                : `Blank (${coordX}, ${coordY})`
+          }
         >
           {hasRouter && <span className="router-icon">📡</span>}
         </button>,
