@@ -1,6 +1,16 @@
 import axios from "axios";
 import React, { useState, useEffect, useRef } from "react";
-import { Wifi, WifiOff, ArrowLeft, Play, Square, Flame } from "lucide-react";
+import {
+  Wifi,
+  WifiOff,
+  ArrowLeft,
+  Play,
+  X,
+  Flame,
+  Pause,
+  Timer,
+  Trophy,
+} from "lucide-react";
 import "../assets/css/RealtimeMonitor.css";
 
 const TAG_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#ef4444", "#f59e0b"];
@@ -20,6 +30,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [score, setScore] = useState(1000);
   const [sessionFires, setSessionFires] = useState([]); // Chứa danh sách lửa và trạng thái của chúng
+  const [countdown, setCountdown] = useState(null);
   const intervalRef = useRef(null);
 
   const rows = mapData.rows || 10;
@@ -186,6 +197,21 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     }
   }, [trainingState, score, timeElapsed, selectedScenarioId]);
 
+  // Bật đếm ngược 3-2-1 trước khi Start
+  const handleInitiateTraining = () => {
+    setCountdown(3);
+    let count = 3;
+    const timer = setInterval(() => {
+      count -= 1;
+      if (count > 0) {
+        setCountdown(count);
+      } else {
+        clearInterval(timer);
+        setCountdown(null); // Tắt màn hình đếm ngược
+        handleStartTraining(); // Gọi hàm chạy game thực sự
+      }
+    }, 1000);
+  };
   // 4. CÁC HÀM ĐIỀU KHIỂN NÚT BẤM
   const handleStartTraining = () => {
     if (selectedScenarioId === "free") return;
@@ -209,11 +235,20 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     setTrainingState("running");
   };
 
-  const handleStopTraining = () => {
+  const handlePauseTraining = () => {
+    setTrainingState("paused");
+  };
+
+  const handleResumeTraining = () => {
+    setTrainingState("running");
+  };
+
+  const handleAbortTraining = () => {
     setTrainingState("idle");
     setSessionFires([]);
     setTimeElapsed(0);
     setScore(1000);
+    setSelectedScenarioId("free"); // Chuyển về Free để không bị văng ra Popup Start nữa
   };
 
   // === RENDER GIAO DIỆN LƯỚI ===
@@ -283,7 +318,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           onChange={(e) => setSelectedScenarioId(e.target.value)}
           disabled={trainingState !== "idle"}
         >
-          <option value="free">-- Free Roam Mode --</option>
+          <option value="free">-- Select Scenario --</option>
           {scenarios.map((sc) => (
             <option key={sc.scenario_id} value={sc.scenario_id}>
               {sc.scenario_name}
@@ -291,35 +326,65 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           ))}
         </select>
 
-        {selectedScenarioId !== "free" && trainingState === "idle" && (
+        {trainingState === "running" && (
+          <>
+            <button
+              className="btn-outline-icon btn-outline-amber"
+              onClick={handlePauseTraining}
+              title="Pause"
+            >
+              <Pause size={18} />
+            </button>
+            <button
+              className="btn-outline-icon btn-outline-red"
+              onClick={handleAbortTraining}
+              title="End"
+            >
+              <X size={18} />
+            </button>
+          </>
+        )}
+
+        {trainingState === "paused" && (
+          <>
+            <button
+              className="btn-outline-icon btn-outline-emerald"
+              onClick={handleResumeTraining}
+              title="Resume"
+            >
+              <Play size={18} />
+            </button>
+            <button
+              className="btn-outline-icon btn-outline-red"
+              onClick={handleAbortTraining}
+              title="End"
+            >
+              <X size={18} />
+            </button>
+          </>
+        )}
+
+        {/* Nút Close (Hiện khi đã hoàn thành) */}
+        {trainingState === "finished" && (
           <button
-            className="btn btn-dark"
-            style={{ padding: "10px 20px", borderRadius: 8 }}
-            onClick={handleStartTraining}
+            className="btn-outline-icon btn-outline-red"
+            onClick={handleAbortTraining}
+            title="Close"
           >
-            <Play size={18} /> Start Scenario
+            <X size={18} />
           </button>
         )}
 
-        {(trainingState === "running" || trainingState === "finished") && (
-          <button
-            className="btn btn-secondary"
-            style={{
-              padding: "10px 20px",
-              borderRadius: 8,
-              color: "#ef4444",
-              borderColor: "#ef4444",
-            }}
-            onClick={handleStopTraining}
-          >
-            <Square size={18} /> Stop
-          </button>
-        )}
-
-        {(trainingState === "running" || trainingState === "finished") && (
+        {(trainingState === "running" ||
+          trainingState === "paused" ||
+          trainingState === "finished") && (
           <div className="training-stats">
-            <div className="stat-box time-text">Time: {timeElapsed}s</div>
-            <div className="stat-box score-text">Score: {score}</div>
+            <div className="stat-box time-text">
+              <Timer size={16} /> {timeElapsed}s
+            </div>
+            <div className="stat-box score-text">
+              <Trophy size={16} /> {score}
+            </div>
           </div>
         )}
       </div>
@@ -405,15 +470,17 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 {fire.status === "burning" ? (
                   <>
                     <div className="sim-fire-icon">🔥</div>
-                    <div className="sim-progress-bar">
-                      <div
-                        className="sim-progress-fill"
-                        style={{ width: `${progressPercent}%` }}
-                      ></div>
-                    </div>
+                    {progressPercent > 0 && (
+                      <div className="sim-progress-bar">
+                        <div
+                          className="sim-progress-fill"
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                    )}
                   </>
                 ) : (
-                  <div className="sim-extinguished">💨</div>
+                  <div className="sim-extinguished"></div>
                 )}
               </div>
             );
@@ -448,6 +515,40 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           })}
         </div>
       </div>
+      {selectedScenarioId !== "free" && trainingState === "idle" && (
+        <div className="rm-start-overlay">
+          {countdown === null ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
+              <button
+                className="rm-huge-play-btn"
+                onClick={handleInitiateTraining}
+              >
+                {/* Dùng thuộc tính fill="white" để icon Play đặc lại, marginLeft để icon cân giữa hình tròn */}
+                <Play
+                  size={54}
+                  fill="white"
+                  color="white"
+                  style={{ marginLeft: 8 }}
+                />
+              </button>
+              <div
+                className="rm-cancel-hint"
+                onClick={() => setSelectedScenarioId("free")}
+              >
+                Tap here to cancel
+              </div>
+            </div>
+          ) : (
+            <div className="rm-countdown-text">{countdown}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

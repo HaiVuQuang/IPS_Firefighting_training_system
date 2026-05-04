@@ -119,7 +119,7 @@ function App() {
 
   return (
     <div className="app-bg">
-      {/* THÊM KHỐI MÀU MỜ ẢO VÀO NỀN APP */}
+      {/* HIỆU ỨNG BACKGROUND */}
       <div className="app-visuals">
         <div className="blob blob-1"></div>
         <div className="blob blob-2"></div>
@@ -127,6 +127,7 @@ function App() {
         <div className="blob blob-4"></div>
       </div>
 
+      {/* TOPBAR */}
       <header className="topbar">
         <div className="brand">
           <span className="brand-badge">🙂</span>{" "}
@@ -256,6 +257,7 @@ function App() {
 
                             <td>{map.walkable_area}</td>
                             <td>
+                              {/* CÁC NÚT ACTION */}
                               <div className="row-actions">
                                 <button
                                   className="btn btn-edit"
@@ -264,7 +266,6 @@ function App() {
                                 >
                                   <SquarePen size={20} />
                                 </button>
-
                                 {systemMode === "fingerprint" && (
                                   <button
                                     className="btn btn-colect"
@@ -277,22 +278,16 @@ function App() {
                                     <DatabaseZap size={20} />
                                   </button>
                                 )}
-
                                 <button
-                                  className="btn btn-colect"
+                                  className="btn btn-training-scenario"
                                   onClick={() => {
                                     setSelectedMap(map);
                                     setView("scenarios");
                                   }}
                                   title="Training Scenarios"
-                                  style={{
-                                    color: "#ef4444",
-                                    background: "#fef2f2",
-                                  }}
                                 >
                                   <Flame size={20} />
                                 </button>
-
                                 <button
                                   className="btn btn-monitor"
                                   onClick={() => {
@@ -314,6 +309,7 @@ function App() {
                             </td>
                           </tr>
                         ))}
+
                         {maps.length === 0 && (
                           <tr>
                             <td colSpan={8}>No maps found.</td>
@@ -339,7 +335,7 @@ function App() {
           </>
         )}
 
-        {/* Các màn hình con */}
+        {/* CÁC MÀN HÌNH KHI CLICK VÀO CÁC NÚT ACTION*/}
         {view === "map" && (
           <MapEditor
             mapToEdit={selectedMap}
@@ -351,7 +347,6 @@ function App() {
             }}
           />
         )}
-
         {view === "collect" && systemMode === "fingerprint" && (
           <CollectData
             mapData={selectedMap}
@@ -361,9 +356,8 @@ function App() {
             }}
           />
         )}
-
-        {view === "monitor" && (
-          <RealtimeMonitor
+        {view === "scenarios" && (
+          <Scenarios
             mapData={selectedMap}
             systemMode={systemMode}
             onBack={() => {
@@ -372,9 +366,8 @@ function App() {
             }}
           />
         )}
-
-        {view === "scenarios" && (
-          <Scenarios
+        {view === "monitor" && (
+          <RealtimeMonitor
             mapData={selectedMap}
             systemMode={systemMode}
             onBack={() => {

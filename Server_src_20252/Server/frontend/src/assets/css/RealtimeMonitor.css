@@ -166,31 +166,154 @@
 .sim-fire-wrapper {
   position: absolute;
   z-index: 50;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   pointer-events: none;
 }
+
 .sim-fire-icon {
-  font-size: 24px;
+  font-size: 22px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8));
   animation: fire-flicker 0.4s infinite alternate;
 }
+
 .sim-extinguished {
   font-size: 20px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   filter: grayscale(100%) opacity(0.7);
 }
+
 .sim-progress-bar {
-  width: 24px;
-  height: 4px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 2px;
-  margin-top: 2px;
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
   overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
+
 .sim-progress-fill {
   height: 100%;
-  background: #3b82f6;
+  background: #34d399;
   transition: width 0.3s linear;
+}
+/* --- POPUP START VÀ ĐẾM NGƯỢC (CINEMATIC) --- */
+.rm-start-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(248, 250, 252, 0.4); /* Nền sáng làm mờ */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 2000; /* Nổi lên trên cùng */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.rm-huge-play-btn {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 15px 35px rgba(15, 23, 42, 0.3);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.rm-huge-play-btn:hover {
+  transform: scale(1.1);
+  background: #1e293b;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.4);
+}
+
+.rm-huge-play-btn:active {
+  transform: scale(0.95);
+}
+
+.rm-cancel-hint {
+  margin-top: 30px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: 0.2s;
+  padding: 8px 16px;
+}
+.rm-cancel-hint:hover {
+  color: #0f172a;
+}
+
+/* Chữ đếm ngược khổng lồ */
+.rm-countdown-text {
+  font-size: 160px;
+  font-weight: 900;
+  color: #0f172a;
+  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  animation: popIn 1s infinite; /* Nhịp đập mỗi giây */
+  line-height: 1;
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  80% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+/* --- NÚT ĐIỀU KHIỂN ICON KHÔNG HOVER --- */
+.btn-outline-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+/* Các màu viền và icon tương ứng */
+.btn-outline-amber {
+  color: #f59e0b;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-outline-emerald {
+  color: #10b981;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-outline-red {
+  color: #ef4444;
+  border: 1px solid #e2e8f0;
 }

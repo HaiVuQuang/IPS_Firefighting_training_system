@@ -5,7 +5,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import desc, text
 from contextlib import asynccontextmanager
 from collections import deque
 
@@ -760,8 +760,29 @@ def save_training_history(payload: TrainingHistorySchema, db: Session = Depends(
 
 @app.get("/training_history")
 def get_training_history(db: Session = Depends(get_db)):
-    # Trả về danh sách lịch sử mới nhất xếp lên đầu
-    return db.query(database_models.TrainingHistory).order_by(
-        database_models.TrainingHistory.history_id.desc()
+    records = db.query(
+        database_models.TrainingHistory.history_id,
+        database_models.TrainingHistory.scenario_id,
+        database_models.TrainingHistory.device_hex_id,
+        database_models.TrainingHistory.score,
+        database_models.TrainingHistory.start_time,
+        database_models.Scenario.scenario_name
+    ).join(
+        database_models.Scenario, 
+        database_models.TrainingHistory.scenario_id == database_models.Scenario.scenario_id
+    ).order_by(
+        desc(database_models.TrainingHistory.start_time)
     ).all()
+
+    return [
+        {
+            "history_id": r.history_id,
+            "scenario_id": r.scenario_id,
+            "scenario_name": r.scenario_name,
+            "device_hex_id": r.device_hex_id,
+            "score": r.score,
+            "start_time": r.start_time
+        }
+        for r in records
+    ]
 

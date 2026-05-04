@@ -381,50 +381,6 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                   </b>
                 </div>
               </div>
-
-              {/* DANH SÁCH BEACON Ở SIDEBAR */}
-              {systemMode === "uwb" && (
-                <div className="inspector-panel">
-                  <div className="beacon-list-title">UWB Beacons</div>
-                  <div className="beacon-list-container">
-                    {Object.entries(uwbBeacons).map(([id, pos]) => (
-                      <div key={id} className="beacon-item">
-                        <div className="beacon-chip">#{id}</div>
-                        <div className="beacon-info">
-                          <span>
-                            X: <b>{pos.x}</b>
-                          </span>
-                          <span>
-                            Y: <b>{pos.y}</b>
-                          </span>
-                        </div>
-                        <div className="beacon-actions">
-                          <button
-                            className="btn-edit-small"
-                            onClick={() =>
-                              setEditingBeacon({
-                                id: id,
-                                originalId: id,
-                                x: pos.x,
-                                y: pos.y,
-                              })
-                            }
-                          >
-                            <SquarePen size={14} />
-                          </button>
-                          <button
-                            className="btn-delete-small"
-                            onClick={() => deleteBeacon(id)}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <div className="sidebar-footer">
                 <button
                   className="btn-blue"
@@ -563,6 +519,53 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                 </div>
               </div>
             </div>
+            {systemMode === "uwb" && (
+              <div className="map-right-panel">
+                <h2
+                  className="map-title"
+                  style={{ fontSize: "1.2rem", marginBottom: "15px" }}
+                >
+                  UWB Beacons
+                </h2>
+                <div className="beacon-list-container">
+                  {Object.entries(uwbBeacons).map(([id, pos]) => (
+                    <div key={id} className="beacon-item">
+                      <div className="beacon-chip">#{id}</div>
+                      <div className="beacon-info">
+                        <span>
+                          X: <b>{pos.x}</b>
+                        </span>
+                        <span>
+                          Y: <b>{pos.y}</b>
+                        </span>
+                      </div>
+                      <div className="beacon-actions">
+                        <button
+                          className="btn-edit-small"
+                          onClick={() =>
+                            setEditingBeacon({
+                              id: id,
+                              originalId: id,
+                              x: pos.x,
+                              y: pos.y,
+                            })
+                          }
+                        >
+                          <SquarePen size={14} />
+                        </button>
+                        <button
+                          className="btn-delete-small"
+                          onClick={() => deleteBeacon(id)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* POPUP CẤU HÌNH BEACON */}
             {editingBeacon && (
               <div className="modal-overlay">

@@ -238,28 +238,50 @@ body {
   padding: 0;
 }
 .btn-edit {
-  background: #0f3b7c;
+  color: #0284c7;
+  background: #e0f2fe;
+  transition: all 0.2s ease;
 }
 .btn-edit:hover {
-  background: linear-gradient(157deg, #022860, #1e4e9d);
-}
-.btn-delete {
-  background: #ef4444;
-}
-.btn-delete:hover {
-  background: linear-gradient(157deg, #f43737, #d87c7c);
+  background: #bae6fd;
+  transform: scale(1.05);
 }
 .btn-colect {
-  background: #2cc8a7;
+  color: #059669;
+  background: #d1fae5;
+  transition: all 0.2s ease;
 }
 .btn-colect:hover {
-  background: linear-gradient(157deg, #0ecba2, #92c7bb);
+  background: #bbf7d0;
+  transform: scale(1.05);
+}
+.btn-training-scenario {
+  color: #ea580c;
+  background: #ffedd5;
+  transition: all 0.2s ease;
+}
+.btn-training-scenario:hover {
+  background: #fed7aa;
+  transform: scale(1.05);
 }
 .btn-monitor {
-  background: #ffc259;
+  color: #7e22ce;
+  background: #f3e8ff;
+  transition: all 0.2s ease;
 }
 .btn-monitor:hover {
-  background: linear-gradient(157deg, #ffa201, #f9cc80);
+  background: #e9d5ff;
+  transform: scale(1.05);
+}
+.btn-delete {
+  color: #ef4444;
+  background: #fef2f2;
+  transition: all 0.2s ease;
+}
+.btn-delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  transform: scale(1.05);
 }
 /* Thông báo */
 .success-msg {

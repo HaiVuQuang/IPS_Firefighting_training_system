@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import LoginModal from "./LoginModal";
 import "../assets/css/LandingPage.css";
 import uwbIcon from "../assets/picture/uwb-icon.png";
-import rssiIcon from "../assets/picture/rssi-icon.png";
 import {
   Settings,
   X,
@@ -25,12 +24,8 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
   const [uwbDevices, setUwbDevices] = useState([]);
   const [editingDevice, setEditingDevice] = useState(null);
   const [newDeviceName, setNewDeviceName] = useState("");
-  const [trainingHistory, setTrainingHistory] = useState([]);
 
-  const openLoginModal = (mode) => {
-    setIsLoginModalOpen(true);
-    setLoginModalMode(mode);
-  };
+  const [trainingHistory, setTrainingHistory] = useState([]);
 
   // Hook lắng nghe thiết bị mới qua WebSocket
   useEffect(() => {
@@ -80,6 +75,11 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
 
   const openDeviceManager = async () => {
     setShowDeviceManager(true);
+  };
+
+  const openLoginModal = (mode) => {
+    setIsLoginModalOpen(true);
+    setLoginModalMode(mode);
   };
 
   const fetchDevices = async () => {
@@ -179,7 +179,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
           <div className="mode-card history-card">
             <div className="history-header">
               <div className="mode-icon-box" style={{ width: 32, height: 32 }}>
-                <History size={24} color="#475569" />
+                <History size={34} color="#475569" />
               </div>
               <h3 className="mode-title-small">Training History</h3>
             </div>
@@ -193,7 +193,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
                 trainingHistory.map((record) => (
                   <div key={record.history_id} className="history-item">
                     <div className="hi-left">
-                      <span className="hi-title">Scenario #{record.scenario_id}</span>
+                      <span className="hi-title">{record.scenario_name}</span>
                       <span className="hi-subtitle">
                         {new Date(record.start_time).toLocaleDateString()} • {record.device_hex_id}
                       </span>

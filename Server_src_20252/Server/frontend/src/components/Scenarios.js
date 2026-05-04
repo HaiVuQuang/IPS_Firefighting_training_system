@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import {
   ArrowLeft,
   Flame,
   Plus,
-  Save,
   Trash2,
   CheckCircle2,
+  SquarePen,
 } from "lucide-react";
 import "../assets/css/Scenarios.css";
 
@@ -14,13 +14,9 @@ const CELL_SIZE = 38;
 
 function Scenarios({ mapData, systemMode, onBack }) {
   const [scenarios, setScenarios] = useState([]);
-  const [activeScenarioId, setActiveScenarioId] = useState("new"); // "new" hoặc ID của bài tập
-
-  // Dữ liệu của bài tập hiện tại đang chỉnh sửa
+  const [activeScenarioId, setActiveScenarioId] = useState("new"); // ID bài tập
   const [scenarioName, setScenarioName] = useState("");
   const [fires, setFires] = useState([]);
-
-  // Trạng thái cấu hình khi click đặt 1 ngọn lửa mới
   const [editingFire, setEditingFire] = useState(null);
 
   const [message, setMessage] = useState("");
@@ -30,10 +26,8 @@ function Scenarios({ mapData, systemMode, onBack }) {
   const blocked = new Set(mapData.blocked_cells || []);
   const routers = new Set(mapData.router_location || []);
 
-  // Lấy danh sách các kịch bản của Map này từ Server
-  useEffect(() => {
-    fetchScenarios();
-  }, [mapData.map_info_id, systemMode]);
+  // Flag chống gọi API 2 lần
+  const hasFetched = useRef(false);
 
   const fetchScenarios = async () => {
     try {
@@ -66,7 +60,6 @@ function Scenarios({ mapData, systemMode, onBack }) {
 
   // Click vào ô trên bản đồ
   const handleCellClick = (r, c) => {
-    // Đã lật ngược trục Y chuẩn toán học
     const coordX = (c + 0.5).toFixed(1);
     const coordY = (rows - 1 - r + 0.5).toFixed(1);
     const key = `${coordX}:${coordY}`;
@@ -118,6 +111,13 @@ function Scenarios({ mapData, systemMode, onBack }) {
       return alert("Please place at least one fire on the map!");
 
     try {
+      // MẸO UPDATE: Nếu đang sửa kịch bản cũ, xóa cái cũ trước khi tạo cái mới
+      if (activeScenarioId !== "new") {
+        await axios.delete(
+          `http://localhost:8000/scenarios/${activeScenarioId}`,
+        );
+      }
+
       const payload = {
         map_info_id: mapData.map_info_id,
         map_type: systemMode,
@@ -126,7 +126,12 @@ function Scenarios({ mapData, systemMode, onBack }) {
       };
 
       await axios.post("http://localhost:8000/scenarios", payload);
-      setMessage("Scenario saved successfully!");
+
+      setMessage(
+        activeScenarioId === "new"
+          ? "Scenario saved successfully!"
+          : "Scenario updated successfully!",
+      );
       fetchScenarios();
       setActiveScenarioId("new"); // Trả về form trống
       setScenarioName("");
@@ -184,48 +189,48 @@ function Scenarios({ mapData, systemMode, onBack }) {
     }
   }
 
+  // Lấy danh sách các kịch bản của Map này từ Server
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    fetchScenarios();
+  }, [mapData.map_info_id, systemMode]);
+
   return (
     <div className="scenarios-container">
       <div className="scenarios-header">
-        <button className="btn btn-secondary" onClick={onBack}>
-          <ArrowLeft size={20} />
-        </button>
-        <h2 className="rm-title-text">
-          Training Scenarios: Map #{mapData.map_info_id}
-        </h2>
-      </div>
-
-      <div className="scenario-selector-box">
-        <select
-          className="scenario-select"
-          value={activeScenarioId}
-          onChange={handleSelectScenario}
-        >
-          <option value="new">-- Create New Scenario --</option>
-          {scenarios.map((sc) => (
-            <option key={sc.scenario_id} value={sc.scenario_id}>
-              {sc.scenario_name} ({sc.fires.length} 🔥)
-            </option>
-          ))}
-        </select>
-
-        {activeScenarioId !== "new" && (
-          <button
-            className="btn-delete-small"
-            style={{ width: 38, height: 38 }}
-            onClick={handleDeleteScenario}
-            title="Delete Scenario"
-          >
-            <Trash2 size={20} />
+        <div className="scenarios-title-group">
+          <button className="btn btn-secondary" onClick={onBack}>
+            <ArrowLeft size={20} />
           </button>
-        )}
-      </div>
-
-      {message && (
-        <div className="success-msg" style={{ margin: 0 }}>
-          <CheckCircle2 size={18} /> {message}
+          <h2 className="rm-title-text">
+            Training Scenario: Map #{mapData.map_info_id}
+          </h2>
         </div>
-      )}
+
+        {message && (
+          <div className="success-msg" style={{ margin: 0 }}>
+            <CheckCircle2 size={18} /> {message}
+          </div>
+        )}
+
+        {/* Đưa selector-box lên đây */}
+        <div className="scenario-selector-box">
+          <select
+            className="scenario-select"
+            value={activeScenarioId}
+            onChange={handleSelectScenario}
+          >
+            <option value="new">-- Create New Scenario --</option>
+            {scenarios.map((sc) => (
+              <option key={sc.scenario_id} value={sc.scenario_id}>
+                {sc.scenario_name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <div className="map-editor">
         {/* CỘT TRÁI: SIDEBAR CẤU HÌNH */}
@@ -233,6 +238,15 @@ function Scenarios({ mapData, systemMode, onBack }) {
           <h2 className="map-title" style={{ fontSize: "1.2rem" }}>
             Scenario Config
           </h2>
+          <div className="segmented-control">
+            <button type="button" className="segment-btn fire-mode active">
+              <Flame
+                size={20}
+                style={{ marginRight: 8, verticalAlign: "bottom" }}
+              />{" "}
+              Fire Mode
+            </button>
+          </div>
 
           <div style={{ marginBottom: 10 }}>
             <label className="input-label">
@@ -241,18 +255,17 @@ function Scenarios({ mapData, systemMode, onBack }) {
                 className="input-field"
                 value={scenarioName}
                 onChange={(e) => setScenarioName(e.target.value)}
-                placeholder="e.g. Living Room Fire"
-                disabled={activeScenarioId !== "new"} // Khóa nếu đang xem đồ cũ (Tạm thời không cho sửa update)
+                placeholder="e.g. D8-802"
               />
             </label>
           </div>
 
           <div className="inspector-panel" style={{ flex: 1 }}>
             <div className="beacon-list-title">
-              Fire Points ({fires.length})
+              Fire Points (Total: {fires.length})
             </div>
             <p style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-              Click any empty cell to place fire.
+              Click any blank cell to set fire.
             </p>
 
             <div className="beacon-list-container">
@@ -261,50 +274,55 @@ function Scenarios({ mapData, systemMode, onBack }) {
                   <div className="fire-chip">🔥</div>
                   <div className="fire-info">
                     <div>
-                      Coord:{" "}
-                      <strong>
-                        ({f.coord_x}, {f.coord_y})
-                      </strong>
+                      x : <strong>{f.coord_x}</strong> | y : {""}
+                      <strong>{f.coord_y}</strong>
                     </div>
                     <div>
-                      Level: <strong>{f.level}</strong> | Delay:{" "}
+                      Level: <strong>{f.level}</strong> | Start:{" "}
                       <strong>{f.delay_time}s</strong>
                     </div>
                   </div>
-                  {activeScenarioId === "new" && (
+
+                  {/* BỎ ĐIỀU KIỆN ẨN, LUÔN HIỆN NÚT EDIT VÀ DELETE */}
+                  <div className="beacon-actions">
+                    <button
+                      className="btn-edit-small"
+                      onClick={() => setEditingFire({ ...f, index: i })}
+                      title="Edit Fire"
+                    >
+                      <SquarePen size={14} />
+                    </button>
                     <button
                       className="btn-delete-small"
                       onClick={() => handleDeleteFire(i)}
+                      title="Delete Fire"
                     >
                       <Trash2 size={14} />
                     </button>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {activeScenarioId === "new" && (
-            <div className="sidebar-footer">
-              <button className="btn-blue" onClick={handleSaveScenario}>
-                <Save size={18} /> Save Scenario
+          <div className="sidebar-footer">
+            <button className="btn-blue" onClick={handleSaveScenario}>
+              Save
+            </button>
+            {activeScenarioId !== "new" && (
+              <button
+                className="btn-pink"
+                onClick={handleDeleteScenario}
+                title="Delete Scenario"
+              >
+                Delete
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* CỘT PHẢI: LƯỚI BẢN ĐỒ */}
         <div className="map-canvas">
-          <div className="segmented-control">
-            <button type="button" className="segment-btn fire-mode active">
-              <Flame
-                size={20}
-                style={{ marginRight: 8, verticalAlign: "bottom" }}
-              />{" "}
-              Place Fire Mode
-            </button>
-          </div>
-
           <div className="map-grid-section">
             <div className="corner-empty"></div>
             {/* TRỤC X */}
@@ -348,6 +366,23 @@ function Scenarios({ mapData, systemMode, onBack }) {
               }}
             >
               {gridCells}
+
+              {/* VẼ BEACON VỚI MODE UWB */}
+              {systemMode === "uwb" &&
+                mapData.beacon_location &&
+                Object.entries(mapData.beacon_location).map(([id, pos]) => (
+                  <div
+                    key={`beacon-${id}`}
+                    className="beacon-dot-wrapper"
+                    style={{
+                      left: `${pos.x * CELL_SIZE}px`,
+                      top: `${(rows - pos.y) * CELL_SIZE}px`,
+                    }}
+                  >
+                    <div className="beacon-dot"></div>
+                    <div className="beacon-number-label">{id}</div>
+                  </div>
+                ))}
             </div>
           </div>
         </div>
@@ -358,15 +393,15 @@ function Scenarios({ mapData, systemMode, onBack }) {
         <div className="modal-overlay">
           <div className="modal-content">
             <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Flame color="#ef4444" /> Fire Configuration
+              Fire Configuration
             </h3>
             <p style={{ fontSize: 14, color: "#64748b", marginBottom: 15 }}>
-              At coordinate: X={editingFire.coord_x}, Y={editingFire.coord_y}
+              Coordinate: x={editingFire.coord_x}, y={editingFire.coord_y}
             </p>
 
             <div className="modal-form">
               <label className="input-label">
-                Fire Intensity Level (1-3)
+                Fire Level
                 <select
                   className="input-field"
                   value={editingFire.level}
@@ -377,14 +412,14 @@ function Scenarios({ mapData, systemMode, onBack }) {
                     })
                   }
                 >
-                  <option value={1}>Level 1 (Small - Extinguish in 3s)</option>
-                  <option value={2}>Level 2 (Medium - Extinguish in 5s)</option>
-                  <option value={3}>Level 3 (Large - Extinguish in 8s)</option>
+                  <option value={1}>Level 1 (Small)</option>
+                  <option value={2}>Level 2 (Medium)</option>
+                  <option value={3}>Level 3 (Large)</option>
                 </select>
               </label>
 
               <label className="input-label">
-                Delay Time (seconds)
+                Appearance Time (seconds)
                 <input
                   type="number"
                   className="input-field"
