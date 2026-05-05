@@ -65,7 +65,7 @@ def handle_incoming_mqtt_data(msg_dict):
                     db.add(new_dev)
                     db.commit()
                     KNOWN_UWB_DEVICES.add(tag_id)
-                    print(f"🌟 Found new UWB Device: {tag_id}")
+                    print(f"[Noti] 🌟 Found new UWB Device: {tag_id}")
                     # Bắn thông báo qua Websocket cho Frontend biết có thiết bị mới
                     for ws in device_manager_websockets:
                         asyncio.create_task(ws.send_json({"type": "new_device"}))
@@ -86,7 +86,7 @@ def handle_incoming_mqtt_data(msg_dict):
                     uwb_trackers[tag_id] = ToFPositioning(min_beacons=3, use_kalman=True)
                 
                 if not BEACONS_CONFIG:
-                    print("Warning: No founds UWB locations on RAM")
+                    print("[Warning] ⚠️ No founds UWB locations on RAM")
                     uwb_distance_buffer[tag_id].clear()
                     return
                 
@@ -113,7 +113,7 @@ def handle_incoming_mqtt_data(msg_dict):
                         topic = f"user_pos/{tag_id}"
                         message = f"{x_val},{y_val}"
                         mqtt_client.publish(topic, message)
-                        print(f'Sent MQTT message: {message} to topic: {topic}')
+                        print(f'[MQTT] 👤 Sent User Position message: {message} to topic: {topic}')
                     
                     # Sau khi tính xong, xóa buffer này để tính tiếp
                     uwb_distance_buffer[tag_id].clear()
@@ -131,7 +131,7 @@ def handle_incoming_mqtt_data(msg_dict):
                 db.add(new_dev)
                 db.commit()
                 KNOWN_RSSI_DEVICES.add(hex_id)
-                print(f"🌟 Found new RSSI Device: {hex_id}")
+                print(f"[Noti] 🌟 Found new RSSI Device: {hex_id}")
                 # Bắn thông báo qua Websocket cho Frontend biết có thiết bị mới
                 for ws in device_manager_websockets:
                     asyncio.create_task(ws.send_json({"type": "new_device"}))
@@ -188,10 +188,10 @@ def handle_incoming_mqtt_data(msg_dict):
                         topic = f"user_pos/{hex_id}"
                         message = f"{raw_x_smooth},{raw_y_smooth}"
                         mqtt_client.publish(topic, message)
-                        print(f'Sent MQTT message: {message} to topic: {topic}')
+                        print(f'[MQTT] 👤 Sent User Position message: {message} to topic: {topic}')
                         
                 except Exception as e:
-                    print(f"Real-time prediction error: {e}")
+                    print(f"[Err] ❌ Real-time prediction error: {e}")
     # /---------------------------------------------------------------------------------/
 
 # HÀM KHỞI ĐỘNG SERVER (LIFESPAN)
@@ -209,7 +209,7 @@ async def lifespan(app: FastAPI):
         uwb_latest_map = db.query(database_models.UwbMapInfo).order_by(database_models.UwbMapInfo.map_info_id.desc()).first()
         if uwb_latest_map and uwb_latest_map.beacon_location:
             BEACONS_CONFIG = uwb_latest_map.beacon_location
-            print("✅ UWB locations have been loaded from the database into RAM cache!")
+            print("[Noti] ✅ UWB locations have been loaded from the database into RAM cache!")
     finally:
         db.close()
 
@@ -450,7 +450,7 @@ async def collect_data(request: CollectDataRequestSchema, db: Session = Depends(
                 collected += 1
 
             except asyncio.TimeoutError:
-                print("Timeout: Device stopped sending data.")
+                print("[Noti] ❌ Device stopped sending data.")
                 break
 
     db.commit()
@@ -503,7 +503,7 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Map not found")
         
     try:
-        print(f"🔄 Switching AI Model path to Map ID: {id}...")
+        print(f"[Noti] 🔄 Switching AI Model path to Map ID: {id}...")
         # Xóa sạch cũ (Ngoại trừ danh sách thiết bị KNOWN_RSSI_DEVICES)
         rssi_buffers.clear()
         kalman_filters.clear()
@@ -534,11 +534,11 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
                 payload += "," + ",".join(blocked_ids)
                 
             mqtt_client.publish("map_data", payload)
-            print(f"🗺️  Sent RSSI Map Data to MQTT: {payload}")
+            print(f"[MQTT] 🗺️  Sent RSSI Map Data message: {payload}")
         
         return {"message": f"Successfully loaded AI Model for Map {id}"}
     except Exception as e:
-        print(f"❌ Failed to load model for Map {id}: {e}")
+        print(f"[Err] ❌ Failed to load model for Map {id}: {e}")
         raise HTTPException(status_code=400, detail=f"AI Model for Map {id} not found. Please train it first!")
 # =====================================================================
 # API TRAIN MODEL AI CHO MAP ĐÃ CHỌN
@@ -556,7 +556,7 @@ async def train_model(map_info_id: int):
             "message": f"Trained successfully for Map {map_info_id}!"
         }
     except Exception as e:
-        print(f"Training Error: {e}")
+        print(f"[Err] ❌ Training Error: {e}")
         raise HTTPException(status_code=500, detail=f"Model training failed: {str(e)}")
 # =====================================================================
 # API KẾT NÔI WS ĐỂ BACKEND ĐẨY DỮ LIỆU VỊ TRÍ REAL-TIME CHO FRONTEND
@@ -571,7 +571,7 @@ async def websocket_realtime_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
     except WebSocketDisconnect:
         active_websockets.remove(websocket)
-        print("A Client disconnected from Real-time Location")
+        print("[Noti] ⚠️ A Client disconnected from Real-time Location")
 # =====================================================================
 # API QUẢN LÝ MAP UWB
 # =====================================================================
@@ -669,7 +669,7 @@ def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
             payload += "," + ",".join(blocked_ids)
             
         mqtt_client.publish("map_data", payload)
-        print(f"🗺️  Sent UWB Map Data to MQTT: {payload}")
+        print(f"[MQTT] 🗺️  Sent UWB Map Data message: {payload}")
         
     return {"message": f"Switched uwb map to ID {id}", "active_beacons": BEACONS_CONFIG}
 # =====================================================================
@@ -785,4 +785,17 @@ def get_training_history(db: Session = Depends(get_db)):
         }
         for r in records
     ]
-
+# =====================================================================
+# API GỬI TRẠNG THÁI NGỌN LỬA XUỐNG HARDWARE (TFT) QUA MQTT
+# =====================================================================
+@app.post("/fire_update")
+def update_fire_mqtt(payload_data: dict):
+    global mqtt_client
+    data_str = payload_data.get("payload", "")
+    
+    if mqtt_client:
+        mqtt_client.publish("firefighting_data", data_str)
+        print(f"[MQTT] 🔥 Sent Fire Data message: {data_str}")
+        return {"status": "success"}
+        
+    return {"status": "error", "message": "MQTT not connected"}

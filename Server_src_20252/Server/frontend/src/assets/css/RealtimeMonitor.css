@@ -38,14 +38,10 @@
   font-weight: 600;
 }
 .status-badge.connected {
-  background-color: rgba(16, 185, 129, 0.15);
   color: #10b981;
-  border: 1px solid rgb(181, 185, 188);
 }
 .status-badge.error {
-  background-color: rgba(239, 68, 68, 0.15);
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 .error-badge {
   display: flex;
@@ -303,17 +299,7 @@
 }
 
 /* Các màu viền và icon tương ứng */
-.btn-outline-amber {
-  color: #f59e0b;
-  border: 1px solid #e2e8f0;
-}
-
-.btn-outline-emerald {
-  color: #10b981;
-  border: 1px solid #e2e8f0;
-}
-
-.btn-outline-red {
-  color: #ef4444;
+.btn-outline-black {
+  color: #000000;
   border: 1px solid #e2e8f0;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import LoginModal from "./LoginModal";
 import "../assets/css/LandingPage.css";
 import uwbIcon from "../assets/picture/uwb-icon.png";
@@ -26,6 +26,9 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
   const [newDeviceName, setNewDeviceName] = useState("");
 
   const [trainingHistory, setTrainingHistory] = useState([]);
+
+  // Flag chống gọi API 2 lần
+  const hasFetchedHistory = useRef(false);
 
   // Hook lắng nghe thiết bị mới qua WebSocket
   useEffect(() => {
@@ -66,10 +69,16 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
 
   useEffect(() => {
     if (isLoggedIn) {
+      if (hasFetchedHistory.current) return;
+      hasFetchedHistory.current = true;
+
       axios
         .get("http://localhost:8000/training_history")
         .then((res) => setTrainingHistory(res.data))
         .catch((err) => console.error("Failed to fetch history:", err));
+    } else {
+      // Khi đăng xuất, reset lại cờ để lần sau đăng nhập vẫn load được API
+      hasFetchedHistory.current = false;
     }
   }, [isLoggedIn]);
 
@@ -366,7 +375,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
 
       <div className="landing-nav">
         <div></div>
-        <div className="powered">Powered by Sondeptrai</div>
+        <div className="powered">Powered by Son</div>
       </div>
     </div>
   );

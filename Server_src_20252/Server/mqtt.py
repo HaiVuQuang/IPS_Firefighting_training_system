@@ -23,11 +23,11 @@ def init_async_bridge(loop: asyncio.AbstractEventLoop, callback):
 #  Callback tự gọi khi kết nối thành công đến broker
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
-        print("✅ Connected to MQTT Broker!")
+        print("[Noti] ✅ Connected to MQTT Broker!")
         client.subscribe("device_info/#")
         client.subscribe("2/uwb_ranging/#")
     else:
-        print(f"Failed to connect MQTT, return code {reason_code}")
+        print(f"[Err] ❌ Failed to connect MQTT, return code {reason_code}")
 
 # Callback trung gian chuyển cho callback chính
 def safe_callback(item):
@@ -54,12 +54,12 @@ def on_message(client, userdata, msg):
             msg_dict["data_type"] = "rssi"      # Thêm nhãn data_type
             msg_dict["hex_id"] = hex_id
             _loop.call_soon_threadsafe(safe_callback, msg_dict)
-            print(f"Received MQTT message {msg_dict}")     
+            print(f"[MQTT] Received message: {msg_dict}")     
             
         except ValidationError as e:
-            print(f"Invalid MQTT payload structure: {e}")
+            print(f"[Err] ❌ Invalid MQTT payload structure: {e}")
         except json.JSONDecodeError:
-            print("Payload is not valid JSON")
+            print("[Err] ❌ Payload is not valid JSON")
 
 # Xử lý tin nhắn với topic bắt đầu bằng "2/uwb_ranging/" 
     elif topic.startswith("2/uwb_ranging/"):
@@ -79,7 +79,7 @@ def on_message(client, userdata, msg):
                         try:
                             measurements[tag_id] = float(dist_str) / 100.0
                         except ValueError:
-                            print(f"[UWB] Skip invalid value of {tag_id}: {dist_str}")
+                            print(f"[Err] ❌ Skip invalid value of {tag_id}: {dist_str}")
                 
                 # Chỉ gửi bản tin lên Main xử lý nếu có ít nhất 1 Tag hợp lệ
                 if measurements:
@@ -89,10 +89,10 @@ def on_message(client, userdata, msg):
                         "measurements": measurements
                     }
                     _loop.call_soon_threadsafe(safe_callback, uwb_msg)
-                    print(f"Received MQTT message: {uwb_msg}")
+                    print(f"[MQTT] Received message: {uwb_msg}")
                     
         except Exception as e:
-            print(f"[UWB] Error parsing message: {e}")
+            print(f"[Err] ❌ Error parsing message: {e}")
 
 # Tạo kết nối MQTT client
 def connect_mqtt() -> mqtt.Client:

@@ -31,7 +31,10 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const [score, setScore] = useState(1000);
   const [sessionFires, setSessionFires] = useState([]); // Chứa danh sách lửa và trạng thái của chúng
   const [countdown, setCountdown] = useState(null);
+
   const intervalRef = useRef(null);
+  const timeRef = useRef(0);
+  const firesRef = useRef([]);
 
   const rows = mapData.rows || 10;
   const cols = mapData.cols || 10;
@@ -101,80 +104,103 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   useEffect(() => {
     if (trainingState === "running") {
       intervalRef.current = setInterval(() => {
-        setTimeElapsed((t) => t + 1);
+        // 1. Tăng thời gian (Dùng timeRef để không bị ảnh hưởng bởi React State)
+        timeRef.current += 1;
+        setTimeElapsed(timeRef.current);
 
-        setSessionFires((prevFires) => {
-          let scorePenalty = 0; // Trừ điểm nếu bị bỏng
+        let scorePenalty = 0;
+        let fireStateChanged = false;
 
-          const updatedFires = prevFires.map((fire) => {
-            if (fire.status === "extinguished") return fire; // Lửa đã tắt thì bỏ qua
+        // 2. Xử lý logic lửa dựa trên mảng firesRef (Rất an toàn, không bị chạy 2 lần)
+        const updatedFires = firesRef.current.map((fire) => {
+          if (fire.status === "extinguished") return fire;
 
-            // Trạng thái chờ: Đợi hết delay_time thì bùng cháy
-            if (fire.status === "waiting") {
-              // Phải +1 vì timeElapsed ở callback state có thể chạy chậm hơn 1 nhịp
-              if (timeElapsed + 1 >= fire.delay_time) {
-                return { ...fire, status: "burning" };
-              }
-              return fire;
-            }
-
-            // Trạng thái cháy: Tính toán khoảng cách tới các thẻ Tag
-            if (fire.status === "burning") {
-              const tags = Object.values(locationsRef.current);
-              let isSomeoneStepping = false; // Dẫm lên lửa
-              let isSomeoneExtinguishing = false; // Đứng gần xịt cứu hoả
-
-              for (const tag of tags) {
-                // Công thức tính khoảng cách Pytago: sqrt((x1-x2)^2 + (y1-y2)^2)
-                const dist = Math.sqrt(
-                  Math.pow(tag.x - fire.coord_x, 2) +
-                    Math.pow(tag.y - fire.coord_y, 2),
-                );
-
-                if (dist <= 0.5) isSomeoneStepping = true;
-                if (dist <= 1.5) isSomeoneExtinguishing = true;
-              }
-
-              if (isSomeoneStepping) scorePenalty += 20; // Trừ 20 điểm
-
-              if (isSomeoneExtinguishing) {
-                const requiredTime =
-                  fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
-                const newProgress = fire.progress + 1;
-
-                if (newProgress >= requiredTime) {
-                  return {
-                    ...fire,
-                    status: "extinguished",
-                    progress: newProgress,
-                  };
-                }
-                return { ...fire, progress: newProgress };
-              } else {
-                // Đang dập mà bỏ đi chỗ khác -> reset tiến trình về 0
-                return { ...fire, progress: 0 };
-              }
+          if (fire.status === "waiting") {
+            if (timeRef.current >= fire.delay_time) {
+              fireStateChanged = true;
+              return { ...fire, status: "burning" };
             }
             return fire;
-          });
-
-          // Trừ điểm thời gian (1đ/s) và điểm phạt bỏng
-          setScore((s) => Math.max(0, s - 1 - scorePenalty));
-
-          // Kiểm tra xem đã dập xong hết lửa chưa (Win Condition)
-          if (updatedFires.every((f) => f.status === "extinguished")) {
-            setTrainingState("finished"); // Kích hoạt useEffect kết thúc
           }
 
-          return updatedFires;
+          if (fire.status === "burning") {
+            const tags = Object.values(locationsRef.current);
+            let isSomeoneStepping = false;
+            let isSomeoneExtinguishing = false;
+
+            for (const tag of tags) {
+              const dist = Math.sqrt(
+                Math.pow(tag.x - fire.coord_x, 2) +
+                  Math.pow(tag.y - fire.coord_y, 2),
+              );
+              if (dist <= 0.5) isSomeoneStepping = true;
+              if (dist <= 1.5) isSomeoneExtinguishing = true;
+            }
+
+            if (isSomeoneStepping) scorePenalty += 20;
+
+            if (isSomeoneExtinguishing) {
+              const requiredTime =
+                fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
+              const newProgress = fire.progress + 1;
+
+              if (newProgress >= requiredTime) {
+                fireStateChanged = true;
+                return {
+                  ...fire,
+                  status: "extinguished",
+                  progress: newProgress,
+                  level: 0,
+                };
+              }
+              return { ...fire, progress: newProgress };
+            } else {
+              return { ...fire, progress: 0 };
+            }
+          }
+          return fire;
         });
+
+        // 3. Trừ điểm phạt
+        setScore((s) => Math.max(0, s - 1 - scorePenalty));
+
+        // 4. GỬI MQTT ĐỘC LẬP (Đảm bảo chỉ gửi đúng 1 lần duy nhất)
+        if (fireStateChanged) {
+          const payloadArr = [];
+          updatedFires.forEach((f) => {
+            const xIdx = Math.floor(f.coord_x);
+            const yIdx = Math.floor(f.coord_y);
+            const cellId = yIdx * 10 + xIdx + 1;
+
+            let currentLevel = 0;
+            if (f.status === "burning") currentLevel = f.level;
+            else if (f.status === "extinguished" || f.status === "waiting")
+              currentLevel = 0;
+
+            payloadArr.push(`${cellId},${currentLevel}`);
+          });
+
+          const payloadStr = payloadArr.join(",");
+          axios
+            .post("http://localhost:8000/fire_update", { payload: payloadStr })
+            .catch((err) => console.error("MQTT Publish Error:", err));
+        }
+
+        // 5. Kiểm tra End Game
+        if (updatedFires.every((f) => f.status === "extinguished")) {
+          setTrainingState("finished");
+        }
+
+        // 6. Cập nhật lại bản sao (Ref) và Giao diện (State)
+        firesRef.current = updatedFires;
+        setSessionFires(updatedFires);
       }, 1000);
     } else {
       clearInterval(intervalRef.current);
     }
 
     return () => clearInterval(intervalRef.current);
-  }, [trainingState, timeElapsed]);
+  }, [trainingState, cols]);
 
   // 3. XỬ LÝ KHI KẾT THÚC BÀI TẬP (Lưu vào DB)
   useEffect(() => {
@@ -222,17 +248,47 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     if (!sc || sc.fires.length === 0)
       return alert("This scenario has no fires!");
 
-    // Khởi tạo các ngọn lửa với trạng thái chờ
     const initializedFires = sc.fires.map((f) => ({
       ...f,
-      status: "waiting", // waiting -> burning -> extinguished
+      status: "waiting",
       progress: 0,
     }));
 
+    // Cập nhật cả Ref lẫn State
+    firesRef.current = initializedFires;
     setSessionFires(initializedFires);
-    setScore(1000);
+
+    timeRef.current = 0;
     setTimeElapsed(0);
+    setScore(1000);
     setTrainingState("running");
+  };
+
+  const handleAbortTraining = () => {
+    // Ép tắt toàn bộ ngọn lửa trên TFT
+    if (firesRef.current.length > 0) {
+      const payloadArr = firesRef.current.map((f) => {
+        const xIdx = Math.floor(f.coord_x);
+        const yIdx = Math.floor(f.coord_y);
+        const cellId = yIdx * 10 + xIdx + 1;
+        return `${cellId},0`;
+      });
+      axios
+        .post("http://localhost:8000/fire_update", {
+          payload: payloadArr.join(","),
+        })
+        .catch((err) => console.error("Error:", err));
+    }
+
+    setTrainingState("idle");
+
+    // Reset toàn bộ Ref và State
+    firesRef.current = [];
+    setSessionFires([]);
+    timeRef.current = 0;
+    setTimeElapsed(0);
+    setScore(1000);
+    setSelectedScenarioId("free");
   };
 
   const handlePauseTraining = () => {
@@ -241,14 +297,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
   const handleResumeTraining = () => {
     setTrainingState("running");
-  };
-
-  const handleAbortTraining = () => {
-    setTrainingState("idle");
-    setSessionFires([]);
-    setTimeElapsed(0);
-    setScore(1000);
-    setSelectedScenarioId("free"); // Chuyển về Free để không bị văng ra Popup Start nữa
   };
 
   // === RENDER GIAO DIỆN LƯỚI ===
@@ -285,8 +333,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             <ArrowLeft size={20} />
           </button>
           <h2 className="rm-title-text">Monitor: Map #{mapData.map_info_id}</h2>
-        </div>
-        <div className="rm-action-area">
           <div className={`status-badge ${wsStatus}`}>
             {wsStatus === "connected" ? (
               <Wifi size={16} />
@@ -295,6 +341,8 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             )}
             {wsStatus === "connected" ? "Connected" : "Lost"}
           </div>
+        </div>
+        <div className="rm-action-area">
           {Object.entries(locations).map(([tagId, loc], idx) => {
             const color = TAG_COLORS[idx % TAG_COLORS.length];
             return (
@@ -329,14 +377,14 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         {trainingState === "running" && (
           <>
             <button
-              className="btn-outline-icon btn-outline-amber"
+              className="btn-outline-icon btn-outline-black"
               onClick={handlePauseTraining}
               title="Pause"
             >
               <Pause size={18} />
             </button>
             <button
-              className="btn-outline-icon btn-outline-red"
+              className="btn-outline-icon btn-outline-black"
               onClick={handleAbortTraining}
               title="End"
             >
@@ -348,14 +396,14 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         {trainingState === "paused" && (
           <>
             <button
-              className="btn-outline-icon btn-outline-emerald"
+              className="btn-outline-icon btn-outline-black"
               onClick={handleResumeTraining}
               title="Resume"
             >
               <Play size={18} />
             </button>
             <button
-              className="btn-outline-icon btn-outline-red"
+              className="btn-outline-icon btn-outline-black"
               onClick={handleAbortTraining}
               title="End"
             >
@@ -367,7 +415,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         {/* Nút Close (Hiện khi đã hoàn thành) */}
         {trainingState === "finished" && (
           <button
-            className="btn-outline-icon btn-outline-red"
+            className="btn-outline-icon btn-outline-black"
             onClick={handleAbortTraining}
             title="Close"
           >
