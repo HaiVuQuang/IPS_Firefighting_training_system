@@ -24,7 +24,8 @@ def init_async_bridge(loop: asyncio.AbstractEventLoop, callback):
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
         print("[Noti] ✅ Connected to MQTT Broker!")
-        client.subscribe("device_info/#")
+        client.subscribe("user_data_rssi/#")
+        client.subscribe("user_data_uwb/#")
         client.subscribe("2/uwb_ranging/#")
     else:
         print(f"[Err] ❌ Failed to connect MQTT, return code {reason_code}")
@@ -43,16 +44,22 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode()  #chuyển tin nhắn từ bytes -> string
 
-# Xử lý tin nhắn với topic "device_info"
-    if topic.startswith("device_info/"):
+# Xử lý tin nhắn với topic "user_data_rssi"
+    if topic.startswith("user_data_rssi/"):
 
         try:
             hex_id = topic.split('/')[1]
             payload_dict = json.loads(payload)  
+            yaw_val = payload_dict.get("yaw", 0.0)
+            valve_per_val = payload_dict.get("valve_per", 0.0) # Chiết áp 1: Độ mở van
+            spray_per_val = payload_dict.get("spray_per", 100.0) # Chiết áp 2: Phun chùm/tia
             validated = RSSIForTrainingSchema(**payload_dict)
             msg_dict = validated.model_dump()
-            msg_dict["data_type"] = "rssi"      # Thêm nhãn data_type
+            msg_dict["data_type"] = "user_data_rssi"      # Thêm nhãn data_type
             msg_dict["hex_id"] = hex_id
+            msg_dict["yaw"] = yaw_val
+            msg_dict["valve_per"] = valve_per_val
+            msg_dict["spray_per"] = spray_per_val
             _loop.call_soon_threadsafe(safe_callback, msg_dict)
             print(f"[MQTT] Received message: {msg_dict}")     
             
@@ -60,6 +67,17 @@ def on_message(client, userdata, msg):
             print(f"[Err] ❌ Invalid MQTT payload structure: {e}")
         except json.JSONDecodeError:
             print("[Err] ❌ Payload is not valid JSON")
+
+# Xử lý tin nhắn với topic bắt đầu bằng "user_data_uwb/"
+    elif topic.startswith("user_data_uwb/"):
+        try:
+            hex_id = topic.split('/')[1]
+            msg_dict = json.loads(payload)
+            msg_dict["data_type"] = "user_data_uwb"
+            msg_dict["hex_id"] = hex_id
+            _loop.call_soon_threadsafe(safe_callback, msg_dict)
+        except Exception as e:
+            print(f"[Err] ❌ Error parsing message: {e}")
 
 # Xử lý tin nhắn với topic bắt đầu bằng "2/uwb_ranging/" 
     elif topic.startswith("2/uwb_ranging/"):
@@ -84,7 +102,7 @@ def on_message(client, userdata, msg):
                 # Chỉ gửi bản tin lên Main xử lý nếu có ít nhất 1 Tag hợp lệ
                 if measurements:
                     uwb_msg = {
-                        "data_type": "uwb",
+                        "data_type": "uwb_ranging",
                         "beacon_id": beacon_id,
                         "measurements": measurements
                     }

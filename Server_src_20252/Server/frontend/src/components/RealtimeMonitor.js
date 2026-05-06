@@ -10,6 +10,7 @@ import {
   Pause,
   Timer,
   Trophy,
+  FireExtinguisher,
 } from "lucide-react";
 import "../assets/css/RealtimeMonitor.css";
 
@@ -31,6 +32,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const [score, setScore] = useState(1000);
   const [sessionFires, setSessionFires] = useState([]); // Chứa danh sách lửa và trạng thái của chúng
   const [countdown, setCountdown] = useState(null);
+  const [devices, setDevices] = useState([]);
 
   const intervalRef = useRef(null);
   const timeRef = useRef(0);
@@ -50,6 +52,11 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
     const initSystem = async () => {
       try {
+        // Fetch Danh sách thiết bị (THÊM ĐOẠN NÀY)
+        const devRes = await axios.get(
+          `http://localhost:8000/devices/${systemMode}`,
+        );
+        setDevices(devRes.data);
         // Load danh sách kịch bản
         const scRes = await axios.get(
           `http://localhost:8000/scenarios/${systemMode}/${mapData.map_info_id}`,
@@ -76,8 +83,13 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             const tagId = data.tag_id;
             if (tagId) {
               setLocations((prev) => {
-                const newLocs = { ...prev, [tagId]: data };
-                locationsRef.current = newLocs; // Cập nhật Ref liên tục
+                // MERGE: Gộp dữ liệu mới vào dữ liệu cũ.
+                // Nếu packet chỉ có yaw, tọa độ x,y cũ vẫn được giữ nguyên!
+                const newLocs = {
+                  ...prev,
+                  [tagId]: { ...(prev[tagId] || {}), ...data },
+                };
+                locationsRef.current = newLocs;
                 return newLocs;
               });
             }
@@ -317,9 +329,16 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     }
   }
 
+  const totalUnits = rows * cols - blocked.size;
+  const areaM2 = rows * cols;
+  const currentScenario = scenarios.find(
+    (s) => s.scenario_id === Number(selectedScenarioId),
+  );
+  const mapName = currentScenario ? currentScenario.scenario_name : "N/A";
+
   return (
     <div className="rm-container">
-      {/* HEADER CŨ */}
+      {/* HEADER GIỮ NGUYÊN */}
       <div
         className="rm-header"
         style={{ marginBottom: 0, paddingBottom: 0, borderBottom: "none" }}
@@ -339,230 +358,369 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             ) : (
               <WifiOff size={16} />
             )}
-            {wsStatus === "connected" ? "Connected" : "Lost"}
+            {wsStatus === "connected" ? "WebSocket Connected" : "Lost"}
           </div>
-        </div>
-        <div className="rm-action-area">
-          {Object.entries(locations).map(([tagId, loc], idx) => {
-            const color = TAG_COLORS[idx % TAG_COLORS.length];
-            return (
-              <div key={tagId} className="error-badge" style={{ color: color }}>
-                <strong>{tagId}</strong> |{" "}
-                {loc.type === "uwb"
-                  ? `Err: ${loc.error}m`
-                  : `Acc: ${loc.accuracy}%`}
-              </div>
-            );
-          })}
         </div>
       </div>
 
-      {/* TOOLBAR HUẤN LUYỆN MỚI */}
-      <div className="training-toolbar">
-        <select
-          className="input-field"
-          style={{ width: "250px", margin: 0 }}
-          value={selectedScenarioId}
-          onChange={(e) => setSelectedScenarioId(e.target.value)}
-          disabled={trainingState !== "idle"}
-        >
-          <option value="free">-- Select Scenario --</option>
-          {scenarios.map((sc) => (
-            <option key={sc.scenario_id} value={sc.scenario_id}>
-              {sc.scenario_name}
-            </option>
-          ))}
-        </select>
-
-        {trainingState === "running" && (
-          <>
-            <button
-              className="btn-outline-icon btn-outline-black"
-              onClick={handlePauseTraining}
-              title="Pause"
-            >
-              <Pause size={18} />
-            </button>
-            <button
-              className="btn-outline-icon btn-outline-black"
-              onClick={handleAbortTraining}
-              title="End"
-            >
-              <X size={18} />
-            </button>
-          </>
-        )}
-
-        {trainingState === "paused" && (
-          <>
-            <button
-              className="btn-outline-icon btn-outline-black"
-              onClick={handleResumeTraining}
-              title="Resume"
-            >
-              <Play size={18} />
-            </button>
-            <button
-              className="btn-outline-icon btn-outline-black"
-              onClick={handleAbortTraining}
-              title="End"
-            >
-              <X size={18} />
-            </button>
-          </>
-        )}
-
-        {/* Nút Close (Hiện khi đã hoàn thành) */}
-        {trainingState === "finished" && (
-          <button
-            className="btn-outline-icon btn-outline-black"
-            onClick={handleAbortTraining}
-            title="Close"
-          >
-            <X size={18} />
-          </button>
-        )}
-
-        {(trainingState === "running" ||
-          trainingState === "paused" ||
-          trainingState === "finished") && (
-          <div className="training-stats">
-            <div className="stat-box time-text">
-              <Timer size={16} /> {timeElapsed}s
-            </div>
-            <div className="stat-box score-text">
-              <Trophy size={16} /> {score}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="map-grid-section">
-        <div className="corner-empty"></div>
-        {/* TRỤC X & Y GIỮ NGUYÊN ... */}
-        <div
-          className="x-axis-container"
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
-          }}
-        >
-          {Array.from({ length: cols }, (_, i) => (
-            <div key={`x-${i}`} className="axis-label-box">
-              <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
-              <div className="axis-tick-x"></div>
-            </div>
-          ))}
-        </div>
-        <div
-          className="y-axis-container"
-          style={{
-            display: "grid",
-            gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
-          }}
-        >
-          {Array.from({ length: rows }, (_, i) => (
-            <div key={`y-${i}`} className="axis-label-box">
-              <span className="axis-text">
-                {(rows - 1 - i + 0.5).toFixed(1)}
-              </span>
-              <div className="axis-tick-y"></div>
-            </div>
-          ))}
-        </div>
-
-        {/* LƯỚI BẢN ĐỒ */}
-        <div
-          className="map-grid"
-          style={{
-            gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
-            gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
-          }}
-        >
-          {gridCells}
-
-          {/* VẼ BEACON UWB */}
-          {systemMode === "uwb" &&
-            mapData.beacon_location &&
-            Object.entries(mapData.beacon_location).map(([id, pos]) => (
-              <div
-                key={`beacon-${id}`}
-                className="beacon-dot-wrapper"
-                style={{
-                  left: `${pos.x * CELL_SIZE}px`,
-                  top: `${(rows - pos.y) * CELL_SIZE}px`,
-                }}
-              >
-                <div className="beacon-dot"></div>
-                <div className="beacon-number-label">{id}</div>
+      {/* --- PHÂN CHIA BỐ CỤC 2 CỘT --- */}
+      <div className="dashboard-split">
+        {/* ================= CỘT TRÁI: CÁC WIDGET ================= */}
+        <div className="dashboard-left">
+          {/* 1. WIDGET MAP INFO */}
+          <div className="big-widget">
+            <div className="widget-title">Map Info</div>
+            <div className="small-widgets-row">
+              <div className="small-widget">
+                <div className="sw-title">Area</div>
+                <div className="sw-value">{areaM2} m²</div>
               </div>
-            ))}
-
-          {/* VẼ NGỌN LỬA MÔ PHỎNG */}
-          {sessionFires.map((fire, idx) => {
-            if (fire.status === "waiting") return null; // Ẩn khi chưa tới lúc cháy
-
-            const requiredTime =
-              fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
-            const progressPercent = (fire.progress / requiredTime) * 100;
-
-            return (
-              <div
-                key={`fire-${idx}`}
-                className="sim-fire-wrapper"
-                style={{
-                  left: `${fire.coord_x * CELL_SIZE}px`,
-                  top: `${(rows - fire.coord_y) * CELL_SIZE}px`,
-                }}
-              >
-                {fire.status === "burning" ? (
-                  <>
-                    <div className="sim-fire-icon">🔥</div>
-                    {progressPercent > 0 && (
-                      <div className="sim-progress-bar">
-                        <div
-                          className="sim-progress-fill"
-                          style={{ width: `${progressPercent}%` }}
-                        ></div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="sim-extinguished"></div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* VẼ TAG DI CHUYỂN */}
-          {Object.entries(locations).map(([tagId, loc], idx) => {
-            const color = TAG_COLORS[idx % TAG_COLORS.length];
-            return (
-              <div
-                key={tagId}
-                className="radar-dot"
-                style={{
-                  left: `${loc.x * CELL_SIZE}px`,
-                  top: `${(rows - loc.y) * CELL_SIZE}px`,
-                }}
-              >
-                <div
-                  className="tag-base"
-                  style={{ boxShadow: `0 0 8px ${color}` }}
-                >
-                  <div
-                    className="tag-core"
-                    style={{ backgroundColor: color }}
-                  ></div>
+              <div className="small-widget">
+                <div className="sw-title">Name</div>
+                <div className="sw-value" style={{ fontSize: 16 }}>
+                  {mapName}
                 </div>
-                <span className="radar-label" style={{ color: color }}>
-                  {tagId}
-                </span>
+              </div>
+              <div className="small-widget">
+                <div className="sw-title">Total Units</div>
+                <div className="sw-value">{totalUnits}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. CÁC WIDGET THIẾT BỊ (Tạo linh động dựa trên số tag kết nối) */}
+          {Object.entries(locations).map(([tagId, loc], idx) => {
+            const color = TAG_COLORS[idx % TAG_COLORS.length];
+            const valve = loc.valve_per !== undefined ? loc.valve_per : 0;
+            const spray = loc.spray_per !== undefined ? loc.spray_per : 100;
+            // DÒ TÌM TÊN THIẾT BỊ TỪ STATE DEVICES
+            const deviceObj = devices.find((d) => d.device_hex_id === tagId);
+            const displayName = deviceObj
+              ? deviceObj.device_name
+              : "Unknown Device";
+
+            return (
+              <div className="big-widget" key={tagId}>
+                <div className="widget-title">
+                  {displayName}
+                  <span style={{ fontSize: 14, color: color }}>
+                    Hex_ID: {tagId}
+                  </span>
+                </div>
+
+                {/* USER INFO (Chỉ gồm 2 ô tọa độ vuông vức) */}
+                <div className="coord-row">
+                  <div className="coord-box">
+                    <span className="coord-label">Axis X:</span>
+                    <span className="coord-val">
+                      {loc.x !== undefined ? loc.x.toFixed(2) : "0.00"}
+                    </span>
+                  </div>
+                  <div className="coord-box">
+                    <span className="coord-label">Axis Y:</span>
+                    <span className="coord-val">
+                      {loc.y !== undefined ? loc.y.toFixed(2) : "0.00"}
+                    </span>
+                  </div>
+                  <div className="coord-box">
+                    <span className="coord-label">
+                      {loc.type === "uwb" ? "Error:" : "Acc:"}
+                    </span>
+                    <span className="coord-val" style={{ color: "#ef4444" }}>
+                      {loc.type === "uwb"
+                        ? `${loc.error !== undefined ? loc.error : "0.0"}m`
+                        : `${loc.accuracy !== undefined ? loc.accuracy : "0"}%`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* DEVICE INFO (Các vòng tròn Progress) */}
+                <div className="small-widgets-row">
+                  {/* Vòng tròn Valve: Gradient Xanh nước biển -> Tím -> Đỏ pastel */}
+                  <div className="small-widget">
+                    <div className="sw-title">Valve Opening</div>
+                    <div
+                      className="circle-prog"
+                      style={{
+                        background: `conic-gradient(#93c5fd 0%, #c4b5fd ${valve / 2}%, #fca5a5 ${valve}%, #f1f5f9 ${valve}%)`,
+                      }}
+                    >
+                      <div className="circle-inner">{valve}%</div>
+                    </div>
+                  </div>
+
+                  {/* Vòng tròn Spray: Gradient Xanh ngọc -> Xanh da trời -> Tím pastel */}
+                  <div className="small-widget">
+                    <div className="sw-title">Spray Mode</div>
+                    <div
+                      className="circle-prog"
+                      style={{
+                        background: `conic-gradient(#6ee7b7 0%, #7dd3fc ${spray / 2}%, #c4b5fd ${spray}%, #f1f5f9 ${spray}%)`,
+                      }}
+                    >
+                      <div className="circle-inner">{spray}%</div>
+                    </div>
+                  </div>
+
+                  {/* Icon Device Type */}
+                  <div className="small-widget">
+                    <div className="sw-title">Device Type</div>
+                    <div className="circle-prog">
+                      <FireExtinguisher size={36} color="#e02f2f" />
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
+
+        {/* ================= CỘT PHẢI: TOOLBAR VÀ MAP ================= */}
+        <div className="dashboard-right">
+          {/* TOOLBAR ĐẨY LÊN TRÊN MAP */}
+          <div className="training-toolbar">
+            <select
+              className="input-field"
+              style={{ width: "250px", margin: 0 }}
+              value={selectedScenarioId}
+              onChange={(e) => setSelectedScenarioId(e.target.value)}
+              disabled={trainingState !== "idle"}
+            >
+              <option value="free">-- Select Scenario --</option>
+              {scenarios.map((sc) => (
+                <option key={sc.scenario_id} value={sc.scenario_id}>
+                  {sc.scenario_name}
+                </option>
+              ))}
+            </select>
+
+            {trainingState === "running" && (
+              <>
+                <button
+                  className="btn-outline-icon btn-outline-black"
+                  onClick={handlePauseTraining}
+                  title="Pause"
+                >
+                  <Pause size={18} />
+                </button>
+                <button
+                  className="btn-outline-icon btn-outline-black"
+                  onClick={handleAbortTraining}
+                  title="End"
+                >
+                  <X size={18} />
+                </button>
+              </>
+            )}
+
+            {trainingState === "paused" && (
+              <>
+                <button
+                  className="btn-outline-icon btn-outline-black"
+                  onClick={handleResumeTraining}
+                  title="Resume"
+                >
+                  <Play size={18} />
+                </button>
+                <button
+                  className="btn-outline-icon btn-outline-black"
+                  onClick={handleAbortTraining}
+                  title="End"
+                >
+                  <X size={18} />
+                </button>
+              </>
+            )}
+
+            {trainingState === "finished" && (
+              <button
+                className="btn-outline-icon btn-outline-black"
+                onClick={handleAbortTraining}
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            )}
+
+            {(trainingState === "running" ||
+              trainingState === "paused" ||
+              trainingState === "finished") && (
+              <div className="training-stats">
+                <div className="stat-box time-text">
+                  <Timer size={16} /> {timeElapsed}s
+                </div>
+                <div className="stat-box score-text">
+                  <Trophy size={16} /> {score}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* BẢN ĐỒ */}
+          <div className="map-grid-section">
+            <div className="corner-empty"></div>
+            {/* TRỤC X & Y GIỮ NGUYÊN ... */}
+            <div
+              className="x-axis-container"
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
+              }}
+            >
+              {Array.from({ length: cols }, (_, i) => (
+                <div key={`x-${i}`} className="axis-label-box">
+                  <span className="axis-text">{(0.5 + i).toFixed(1)}</span>
+                  <div className="axis-tick-x"></div>
+                </div>
+              ))}
+            </div>
+            <div
+              className="y-axis-container"
+              style={{
+                display: "grid",
+                gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
+              }}
+            >
+              {Array.from({ length: rows }, (_, i) => (
+                <div key={`y-${i}`} className="axis-label-box">
+                  <span className="axis-text">
+                    {(rows - 1 - i + 0.5).toFixed(1)}
+                  </span>
+                  <div className="axis-tick-y"></div>
+                </div>
+              ))}
+            </div>
+
+            {/* LƯỚI BẢN ĐỒ */}
+            <div
+              className="map-grid"
+              style={{
+                gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
+                gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
+              }}
+            >
+              {gridCells}
+
+              {/* VẼ BEACON UWB */}
+              {systemMode === "uwb" &&
+                mapData.beacon_location &&
+                Object.entries(mapData.beacon_location).map(([id, pos]) => (
+                  <div
+                    key={`beacon-${id}`}
+                    className="beacon-dot-wrapper"
+                    style={{
+                      left: `${pos.x * CELL_SIZE}px`,
+                      top: `${(rows - pos.y) * CELL_SIZE}px`,
+                    }}
+                  >
+                    <div className="beacon-dot"></div>
+                    <div className="beacon-number-label">{id}</div>
+                  </div>
+                ))}
+
+              {/* VẼ NGỌN LỬA MÔ PHỎNG */}
+              {sessionFires.map((fire, idx) => {
+                if (fire.status === "waiting") return null;
+                const requiredTime =
+                  fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
+                const progressPercent = (fire.progress / requiredTime) * 100;
+                return (
+                  <div
+                    key={`fire-${idx}`}
+                    className="sim-fire-wrapper"
+                    style={{
+                      left: `${fire.coord_x * CELL_SIZE}px`,
+                      top: `${(rows - fire.coord_y) * CELL_SIZE}px`,
+                    }}
+                  >
+                    {fire.status === "burning" ? (
+                      <>
+                        <div className="sim-fire-icon">🔥</div>
+                        {progressPercent > 0 && (
+                          <div className="sim-progress-bar">
+                            <div
+                              className="sim-progress-fill"
+                              style={{ width: `${progressPercent}%` }}
+                            ></div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="sim-extinguished"></div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* VẼ TAG DI CHUYỂN, HÌNH QUẠT YAW */}
+              {Object.entries(locations).map(([tagId, loc], idx) => {
+                const hexColor = TAG_COLORS[idx % TAG_COLORS.length];
+                if (loc.x === undefined || loc.y === undefined) return null;
+
+                const valve = loc.valve_per !== undefined ? loc.valve_per : 0;
+                const spray = loc.spray_per !== undefined ? loc.spray_per : 100;
+
+                // --- 1. TÍNH TOÁN KÍCH THƯỚC VÀ GÓC CHO HÌNH QUẠT ---
+                const angle = 15 + (spray / 100) * (60 - 15);
+                const radiusM = 2.5 - (spray / 100) * (2.5 - 1.5);
+                const cellLengthMeters = Math.sqrt(
+                  mapData.area_of_one_unit || 1,
+                );
+                const radiusInCells = radiusM / cellLengthMeters;
+                const diameterPx = radiusInCells * CELL_SIZE * 2;
+                const startAngle = 360 - angle / 2;
+
+                // --- 2. HÀM CHUYỂN ĐỔI HEX SANG RGB ĐỂ CHỈNH OPACITY ---
+                // Cắt chuỗi HEX (VD: "#3b82f6") thành các cụm 2 ký tự và chuyển sang số nguyên
+                const r = parseInt(hexColor.slice(1, 3), 16);
+                const g = parseInt(hexColor.slice(3, 5), 16);
+                const b = parseInt(hexColor.slice(5, 7), 16);
+
+                // Tính toán độ mờ (Alpha) dựa trên Valve. (Valve 0 -> alpha 0. Valve 100 -> alpha 0.7)
+                // Giới hạn max alpha là 0.7 để tia nước trên bản đồ không che khuất chữ bên dưới.
+                const alpha = (valve / 100) * 0.7;
+
+                // Nối lại thành chuỗi màu RGBA hoàn chỉnh
+                const rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+
+                return (
+                  <div
+                    key={tagId}
+                    className="radar-dot"
+                    style={{
+                      left: `${loc.x * CELL_SIZE}px`,
+                      top: `${(rows - loc.y) * CELL_SIZE}px`,
+                    }}
+                  >
+                    <div
+                      className="yaw-cone"
+                      style={{
+                        width: `${diameterPx}px`,
+                        height: `${diameterPx}px`,
+                        transform: `translate(-50%, -50%) rotate(${loc.yaw || 0}deg)`,
+                        // ÁP DỤNG MÀU ĐỘNG CHỨA OPACITY VÀO ĐÂY
+                        background: `conic-gradient(from ${startAngle}deg, ${rgbaColor} 0deg, ${rgbaColor} ${angle}deg, transparent ${angle}deg)`,
+                      }}
+                    ></div>
+
+                    <div
+                      className="tag-base"
+                      style={{ boxShadow: `0 0 8px ${hexColor}` }}
+                    >
+                      <div
+                        className="tag-core"
+                        style={{ backgroundColor: hexColor }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* POPUP OVERLAY BẮT ĐẦU VÀ ĐẾM NGƯỢC */}
       {selectedScenarioId !== "free" && trainingState === "idle" && (
         <div className="rm-start-overlay">
           {countdown === null ? (
@@ -577,7 +735,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 className="rm-huge-play-btn"
                 onClick={handleInitiateTraining}
               >
-                {/* Dùng thuộc tính fill="white" để icon Play đặc lại, marginLeft để icon cân giữa hình tròn */}
                 <Play
                   size={54}
                   fill="white"

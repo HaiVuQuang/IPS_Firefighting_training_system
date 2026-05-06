@@ -40,7 +40,7 @@ function Scenarios({ mapData, systemMode, onBack }) {
     }
   };
 
-  // Đổi bài tập trong Dropdown
+  // Hàm chọn Screnario 
   const handleSelectScenario = (e) => {
     const val = e.target.value;
     setActiveScenarioId(val);
@@ -64,13 +64,11 @@ function Scenarios({ mapData, systemMode, onBack }) {
     const coordY = (rows - 1 - r + 0.5).toFixed(1);
     const key = `${coordX}:${coordY}`;
 
-    // Không cho đặt lửa lên ô bị chặn
     if (blocked.has(key)) {
       alert("Cannot place fire on a blocked cell!");
       return;
     }
 
-    // Nếu ô này đã có lửa, click vào để chỉnh sửa
     const existingFireIndex = fires.findIndex(
       (f) => f.coord_x === Number(coordX) && f.coord_y === Number(coordY),
     );

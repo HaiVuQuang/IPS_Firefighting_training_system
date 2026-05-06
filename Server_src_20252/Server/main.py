@@ -50,9 +50,35 @@ def handle_incoming_mqtt_data(msg_dict):
     global data_queue, ai_predictor, mqtt_client, KNOWN_RSSI_DEVICES, KNOWN_UWB_DEVICES
     data_type = msg_dict.get("data_type")
 
-    # /------------------------- XỬ LÝ DỮ LIỆU UWB RANGING ----------------------------/
-    if data_type == "uwb":
+    # /-------------------------- XỬ LÝ DỮ LIỆU UWB TỪ THIẾT BỊ ----------------------------/
+    if data_type == "user_data_uwb":
+        hex_id = msg_dict.get("hex_id")
+        yaw_val = msg_dict.get("yaw", 0.0)
+        valve_per_val = msg_dict.get("valve_per", 0.0)
+        spray_per_val = msg_dict.get("spray_per", 100.0)
         
+        # Bắn góc Yaw qua WebSocket
+        if hex_id and active_websockets:
+            for ws in active_websockets:
+                asyncio.create_task(ws.send_json({"tag_id": hex_id, "yaw": round(yaw_val, 1), "valve_per": round(valve_per_val, 1), "spray_per": round(spray_per_val, 1), "data_type": "uwb"}))
+                
+        # Tự động lưu thiết bị UWB mới vào DB
+        # if hex_id and hex_id not in KNOWN_UWB_DEVICES:
+        #     db = SessionLocal()
+        #     try:
+        #         new_dev = database_models.DeviceUWB(device_name=f"{hex_id}", device_hex_id=hex_id)
+        #         db.add(new_dev)
+        #         db.commit()
+        #         KNOWN_UWB_DEVICES.add(hex_id)
+        #         print(f"[Noti] 🌟 Found new UWB Device (IMU): {hex_id}")
+        #         for ws in device_manager_websockets:
+        #             asyncio.create_task(ws.send_json({"type": "new_device"}))
+        #     except Exception: pass
+        #     finally: db.close()
+        return
+
+    # /------------------------- XỬ LÝ DỮ LIỆU UWB RANGING ----------------------------/
+    if data_type == "uwb_ranging":
         beacon_id = msg_dict["beacon_id"]
         measurements = msg_dict["measurements"] 
         
@@ -120,10 +146,17 @@ def handle_incoming_mqtt_data(msg_dict):
         return
     # /---------------------------------------------------------------------------------/
     
-    # /-------------------------- XỬ LÝ DỮ LIỆU RSSI -----------------------------------/
-    if data_type == "rssi":
-        # Lưu RSSI Device
+    # /-------------------------- XỬ LÝ DỮ LIỆU RSSI TỪ THIẾT BỊ ----------------------------/
+    if data_type == "user_data_rssi":
+
         hex_id = msg_dict.get("hex_id")
+        yaw_val = msg_dict.get("yaw", 0.0)
+
+        # Bắn góc Yaw qua WebSocket
+        if hex_id and active_websockets:
+            for ws in active_websockets:
+                asyncio.create_task(ws.send_json({"tag_id": hex_id, "yaw": round(yaw_val, 1), "valve_per": round(valve_per_val, 1), "spray_per": round(spray_per_val, 1), "data_type": "rssi"}))
+
         if hex_id and hex_id not in KNOWN_RSSI_DEVICES:
             db = SessionLocal()
             try:

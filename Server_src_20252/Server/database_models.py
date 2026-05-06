@@ -58,10 +58,10 @@ class UwbMapInfo(Base):
     cols = Column(Integer)
     blocked_cells = Column(JSON, default=[])
   
-class DeviceInfo(Base):
-    __tablename__ = "device_info"
+class UserDataRSSI(Base):
+    __tablename__ = "user_data_rssi"
 
-    device_info_id = Column(Integer, primary_key=True)
+    user_data_rssi_id = Column(Integer, primary_key=True)
     rssi_wifi_1 = Column(Float)
     rssi_wifi_2 = Column(Float)
     rssi_wifi_3 = Column(Float)
@@ -79,9 +79,26 @@ class DeviceInfo(Base):
     gyrox = Column(Float)
     gyroy = Column(Float)
     gyroz = Column(Float)
-    eulerx = Column(Float)
-    eulery = Column(Float)
-    eulerz = Column(Float)
+    pitch = Column(Float)
+    roll = Column(Float)
+    yaw = Column(Float)
+
+class UserDataUWB(Base):
+    __tablename__ = "user_data_uwb"
+
+    user_data_uwb_id = Column(Integer, primary_key=True)
+    accx = Column(Float)
+    accy = Column(Float)
+    accz = Column(Float)
+    magx = Column(Float)
+    magy = Column(Float)
+    magz = Column(Float)
+    gyrox = Column(Float)
+    gyroy = Column(Float)
+    gyroz = Column(Float)
+    pitch = Column(Float)
+    roll = Column(Float)
+    yaw = Column(Float)
 
 class RSSIForTraining(Base):
     __tablename__ = "rssi_for_training"

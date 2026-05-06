@@ -63,9 +63,9 @@ class DeviceInfoSchema(BaseModel):
     gyrox: float
     gyroy: float
     gyroz: float
-    eulerx: float
-    eulery: float
-    eulerz: float
+    pitch: float
+    roll: float
+    yaw: float
 
 class RSSIForTrainingSchema(BaseModel):
     rssi_for_training_id: int | None = None
