@@ -55,7 +55,7 @@ def on_message(client, userdata, msg):
             spray_per_val = payload_dict.get("spray_per", 100.0) # Chiết áp 2: Phun chùm/tia
             validated = RSSIForTrainingSchema(**payload_dict)
             msg_dict = validated.model_dump()
-            msg_dict["data_type"] = "user_data_rssi"      # Thêm nhãn data_type
+            msg_dict["data_type"] = "user_data_rssi"
             msg_dict["hex_id"] = hex_id
             msg_dict["yaw"] = yaw_val
             msg_dict["valve_per"] = valve_per_val

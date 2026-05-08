@@ -11,6 +11,7 @@ import {
   Timer,
   Trophy,
   FireExtinguisher,
+  AlertTriangle,
 } from "lucide-react";
 import "../assets/css/RealtimeMonitor.css";
 
@@ -37,6 +38,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const intervalRef = useRef(null);
   const timeRef = useRef(0);
   const firesRef = useRef([]);
+  const [spreadWarning, setSpreadWarning] = useState(false);
 
   const rows = mapData.rows || 10;
   const cols = mapData.cols || 10;
@@ -123,30 +125,136 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         let scorePenalty = 0;
         let fireStateChanged = false;
 
-        // 2. Xử lý logic lửa dựa trên mảng firesRef (Rất an toàn, không bị chạy 2 lần)
+        // 2. Xử lý logic lửa
+        let newSpawnedFires = [];
         const updatedFires = firesRef.current.map((fire) => {
           if (fire.status === "extinguished") return fire;
 
           if (fire.status === "waiting") {
             if (timeRef.current >= fire.delay_time) {
               fireStateChanged = true;
-              return { ...fire, status: "burning" };
+              return { ...fire, status: "burning", burn_time: 0 };
             }
             return fire;
           }
 
           if (fire.status === "burning") {
+            // TĂNG THỜI GIAN CHÁY LÊN 1 GIÂY
+            fire.burn_time = (fire.burn_time || 0) + 1;
+
+            // --- LOGIC LỬA LAN (MỖI 30S) ---
+            if (fire.is_spreading && fire.burn_time % 30 === 0) {
+              // 8 Hướng xung quanh
+              const directions = [
+                [-1, -1],
+                [-1, 0],
+                [-1, 1],
+                [0, -1],
+                [0, 1],
+                [1, -1],
+                [1, 0],
+                [1, 1],
+              ];
+
+              const validAdjacent = [];
+
+              for (let [dx, dy] of directions) {
+                const nx = fire.coord_x + dx;
+                const ny = fire.coord_y + dy;
+
+                // Kiểm tra tọa độ có nằm trong Map không
+                if (nx >= 0.5 && nx <= cols && ny >= 0.5 && ny <= rows) {
+                  const key = `${nx.toFixed(1)}:${ny.toFixed(1)}`;
+
+                  // Kiểm tra xem ô đó có bị vật cản không
+                  if (!blocked.has(key)) {
+                    // Kiểm tra xem ô đó đã có ngọn lửa nào đang cháy/waiting chưa
+                    const isOccupied =
+                      firesRef.current.some(
+                        (f) =>
+                          f.coord_x === nx &&
+                          f.coord_y === ny &&
+                          f.status !== "extinguished",
+                      ) ||
+                      newSpawnedFires.some(
+                        (f) => f.coord_x === nx && f.coord_y === ny,
+                      );
+
+                    if (!isOccupied) {
+                      validAdjacent.push({ x: nx, y: ny });
+                    }
+                  }
+                }
+              }
+
+              // Nếu còn ô trống, chọn Random 1 ô để lây lan
+              if (validAdjacent.length > 0) {
+                const target =
+                  validAdjacent[
+                    Math.floor(Math.random() * validAdjacent.length)
+                  ];
+                newSpawnedFires.push({
+                  coord_x: target.x,
+                  coord_y: target.y,
+                  level: fire.level,
+                  is_spreading: true, // Lửa con cũng có khả năng lan tiếp
+                  status: "burning",
+                  progress: 0,
+                  burn_time: 0,
+                  delay_time: 0,
+                });
+                fireStateChanged = true;
+                setSpreadWarning(true); // Kích hoạt UI Cảnh báo
+              }
+            }
+
             const tags = Object.values(locationsRef.current);
             let isSomeoneStepping = false;
             let isSomeoneExtinguishing = false;
 
+            // Lấy độ dài của 1 ô vuông trên bản đồ (đơn vị: mét) để quy đổi
+            const cellLengthMeters = Math.sqrt(mapData.area_of_one_unit || 1);
+
             for (const tag of tags) {
-              const dist = Math.sqrt(
-                Math.pow(tag.x - fire.coord_x, 2) +
-                  Math.pow(tag.y - fire.coord_y, 2),
-              );
+              // Tính vector khoảng cách giữa Tag và Ngọn lửa
+              const dx = fire.coord_x - tag.x;
+              const dy = fire.coord_y - tag.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              // 1. Bị dẫm lên lửa (Bán kính <= 0.5 ô) -> Bị phạt điểm
               if (dist <= 0.5) isSomeoneStepping = true;
-              if (dist <= 1.5) isSomeoneExtinguishing = true;
+
+              // 2. LOGIC DẬP LỬA MỚI (DỰA VÀO HÌNH QUẠT)
+              const valve = tag.valve_per !== undefined ? tag.valve_per : 0;
+
+              // ĐIỀU KIỂN 1: Van mở
+              if (valve > 0) {
+                const spray = tag.spray_per !== undefined ? tag.spray_per : 100;
+
+                // Tính toán Giới hạn của hình quạt (Y hệt như logic vẽ CSS)
+                const sprayAngle = 15 + (spray / 100) * (60 - 15); // Góc quét
+                const radiusM = 2.5 - (spray / 100) * (2.5 - 1.5); // Tầm xa bằng mét
+                const radiusInCells = radiusM / cellLengthMeters; // Tầm xa quy đổi ra ô vuông
+
+                // ĐIỀU KIỆN 2: Ngọn lửa phải nằm trong tầm xa tia nước
+                if (dist <= radiusInCells) {
+                  // Tính góc thực tế từ Tag hướng tới Ngọn lửa
+                  // Dùng atan2(dx, dy) để gốc 0 độ hướng thẳng lên (North), giống hệt cảm biến yaw
+                  let angleToFire = Math.atan2(dx, dy) * (180 / Math.PI);
+                  if (angleToFire < 0) angleToFire += 360;
+
+                  const yaw = tag.yaw || 0;
+
+                  // Tính độ chênh lệch góc (Bao gồm cả xử lý quay vòng 360 độ)
+                  let diff = Math.abs((angleToFire - yaw + 360) % 360);
+                  if (diff > 180) diff = 360 - diff;
+
+                  // ĐIỀU KIỆN 3: Góc từ ngọn lửa đến tag < 1/2 góc hình quạt
+                  if (diff <= sprayAngle / 2) {
+                    isSomeoneExtinguishing = true;
+                  }
+                }
+              }
             }
 
             if (isSomeoneStepping) scorePenalty += 20;
@@ -172,6 +280,11 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           }
           return fire;
         });
+
+        // NẾU CÓ LỬA LAN, NHÉT NÓ VÀO MẢNG CHÍNH
+        if (newSpawnedFires.length > 0) {
+          updatedFires.push(...newSpawnedFires);
+        }
 
         // 3. Trừ điểm phạt
         setScore((s) => Math.max(0, s - 1 - scorePenalty));
@@ -212,9 +325,17 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     }
 
     return () => clearInterval(intervalRef.current);
-  }, [trainingState, cols]);
+  }, [trainingState, cols, mapData]);
 
-  // 3. XỬ LÝ KHI KẾT THÚC BÀI TẬP (Lưu vào DB)
+  //3. Tự động tắt cảnh báo lửa lan sau 2s
+  useEffect(() => {
+    if (spreadWarning) {
+      const timer = setTimeout(() => setSpreadWarning(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [spreadWarning]);
+
+  // 4. XỬ LÝ KHI KẾT THÚC BÀI TẬP (Lưu vào DB)
   useEffect(() => {
     if (trainingState === "finished") {
       alert(`Simulation Completed!\nTime: ${timeElapsed}s\nScore: ${score}`);
@@ -624,6 +745,13 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 const requiredTime =
                   fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
                 const progressPercent = (fire.progress / requiredTime) * 100;
+
+                const icon =
+                  fire.level === 1 ? "🪔" : fire.level === 2 ? "🔥" : "🌋";
+                const cssClass = fire.is_spreading
+                  ? "sim-fire-icon fire-spreading"
+                  : "sim-fire-icon";
+
                 return (
                   <div
                     key={`fire-${idx}`}
@@ -635,7 +763,10 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   >
                     {fire.status === "burning" ? (
                       <>
-                        <div className="sim-fire-icon">🔥</div>
+                        {/* ICON RENDER THEO LEVEL VÀ SPREAD */}
+                        <div className={`${cssClass} fire-lv${fire.level}`}>
+                          {icon}
+                        </div>
                         {progressPercent > 0 && (
                           <div className="sim-progress-bar">
                             <div
@@ -646,7 +777,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                         )}
                       </>
                     ) : (
-                      <div className="sim-extinguished"></div>
+                      <div className="sim-extinguished">💨</div>
                     )}
                   </div>
                 );
@@ -752,6 +883,28 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           ) : (
             <div className="rm-countdown-text">{countdown}</div>
           )}
+        </div>
+      )}
+
+      {spreadWarning && (
+        <div className="spread-warning-banner">
+          {/* Cột trái: Icon tam giác đỏ, ruột trắng */}
+          <div className="swb-icon">
+            <AlertTriangle
+              size={44}
+              fill="#ED5B1D"
+              color="white"
+              strokeWidth={2}
+            />
+          </div>
+
+          {/* Cột phải: Text 2 dòng */}
+          <div className="swb-content">
+            <div className="swb-title">WARNING!</div>
+            <div className="swb-desc">
+              The fire is spreading. Extinguish it immediately!
+            </div>
+          </div>
         </div>
       )}
     </div>

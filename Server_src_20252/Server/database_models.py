@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, JSON, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, Boolean, JSON, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -137,8 +137,9 @@ class ScenarioFire(Base):
     scenario_id = Column(Integer, ForeignKey("scenarios.scenario_id", ondelete="CASCADE"))
     coord_x = Column(Float)
     coord_y = Column(Float)
-    level = Column(Integer) # Mức độ cháy: 1, 2, 3
-    delay_time = Column(Integer) # Số giây đếm ngược trước khi lửa bùng lên
+    level = Column(Integer) 
+    delay_time = Column(Integer)
+    is_spreading = Column(Boolean, default=False) 
 
     scenario = relationship("Scenario", back_populates="fires")
 

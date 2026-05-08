@@ -728,7 +728,8 @@ def create_scenario(payload: ScenarioSchema, db: Session = Depends(get_db)):
             coord_x=fire.coord_x,
             coord_y=fire.coord_y,
             level=fire.level,
-            delay_time=fire.delay_time
+            delay_time=fire.delay_time,
+            is_spreading=fire.is_spreading
         )
         db.add(new_fire)
     
@@ -754,7 +755,8 @@ def get_scenarios(map_type: str, map_id: int, db: Session = Depends(get_db)):
                     "coord_x": f.coord_x,
                     "coord_y": f.coord_y,
                     "level": f.level,
-                    "delay_time": f.delay_time
+                    "delay_time": f.delay_time,
+                    "is_spreading": f.is_spreading
                 } for f in sc.fires
             ]
         })

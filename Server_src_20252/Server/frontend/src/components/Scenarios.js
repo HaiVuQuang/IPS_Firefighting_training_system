@@ -3,6 +3,7 @@ import axios from "axios";
 import {
   ArrowLeft,
   Flame,
+  FlameKindling,
   Plus,
   Trash2,
   CheckCircle2,
@@ -15,6 +16,7 @@ const CELL_SIZE = 38;
 function Scenarios({ mapData, systemMode, onBack }) {
   const [scenarios, setScenarios] = useState([]);
   const [activeScenarioId, setActiveScenarioId] = useState("new"); // ID bài tập
+  const [fireMode, setFireMode] = useState("normal"); // "normal" hoặc "spreading"
   const [scenarioName, setScenarioName] = useState("");
   const [fires, setFires] = useState([]);
   const [editingFire, setEditingFire] = useState(null);
@@ -40,7 +42,7 @@ function Scenarios({ mapData, systemMode, onBack }) {
     }
   };
 
-  // Hàm chọn Screnario 
+  // Hàm chọn Scenario
   const handleSelectScenario = (e) => {
     const val = e.target.value;
     setActiveScenarioId(val);
@@ -83,8 +85,14 @@ function Scenarios({ mapData, systemMode, onBack }) {
         coord_y: Number(coordY),
         level: 1,
         delay_time: 5,
+        is_spreading: fireMode === "spreading",
       });
     }
+  };
+
+  // Hàm lấy icon ngọn lửa theo level
+  const getFireIcon = (level) => {
+    return level === 1 ? "🪔" : level === 2 ? "🔥" : "🌋"; // Level 1: Đèn dầu, 2: Lửa, 3: Núi lửa
   };
 
   const handleSaveFire = () => {
@@ -181,7 +189,13 @@ function Scenarios({ mapData, systemMode, onBack }) {
           title={`Cell (${coordX}, ${coordY})`}
         >
           {hasRouter && <span className="router-icon">📡</span>}
-          {hasFire && <span className="fire-icon">🔥</span>}
+          {hasFire && (
+            <span
+              className={`fire-icon fire-lv${hasFire.level} ${hasFire.is_spreading ? "fire-spreading" : ""}`}
+            >
+              {getFireIcon(hasFire.level)}
+            </span>
+          )}
         </button>,
       );
     }
@@ -236,13 +250,23 @@ function Scenarios({ mapData, systemMode, onBack }) {
           <h2 className="map-title" style={{ fontSize: "1.2rem" }}>
             Scenario Config
           </h2>
+
           <div className="segmented-control">
-            <button type="button" className="segment-btn fire-mode active">
-              <Flame
-                size={20}
-                style={{ marginRight: 8, verticalAlign: "bottom" }}
-              />{" "}
-              Fire Mode
+            <button
+              className={`segment-btn fire-mode ${fireMode === "normal" ? "active" : ""}`}
+              onClick={() => setFireMode("normal")}
+            >
+              Normal
+              <br />
+              Fire
+            </button>
+            <button
+              className={`segment-btn spread-mode ${fireMode === "spreading" ? "active" : ""}`}
+              onClick={() => setFireMode("spreading")}
+            >
+              Spreading
+              <br />
+              Fire
             </button>
           </div>
 

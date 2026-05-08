@@ -95,6 +95,7 @@ class ScenarioFireSchema(BaseModel):
     coord_y: float
     level: int
     delay_time: int
+    is_spreading: bool = False
 
 class ScenarioSchema(BaseModel):
     map_info_id: int

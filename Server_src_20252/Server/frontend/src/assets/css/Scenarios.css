@@ -50,7 +50,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 100px; 
+  min-width: 100px;
   margin-right: 240px;
 }
 
@@ -80,6 +80,21 @@
   filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
   animation: fire-flicker 0.5s infinite alternate;
 }
+/* TẠO ICON THEO LEVEL */
+.fire-lv1 {
+  font-size: 16px;
+}
+.fire-lv2 {
+  font-size: 22px;
+}
+.fire-lv3 {
+  font-size: 28px;
+}
+
+/* CHUYỂN MÀU NẾU LÀ LỬA LAN (MÀU TÍM) */
+.fire-spreading {
+  filter: hue-rotate(250deg) drop-shadow(0 0 6px rgba(168, 85, 247, 0.8)) !important;
+}
 
 /* Hiệu ứng nhấp nháy cho ngọn lửa */
 @keyframes fire-flicker {
@@ -95,11 +110,18 @@
 
 /* Chế độ chọn ô trống để đặt lửa */
 .segment-btn.fire-mode {
-  color: #ef4444;
+  color: #1d1d1f;
 }
 .segment-btn.fire-mode.active {
   background: #fef2f2;
-  color: #ef4444;
+  color: #1d1d1f;
+}
+.segment-btn.spread-mode {
+  color: #1d1d1f;
+}
+.segment-btn.spread-mode.active {
+  background: #faf5ff;
+  color: #1d1d1f;
 }
 
 /* DANH SÁCH NGỌN LỬA Ở SIDEBAR */

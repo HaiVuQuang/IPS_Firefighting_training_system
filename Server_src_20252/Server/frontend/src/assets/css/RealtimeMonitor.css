@@ -145,6 +145,60 @@
   color: #ef4444;
 }
 
+/* POPUP CẢNH BÁO LỬA LAN KHẨN CẤP - SOFT UI STYLE */
+.spread-warning-banner {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ffe8da;
+  padding: 16px 30px 16px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 99999;
+  animation: popInWarning 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  min-width: 380px;
+}
+
+.swb-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swb-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.swb-title {
+  color: #6d1e17;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.swb-desc {
+  color: #b65146;
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 5px;
+}
+
+@keyframes popInWarning {
+  0% {
+    transform: translate(-50%, -100px);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
 /* NGỌN LỬA VÀ THANH TIẾN TRÌNH TRONG MONITOR */
 .sim-fire-wrapper {
   position: absolute;
