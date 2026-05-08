@@ -5,11 +5,19 @@ import {
   Flame,
   FlameKindling,
   Plus,
-  Trash2,
   CheckCircle2,
   SquarePen,
+  X,
+  Save,
+  Trash2,
 } from "lucide-react";
 import "../assets/css/Scenarios.css";
+import fire1Icon from "../assets/picture/fire_1.svg";
+import fire2Icon from "../assets/picture/fire_2.svg";
+import fire3Icon from "../assets/picture/fire_3.svg";
+import fireSpread1Icon from "../assets/picture/flames_1.svg";
+import fireSpread2Icon from "../assets/picture/flames_2.svg";
+import fireSpread3Icon from "../assets/picture/flames_3.svg";
 
 const CELL_SIZE = 38;
 
@@ -76,7 +84,7 @@ function Scenarios({ mapData, systemMode, onBack }) {
     );
 
     if (existingFireIndex >= 0) {
-      setEditingFire({ ...fires[existingFireIndex], index: existingFireIndex });
+      return;
     } else {
       // Nếu chưa có, bật popup tạo mới (Mặc định level 1, delay 5s)
       setEditingFire({
@@ -91,8 +99,16 @@ function Scenarios({ mapData, systemMode, onBack }) {
   };
 
   // Hàm lấy icon ngọn lửa theo level
-  const getFireIcon = (level) => {
-    return level === 1 ? "🪔" : level === 2 ? "🔥" : "🌋"; // Level 1: Đèn dầu, 2: Lửa, 3: Núi lửa
+  // prettier-ignore
+  const getFireIcon = (level, isSpreading) => {
+    if (isSpreading) {
+      if (level === 1) return <img src={fireSpread1Icon} alt="Spreading Level 1" className="fire-svg-icon" />;
+      if (level === 2) return <img src={fireSpread2Icon} alt="Spreading Level 2" className="fire-svg-icon" />;
+      return <img src={fireSpread3Icon} alt="Spreading Level 3" className="fire-svg-icon" />;
+    }
+    if (level === 1) return <img src={fire1Icon} alt="Fire Level 1" className="fire-svg-icon" />;
+    if (level === 2) return <img src={fire2Icon} alt="Fire Level 2" className="fire-svg-icon" />;
+    return <img src={fire3Icon} alt="Fire Level 3" className="fire-svg-icon" />;
   };
 
   const handleSaveFire = () => {
@@ -190,10 +206,8 @@ function Scenarios({ mapData, systemMode, onBack }) {
         >
           {hasRouter && <span className="router-icon">📡</span>}
           {hasFire && (
-            <span
-              className={`fire-icon fire-lv${hasFire.level} ${hasFire.is_spreading ? "fire-spreading" : ""}`}
-            >
-              {getFireIcon(hasFire.level)}
+            <span className={`fire-icon`}>
+              {getFireIcon(hasFire.level, hasFire.is_spreading)}
             </span>
           )}
         </button>,
@@ -226,55 +240,50 @@ function Scenarios({ mapData, systemMode, onBack }) {
             <CheckCircle2 size={18} /> {message}
           </div>
         )}
-
-        {/* Đưa selector-box lên đây */}
-        <div className="scenario-selector-box">
-          <select
-            className="scenario-select"
-            value={activeScenarioId}
-            onChange={handleSelectScenario}
-          >
-            <option value="new">-- Create New Scenario --</option>
-            {scenarios.map((sc) => (
-              <option key={sc.scenario_id} value={sc.scenario_id}>
-                {sc.scenario_name}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <div className="map-editor">
         {/* CỘT TRÁI: SIDEBAR CẤU HÌNH */}
         <div className="map-sidebar">
-          <h2 className="map-title" style={{ fontSize: "1.2rem" }}>
-            Scenario Config
-          </h2>
-
-          <div className="segmented-control">
-            <button
-              className={`segment-btn fire-mode ${fireMode === "normal" ? "active" : ""}`}
-              onClick={() => setFireMode("normal")}
+          {/* SELECT CHỌN SCENARIO */}
+          <div className="scenario-selector-box">
+            <select
+              className="scenario-select"
+              value={activeScenarioId}
+              onChange={handleSelectScenario}
             >
-              Normal
-              <br />
-              Fire
-            </button>
+              <option value="new">-- Create New Scenario --</option>
+              {scenarios.map((sc) => (
+                <option key={sc.scenario_id} value={sc.scenario_id}>
+                  {sc.scenario_name}
+                </option>
+              ))}
+            </select>
             <button
-              className={`segment-btn spread-mode ${fireMode === "spreading" ? "active" : ""}`}
-              onClick={() => setFireMode("spreading")}
+              className="btn-icon-square btn-icon-save"
+              onClick={handleSaveScenario}
+              title="Save Scenario"
             >
-              Spreading
-              <br />
-              Fire
+              <Save size={18} />
             </button>
+            {activeScenarioId !== "new" && (
+              <button
+                className="btn-icon-square btn-icon-delete"
+                onClick={handleDeleteScenario}
+                title="Delete Scenario"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
           </div>
+          {/* Cửa sổ Scenario Config */}
+          <h2 className="map-title">Scenario Config</h2>
 
-          <div style={{ marginBottom: 10 }}>
+          <div className="scenario-name-wrapper">
             <label className="input-label">
               Scenario Name
               <input
-                className="input-field"
+                className="input-field-name"
                 value={scenarioName}
                 onChange={(e) => setScenarioName(e.target.value)}
                 placeholder="e.g. D8-802"
@@ -282,21 +291,27 @@ function Scenarios({ mapData, systemMode, onBack }) {
             </label>
           </div>
 
-          <div className="inspector-panel" style={{ flex: 1 }}>
+          <div className="inspector-panel">
             <div className="beacon-list-title">
               Fire Points (Total: {fires.length})
             </div>
-            <p style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-              Click any blank cell to set fire.
-            </p>
+            {fires.length === 0 && (
+              <p className="inspector-hint">
+                Click any blank cell to set fire.
+              </p>
+            )}
 
             <div className="beacon-list-container">
               {fires.map((f, i) => (
                 <div key={i} className="fire-item">
-                  <div className="fire-chip">🔥</div>
+                  {/* ĐÃ SỬA: Hiển thị đúng SVG của ngọn lửa thay vì Emoji */}
+                  <div className="fire-chip">
+                    {getFireIcon(f.level, f.is_spreading)}
+                  </div>
+
                   <div className="fire-info">
                     <div>
-                      x : <strong>{f.coord_x}</strong> | y : {""}
+                      x : <strong>{f.coord_x}</strong> | y :{" "}
                       <strong>{f.coord_y}</strong>
                     </div>
                     <div>
@@ -304,47 +319,38 @@ function Scenarios({ mapData, systemMode, onBack }) {
                       <strong>{f.delay_time}s</strong>
                     </div>
                   </div>
-
-                  {/* BỎ ĐIỀU KIỆN ẨN, LUÔN HIỆN NÚT EDIT VÀ DELETE */}
-                  <div className="beacon-actions">
-                    <button
-                      className="btn-edit-small"
-                      onClick={() => setEditingFire({ ...f, index: i })}
-                      title="Edit Fire"
-                    >
-                      <SquarePen size={14} />
-                    </button>
-                    <button
-                      className="btn-delete-small"
-                      onClick={() => handleDeleteFire(i)}
-                      title="Delete Fire"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="sidebar-footer">
-            <button className="btn-blue" onClick={handleSaveScenario}>
-              Save
-            </button>
-            {activeScenarioId !== "new" && (
-              <button
-                className="btn-pink"
-                onClick={handleDeleteScenario}
-                title="Delete Scenario"
-              >
-                Delete
-              </button>
-            )}
           </div>
         </div>
 
         {/* CỘT PHẢI: LƯỚI BẢN ĐỒ */}
         <div className="map-canvas">
+          <div className="segmented-control map-floating-segment">
+            <button
+              className={`segment-btn fire-mode ${fireMode === "normal" ? "active" : ""}`}
+              onClick={() => setFireMode("normal")}
+              title="Normal Fire Mode"
+            >
+              <img
+                src={fire2Icon}
+                alt="Normal Fire"
+                className="segment-icon-img"
+              />
+            </button>
+            <button
+              className={`segment-btn spread-mode ${fireMode === "spreading" ? "active" : ""}`}
+              onClick={() => setFireMode("spreading")}
+              title="Spreading Fire Mode"
+            >
+              <img
+                src={fireSpread3Icon}
+                alt="Spreading Fire"
+                className="segment-icon-img"
+              />
+            </button>
+          </div>
           <div className="map-grid-section">
             <div className="corner-empty"></div>
             {/* TRỤC X */}
@@ -387,7 +393,66 @@ function Scenarios({ mapData, systemMode, onBack }) {
                 gridTemplateRows: `repeat(${rows}, ${CELL_SIZE}px)`,
               }}
             >
-              {gridCells}
+              {/* LƯỚI BẢN ĐỒ VÀ HOVER NGỌN LỬA */}
+              {gridCells.map((cell) => {
+                const c = Number(cell.key.split(":")[0]) - 0.5;
+                const r = rows - 1 - (Number(cell.key.split(":")[1]) - 0.5);
+                const isBlocked = blocked.has(cell.key);
+                const hasRouter = routers.has(cell.key);
+                const hasFire = fires.find(
+                  (f) =>
+                    f.coord_x === c + 0.5 && f.coord_y === rows - 1 - r + 0.5,
+                );
+
+                return (
+                  <button
+                    key={cell.key}
+                    type="button"
+                    className={`map-cell ${isBlocked ? "blocked" : ""} ${hasRouter ? "router-cell" : ""}`}
+                    onClick={() => handleCellClick(r, c)}
+                    title={`Cell (${cell.key.replace(":", ", ")})`}
+                  >
+                    {hasRouter && <span className="router-icon">📡</span>}
+
+                    {/* KHỐI NGỌN LỬA VÀ 2 NÚT HOVER */}
+                    {hasFire && (
+                      <div className="fire-on-map-wrapper">
+                        <span className="fire-icon">
+                          {getFireIcon(hasFire.level, hasFire.is_spreading)}
+                        </span>
+
+                        <div className="fire-hover-actions">
+                          <button
+                            type="button"
+                            className="fire-action-btn edit-btn"
+                            onClick={(e) => {
+                              e.stopPropagation(); // CỰC KỲ QUAN TRỌNG: Ngăn click lan xuống nền map
+                              setEditingFire({
+                                ...hasFire,
+                                index: fires.indexOf(hasFire),
+                              });
+                            }}
+                            title="Edit Fire"
+                          >
+                            <SquarePen size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            className="fire-action-btn delete-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFire(fires.indexOf(hasFire));
+                            }}
+                            title="Delete Fire"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
 
               {/* VẼ BEACON VỚI MODE UWB */}
               {systemMode === "uwb" &&
@@ -414,13 +479,10 @@ function Scenarios({ mapData, systemMode, onBack }) {
       {editingFire && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              Fire Configuration
-            </h3>
-            <p style={{ fontSize: 14, color: "#64748b", marginBottom: 15 }}>
+            <h3 className="modal-header-title">Fire Configuration</h3>
+            <p className="s-modal-subtitle">
               Coordinate: x={editingFire.coord_x}, y={editingFire.coord_y}
             </p>
-
             <div className="modal-form">
               <label className="input-label">
                 Fire Level

@@ -14,6 +14,12 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import "../assets/css/RealtimeMonitor.css";
+import fire1Icon from "../assets/picture/fire_1.svg";
+import fire2Icon from "../assets/picture/fire_2.svg";
+import fire3Icon from "../assets/picture/fire_3.svg";
+import fireSpread1Icon from "../assets/picture/flames_1.svg";
+import fireSpread2Icon from "../assets/picture/flames_2.svg";
+import fireSpread3Icon from "../assets/picture/flames_3.svg";
 
 const TAG_COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#ef4444", "#f59e0b"];
 const CELL_SIZE = 38;
@@ -746,8 +752,77 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
                 const progressPercent = (fire.progress / requiredTime) * 100;
 
-                const icon =
-                  fire.level === 1 ? "🪔" : fire.level === 2 ? "🔥" : "🌋";
+                // --- PHÂN LOẠI ICON ---
+                let icon;
+                if (fire.is_spreading) {
+                  icon =
+                    fire.level === 1 ? (
+                      <img
+                        src={fireSpread1Icon}
+                        alt="Spreading Fire Level 1"
+                        style={{
+                          width: "1.2em",
+                          height: "1.2em",
+                          display: "block",
+                        }}
+                      />
+                    ) : fire.level === 2 ? (
+                      <img
+                        src={fireSpread2Icon}
+                        alt="Spreading Fire Level 2"
+                        style={{
+                          width: "1.2em",
+                          height: "1.2em",
+                          display: "block",
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={fireSpread3Icon}
+                        alt="Spreading Fire Level 3"
+                        style={{
+                          width: "1.2em",
+                          height: "1.2em",
+                          display: "block",
+                        }}
+                      />
+                    );
+                } else {
+                  // Nếu là lửa thường -> Kiểm tra level (GIỮ NGUYÊN BÊN DƯỚI)
+                  icon =
+                    fire.level === 1 ? (
+                      <img
+                        src={fire1Icon}
+                        alt="Fire Level 1"
+                        style={{
+                          width: "1.2em",
+                          height: "1.2em",
+                          display: "block",
+                        }}
+                      />
+                    ) : fire.level === 2 ? (
+                      <img
+                        src={fire2Icon}
+                        alt="Fire Level 2"
+                        style={{
+                          width: "1.2em",
+                          height: "1.2em",
+                          display: "block",
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={fire3Icon}
+                        alt="Fire Level 3"
+                        style={{
+                          width: "1.2em",
+                          height: "1.2em",
+                          display: "block",
+                        }}
+                      />
+                    );
+                }
+
                 const cssClass = fire.is_spreading
                   ? "sim-fire-icon fire-spreading"
                   : "sim-fire-icon";
@@ -777,7 +852,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                         )}
                       </>
                     ) : (
-                      <div className="sim-extinguished">💨</div>
+                      <div className="sim-extinguished"></div>
                     )}
                   </div>
                 );
