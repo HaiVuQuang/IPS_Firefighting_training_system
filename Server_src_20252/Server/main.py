@@ -5,7 +5,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, text
+from sqlalchemy import desc, text, func
 from contextlib import asynccontextmanager
 from collections import deque
 
@@ -307,7 +307,11 @@ def login(user: UserSchema, db: Session = Depends(get_db)):
     ).first()
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    return {"message": "Login successful"}
+    return {
+        "message": "Login successful",
+        "user_id": db_user.id,
+        "username": db_user.username
+    }
 # =====================================================================
 # API QUẢN LÝ THIẾT BỊ 
 # =====================================================================
@@ -784,9 +788,11 @@ def delete_scenario(scenario_id: int, db: Session = Depends(get_db)):
 @app.post("/training_history")
 def save_training_history(payload: TrainingHistorySchema, db: Session = Depends(get_db)):
     history = database_models.TrainingHistory(
-        username=payload.username,
+        user_id=payload.user_id,
         scenario_id=payload.scenario_id,
         device_hex_id=payload.device_hex_id,
+        time_elapsed=payload.time_elapsed,   
+        end_time=func.now(),
         score=payload.score
     )
     db.add(history)
@@ -797,26 +803,29 @@ def save_training_history(payload: TrainingHistorySchema, db: Session = Depends(
 def get_training_history(db: Session = Depends(get_db)):
     records = db.query(
         database_models.TrainingHistory.history_id,
+        database_models.User.username,
         database_models.TrainingHistory.scenario_id,
         database_models.TrainingHistory.device_hex_id,
         database_models.TrainingHistory.score,
         database_models.TrainingHistory.start_time,
+        database_models.TrainingHistory.end_time,
+        database_models.TrainingHistory.time_elapsed,
         database_models.Scenario.scenario_name
-    ).join(
-        database_models.Scenario, 
-        database_models.TrainingHistory.scenario_id == database_models.Scenario.scenario_id
-    ).order_by(
+        ).join(database_models.User).join(database_models.Scenario).order_by(
         desc(database_models.TrainingHistory.start_time)
     ).all()
 
     return [
         {
             "history_id": r.history_id,
+            "username": r.username,
             "scenario_id": r.scenario_id,
             "scenario_name": r.scenario_name,
             "device_hex_id": r.device_hex_id,
             "score": r.score,
-            "start_time": r.start_time
+            "start_time": r.start_time,
+            "end_time": r.end_time,
+            "time_elapsed": r.time_elapsed
         }
         for r in records
     ]

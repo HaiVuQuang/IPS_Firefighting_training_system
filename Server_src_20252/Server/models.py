@@ -104,7 +104,8 @@ class ScenarioSchema(BaseModel):
     fires: List[ScenarioFireSchema] = []
 
 class TrainingHistorySchema(BaseModel):
-    username: str
+    user_id: int
     scenario_id: int
     device_hex_id: str
+    time_elapsed: int
     score: int
