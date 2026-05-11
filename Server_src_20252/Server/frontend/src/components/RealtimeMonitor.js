@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import "../assets/css/RealtimeMonitor.css";
+import { useMessage } from "./MessageModal";
 import fire1Icon from "../assets/picture/fire_1.svg";
 import fire2Icon from "../assets/picture/fire_2.svg";
 import fire3Icon from "../assets/picture/fire_3.svg";
@@ -28,8 +29,13 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   // === STATE CƠ BẢN CỦA IPS ===
   const [wsStatus, setWsStatus] = useState("connecting");
   const [locations, setLocations] = useState({});
-  const locationsRef = useRef({}); // Dùng Ref để lưu toạ độ mới nhất, phục vụ vòng lặp Game
+  const locationsRef = useRef({}); // Dùng Ref để lưu toạ độ mới nhất, phục vụ vòng lặp huấn luyện
   const hasInitialized = useRef(false);
+  const [devices, setDevices] = useState([]);
+  const rows = mapData.rows || 10;
+  const cols = mapData.cols || 10;
+  const blocked = new Set(mapData.blocked_cells || []);
+  const routers = new Set(mapData.router_location || []);
 
   // === STATE CỦA HỆ THỐNG HUẤN LUYỆN ===
   const [scenarios, setScenarios] = useState([]);
@@ -37,21 +43,16 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const [trainingState, setTrainingState] = useState("idle"); // "idle", "running", "finished"
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [score, setScore] = useState(1000);
-  const [sessionFires, setSessionFires] = useState([]); // Chứa danh sách lửa và trạng thái của chúng
+  const [sessionFires, setSessionFires] = useState([]); // Chứa danh sách lửa và trạng thái
   const [countdown, setCountdown] = useState(null);
-  const [devices, setDevices] = useState([]);
-
   const intervalRef = useRef(null);
   const timeRef = useRef(0);
   const firesRef = useRef([]);
   const [spreadWarning, setSpreadWarning] = useState(false);
 
-  const rows = mapData.rows || 10;
-  const cols = mapData.cols || 10;
-  const blocked = new Set(mapData.blocked_cells || []);
-  const routers = new Set(mapData.router_location || []);
+  const { showAlert } = useMessage();
 
-  // 1. GỌI API LOAD MODEL & LOAD SCENARIOS
+  // 1. HOOK GỌI API LOAD MODEL & LOAD SCENARIOS
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
@@ -60,18 +61,18 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
     const initSystem = async () => {
       try {
-        // Fetch Danh sách thiết bị (THÊM ĐOẠN NÀY)
+        // Fetch danh sách thiết bị
         const devRes = await axios.get(
           `http://localhost:8000/devices/${systemMode}`,
         );
         setDevices(devRes.data);
-        // Load danh sách kịch bản
+        // Fetch danh sách kịch bản
         const scRes = await axios.get(
           `http://localhost:8000/scenarios/${systemMode}/${mapData.map_info_id}`,
         );
         setScenarios(scRes.data);
 
-        // Load model AI / UWB
+        // Fetch map dùng model AI và UWB trilateration
         if (systemMode === "uwb") {
           await axios.post(
             `http://localhost:8000/set_active_uwb_map/${mapData.map_info_id}`,
@@ -91,11 +92,10 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             const tagId = data.tag_id;
             if (tagId) {
               setLocations((prev) => {
-                // MERGE: Gộp dữ liệu mới vào dữ liệu cũ.
-                // Nếu packet chỉ có yaw, tọa độ x,y cũ vẫn được giữ nguyên!
+                // Merge dữ liệu góc yaw vào dữ liệu tọa độ
                 const newLocs = {
                   ...prev,
-                  [tagId]: { ...(prev[tagId] || {}), ...data },
+                  [tagId]: { ...(prev[tagId] || {}), ...data }, // Nếu packet chỉ có yaw, tọa độ x,y cũ vẫn được giữ nguyên
                 };
                 locationsRef.current = newLocs;
                 return newLocs;
@@ -107,7 +107,8 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         };
         ws.onclose = () => setWsStatus("error");
       } catch (err) {
-        alert(
+        showAlert(
+          "Warning",
           `Setup failed for Map #${mapData?.map_info_id}. Train model first if using RSSI!`,
         );
         onBack();
@@ -120,18 +121,18 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     };
   }, [mapData?.map_info_id, systemMode]);
 
-  // 2. VÒNG LẶP HUẤN LUYỆN (Chạy mỗi 1 giây)
+  // 2. HOOK VÒNG LẶP HUẤN LUYỆN (Chạy mỗi 1 giây)
   useEffect(() => {
     if (trainingState === "running") {
       intervalRef.current = setInterval(() => {
-        // 1. Tăng thời gian (Dùng timeRef để không bị ảnh hưởng bởi React State)
+        // Tăng time + 1s
         timeRef.current += 1;
         setTimeElapsed(timeRef.current);
 
         let scorePenalty = 0;
         let fireStateChanged = false;
 
-        // 2. Xử lý logic lửa
+        // Xử lý logic lửa
         let newSpawnedFires = [];
         const updatedFires = firesRef.current.map((fire) => {
           if (fire.status === "extinguished") return fire;
@@ -145,21 +146,14 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           }
 
           if (fire.status === "burning") {
-            // TĂNG THỜI GIAN CHÁY LÊN 1 GIÂY
+            // Tăng thời gian cháy + 1s
             fire.burn_time = (fire.burn_time || 0) + 1;
 
-            // --- LOGIC LỬA LAN (MỖI 30S) ---
+            // Logic lửa lan (sau mỗi 30s)
+            // prettier-ignore
             if (fire.is_spreading && fire.burn_time % 30 === 0) {
-              // 8 Hướng xung quanh
               const directions = [
-                [-1, -1],
-                [-1, 0],
-                [-1, 1],
-                [0, -1],
-                [0, 1],
-                [1, -1],
-                [1, 0],
-                [1, 1],
+                [-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1],
               ];
 
               const validAdjacent = [];
@@ -172,9 +166,9 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 if (nx >= 0.5 && nx <= cols && ny >= 0.5 && ny <= rows) {
                   const key = `${nx.toFixed(1)}:${ny.toFixed(1)}`;
 
-                  // Kiểm tra xem ô đó có bị vật cản không
+                  // Kiểm tra xem ô đó có bị block không
                   if (!blocked.has(key)) {
-                    // Kiểm tra xem ô đó đã có ngọn lửa nào đang cháy/waiting chưa
+                    // Kiểm tra xem ô đó đã có ngọn lửa nào đang cháy không
                     const isOccupied =
                       firesRef.current.some(
                         (f) =>
@@ -203,56 +197,58 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   coord_x: target.x,
                   coord_y: target.y,
                   level: fire.level,
-                  is_spreading: true, // Lửa con cũng có khả năng lan tiếp
+                  is_spreading: true,
                   status: "burning",
                   progress: 0,
                   burn_time: 0,
                   delay_time: 0,
                 });
                 fireStateChanged = true;
-                setSpreadWarning(true); // Kích hoạt UI Cảnh báo
+                setSpreadWarning(true);
               }
             }
 
+            // LOGIC DẬP LỬA
             const tags = Object.values(locationsRef.current);
             let isSomeoneStepping = false;
             let isSomeoneExtinguishing = false;
 
-            // Lấy độ dài của 1 ô vuông trên bản đồ (đơn vị: mét) để quy đổi
+            // Lấy độ dài của 1 ô vuông trên bản đồ (m) để quy đổi sang px
             const cellLengthMeters = Math.sqrt(mapData.area_of_one_unit || 1);
 
             for (const tag of tags) {
-              // Tính vector khoảng cách giữa Tag và Ngọn lửa
+              // Tính khoảng cách giữa Tag và Ngọn lửa
               const dx = fire.coord_x - tag.x;
               const dy = fire.coord_y - tag.y;
               const dist = Math.sqrt(dx * dx + dy * dy);
 
-              // 1. Bị dẫm lên lửa (Bán kính <= 0.5 ô) -> Bị phạt điểm
+              // Dẫm lên lửa -> Bị trừ điểm
               if (dist <= 0.5) isSomeoneStepping = true;
 
-              // 2. LOGIC DẬP LỬA MỚI (DỰA VÀO HÌNH QUẠT)
               const valve = tag.valve_per !== undefined ? tag.valve_per : 0;
 
               // ĐIỀU KIỂN 1: Van mở
               if (valve > 0) {
                 const spray = tag.spray_per !== undefined ? tag.spray_per : 100;
 
-                // Tính toán Giới hạn của hình quạt (Y hệt như logic vẽ CSS)
+                // Tính toán giới hạn của hình quạt
                 const sprayAngle = 15 + (spray / 100) * (60 - 15); // Góc quét
-                const radiusM = 2.5 - (spray / 100) * (2.5 - 1.5); // Tầm xa bằng mét
-                const radiusInCells = radiusM / cellLengthMeters; // Tầm xa quy đổi ra ô vuông
+                const radiusM = 2.5 - (spray / 100) * (2.5 - 1.5); // Tầm xa
+                const radiusInCells = radiusM / cellLengthMeters; // Tầm xa quy đổi theo ô vuông
 
-                // ĐIỀU KIỆN 2: Ngọn lửa phải nằm trong tầm xa tia nước
+                // ĐIỀU KIỆN 2: Ngọn lửa phải nằm trong tầm xa
                 if (dist <= radiusInCells) {
                   // Tính góc thực tế từ Tag hướng tới Ngọn lửa
-                  // Dùng atan2(dx, dy) để gốc 0 độ hướng thẳng lên (North), giống hệt cảm biến yaw
+                  // Dùng atan2(dx, dy) để gốc 0 độ hướng thẳng lên (North), giống cảm biến yaw
                   let angleToFire = Math.atan2(dx, dy) * (180 / Math.PI);
                   if (angleToFire < 0) angleToFire += 360;
 
-                  const yaw = tag.yaw || 0;
+                  const rawYaw = tag.yaw || 0;
+                  const northOffset = mapData.north_offset || 0; // Lấy từ mapData
+                  const realYaw = (rawYaw + northOffset + 360) % 360;
 
-                  // Tính độ chênh lệch góc (Bao gồm cả xử lý quay vòng 360 độ)
-                  let diff = Math.abs((angleToFire - yaw + 360) % 360);
+                  // Tính độ chênh lệch góc giữa hướng Tag và hướng ngọn lửa
+                  let diff = Math.abs((angleToFire - realYaw + 360) % 360);
                   if (diff > 180) diff = 360 - diff;
 
                   // ĐIỀU KIỆN 3: Góc từ ngọn lửa đến tag < 1/2 góc hình quạt
@@ -287,15 +283,15 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           return fire;
         });
 
-        // NẾU CÓ LỬA LAN, NHÉT NÓ VÀO MẢNG CHÍNH
+        // Có lửa lan -> cập nhật vào mảng
         if (newSpawnedFires.length > 0) {
           updatedFires.push(...newSpawnedFires);
         }
 
-        // 3. Trừ điểm phạt
+        // Trừ điểm phạt
         setScore((s) => Math.max(0, s - 1 - scorePenalty));
 
-        // 4. GỬI MQTT ĐỘC LẬP (Đảm bảo chỉ gửi đúng 1 lần duy nhất)
+        // Gửi MQTT id ô chứa lửa và level
         if (fireStateChanged) {
           const payloadArr = [];
           updatedFires.forEach((f) => {
@@ -317,12 +313,12 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             .catch((err) => console.error("MQTT Publish Error:", err));
         }
 
-        // 5. Kiểm tra End Game
+        // Kiểm tra điều kiện kết thúc bài tập
         if (updatedFires.every((f) => f.status === "extinguished")) {
           setTrainingState("finished");
         }
 
-        // 6. Cập nhật lại bản sao (Ref) và Giao diện (State)
+        // Cập nhật lại Ref và State
         firesRef.current = updatedFires;
         setSessionFires(updatedFires);
       }, 1000);
@@ -333,7 +329,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     return () => clearInterval(intervalRef.current);
   }, [trainingState, cols, mapData]);
 
-  //3. Tự động tắt cảnh báo lửa lan sau 2s
+  //3. HOOK cảnh báo lửa lan popup trên màn hình
   useEffect(() => {
     if (spreadWarning) {
       const timer = setTimeout(() => setSpreadWarning(false), 2000);
@@ -341,20 +337,26 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     }
   }, [spreadWarning]);
 
-  // 4. XỬ LÝ KHI KẾT THÚC BÀI TẬP (Lưu vào DB)
+  // 4. HOOK xử lý khi kết thúc bài tập
   useEffect(() => {
     if (trainingState === "finished") {
-      alert(`Simulation Completed!\nTime: ${timeElapsed}s\nScore: ${score}`);
+      showAlert(
+        "Training successful!",
+        `Time: ${timeElapsed}s  Score: ${score}`,
+        "success",
+      );
 
+      const userId = localStorage.getItem("userId");
       // Lấy ID thiết bị đầu tiên làm người chơi chính
       const tagIds = Object.keys(locationsRef.current);
       const mainDevice = tagIds.length > 0 ? tagIds[0] : "Unknown_Device";
 
       axios
         .post("http://localhost:8000/training_history", {
-          username: "Trainee", // Hiện tại Hardcode, có thể lấy từ Context Login sau
+          user_id: Number(userId),
           scenario_id: Number(selectedScenarioId),
           device_hex_id: mainDevice,
+          time_elapsed: timeElapsed,
           score: score,
         })
         .then(() => console.log("History saved!"))
@@ -362,7 +364,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     }
   }, [trainingState, score, timeElapsed, selectedScenarioId]);
 
-  // Bật đếm ngược 3-2-1 trước khi Start
+  // Hàm đếm ngược 3-2-1 trước khi Start
   const handleInitiateTraining = () => {
     setCountdown(3);
     let count = 3;
@@ -377,7 +379,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
       }
     }, 1000);
   };
-  // 4. CÁC HÀM ĐIỀU KHIỂN NÚT BẤM
+  // Hàm bắt đầu bài tập sau khi kết thúc đếm ngược
   const handleStartTraining = () => {
     if (selectedScenarioId === "free") return;
 
@@ -385,7 +387,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
       (s) => s.scenario_id === Number(selectedScenarioId),
     );
     if (!sc || sc.fires.length === 0)
-      return alert("This scenario has no fires!");
+      return showAlert("Error", "This scenario has no fires!", "error");
 
     const initializedFires = sc.fires.map((f) => ({
       ...f,
@@ -403,14 +405,14 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     setTrainingState("running");
   };
 
+  // Hàm kết thúc bài tập giữa chừng
   const handleAbortTraining = () => {
-    // Ép tắt toàn bộ ngọn lửa trên TFT
     if (firesRef.current.length > 0) {
       const payloadArr = firesRef.current.map((f) => {
         const xIdx = Math.floor(f.coord_x);
         const yIdx = Math.floor(f.coord_y);
         const cellId = yIdx * 10 + xIdx + 1;
-        return `${cellId},0`;
+        return `${cellId},0`; // Reset hết ngọn lửa về level 0
       });
       axios
         .post("http://localhost:8000/fire_update", {
@@ -430,10 +432,12 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     setSelectedScenarioId("free");
   };
 
+  // Hàm tạm dừng bài tập
   const handlePauseTraining = () => {
     setTrainingState("paused");
   };
 
+  // Hàm tiếp tục bài tập sau khi tạm dừng
   const handleResumeTraining = () => {
     setTrainingState("running");
   };
@@ -490,23 +494,31 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         </div>
       </div>
 
-      {/* --- PHÂN CHIA BỐ CỤC 2 CỘT --- */}
+      {/* --- BỐ CỤC 2 CỘT --- */}
       <div className="dashboard-split">
-        {/* ================= CỘT TRÁI: CÁC WIDGET ================= */}
+        {/* ================= CỘT TRÁI: Dashboard ================= */}
         <div className="dashboard-left">
-          {/* 1. WIDGET MAP INFO */}
+          {/* MAP INFO */}
           <div className="big-widget">
-            <div className="widget-title">Map Info</div>
+            <div className="widget-title">
+              Map Info
+              <span style={{ fontSize: 14 }}>
+                North Offset:{" "}
+                {mapData.north_offset !== undefined
+                  ? mapData.north_offset + "°"
+                  : "0°"}
+              </span>
+            </div>
             <div className="small-widgets-row">
-              <div className="small-widget">
-                <div className="sw-title">Area</div>
-                <div className="sw-value">{areaM2} m²</div>
-              </div>
               <div className="small-widget">
                 <div className="sw-title">Name</div>
                 <div className="sw-value" style={{ fontSize: 16 }}>
                   {mapName}
                 </div>
+              </div>
+              <div className="small-widget">
+                <div className="sw-title">Area</div>
+                <div className="sw-value">{areaM2} m²</div>
               </div>
               <div className="small-widget">
                 <div className="sw-title">Total Units</div>
@@ -515,12 +527,12 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             </div>
           </div>
 
-          {/* 2. CÁC WIDGET THIẾT BỊ (Tạo linh động dựa trên số tag kết nối) */}
+          {/* CÁC THIẾT BỊ */}
           {Object.entries(locations).map(([tagId, loc], idx) => {
             const color = TAG_COLORS[idx % TAG_COLORS.length];
             const valve = loc.valve_per !== undefined ? loc.valve_per : 0;
             const spray = loc.spray_per !== undefined ? loc.spray_per : 100;
-            // DÒ TÌM TÊN THIẾT BỊ TỪ STATE DEVICES
+
             const deviceObj = devices.find((d) => d.device_hex_id === tagId);
             const displayName = deviceObj
               ? deviceObj.device_name
@@ -535,7 +547,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   </span>
                 </div>
 
-                {/* USER INFO (Chỉ gồm 2 ô tọa độ vuông vức) */}
                 <div className="coord-row">
                   <div className="coord-box">
                     <span className="coord-label">Axis X:</span>
@@ -561,9 +572,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   </div>
                 </div>
 
-                {/* DEVICE INFO (Các vòng tròn Progress) */}
                 <div className="small-widgets-row">
-                  {/* Vòng tròn Valve: Gradient Xanh nước biển -> Tím -> Đỏ pastel */}
                   <div className="small-widget">
                     <div className="sw-title">Valve Opening</div>
                     <div
@@ -575,8 +584,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                       <div className="circle-inner">{valve}%</div>
                     </div>
                   </div>
-
-                  {/* Vòng tròn Spray: Gradient Xanh ngọc -> Xanh da trời -> Tím pastel */}
                   <div className="small-widget">
                     <div className="sw-title">Spray Mode</div>
                     <div
@@ -588,8 +595,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                       <div className="circle-inner">{spray}%</div>
                     </div>
                   </div>
-
-                  {/* Icon Device Type */}
                   <div className="small-widget">
                     <div className="sw-title">Device Type</div>
                     <div className="circle-prog">
@@ -604,7 +609,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
         {/* ================= CỘT PHẢI: TOOLBAR VÀ MAP ================= */}
         <div className="dashboard-right">
-          {/* TOOLBAR ĐẨY LÊN TRÊN MAP */}
+          {/* TOOLBAR */}
           <div className="training-toolbar">
             <select
               className="input-field"
@@ -683,10 +688,9 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             )}
           </div>
 
-          {/* BẢN ĐỒ */}
+          {/* VẼ MAP */}
           <div className="map-grid-section">
             <div className="corner-empty"></div>
-            {/* TRỤC X & Y GIỮ NGUYÊN ... */}
             <div
               className="x-axis-container"
               style={{
@@ -718,7 +722,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
               ))}
             </div>
 
-            {/* LƯỚI BẢN ĐỒ */}
             <div
               className="map-grid"
               style={{
@@ -745,80 +748,57 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   </div>
                 ))}
 
-              {/* VẼ NGỌN LỬA MÔ PHỎNG */}
+              {/* VẼ NGỌN LỬA */}
               {sessionFires.map((fire, idx) => {
                 if (fire.status === "waiting") return null;
                 const requiredTime =
                   fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
                 const progressPercent = (fire.progress / requiredTime) * 100;
 
-                // --- PHÂN LOẠI ICON ---
                 let icon;
+                // prettier-ignore
                 if (fire.is_spreading) {
                   icon =
                     fire.level === 1 ? (
                       <img
                         src={fireSpread1Icon}
                         alt="Spreading Fire Level 1"
-                        style={{
-                          width: "1.2em",
-                          height: "1.2em",
-                          display: "block",
-                        }}
+                        style={{ width: "1.2em", height: "1.2em",display: "block",}}
                       />
                     ) : fire.level === 2 ? (
                       <img
                         src={fireSpread2Icon}
                         alt="Spreading Fire Level 2"
-                        style={{
-                          width: "1.2em",
-                          height: "1.2em",
-                          display: "block",
-                        }}
+                        style={{ width: "1.2em", height: "1.2em", display: "block",}}
                       />
                     ) : (
                       <img
                         src={fireSpread3Icon}
                         alt="Spreading Fire Level 3"
-                        style={{
-                          width: "1.2em",
-                          height: "1.2em",
-                          display: "block",
-                        }}
+                        style={{ width: "1.2em", height: "1.2em", display: "block",}}
                       />
                     );
-                } else {
-                  // Nếu là lửa thường -> Kiểm tra level (GIỮ NGUYÊN BÊN DƯỚI)
+                }
+                // prettier-ignore
+                else {
                   icon =
                     fire.level === 1 ? (
                       <img
                         src={fire1Icon}
                         alt="Fire Level 1"
-                        style={{
-                          width: "1.2em",
-                          height: "1.2em",
-                          display: "block",
-                        }}
+                        style={{width: "1.2em", height: "1.2em", display: "block",}}
                       />
                     ) : fire.level === 2 ? (
                       <img
                         src={fire2Icon}
                         alt="Fire Level 2"
-                        style={{
-                          width: "1.2em",
-                          height: "1.2em",
-                          display: "block",
-                        }}
+                        style={{ width: "1.2em", height: "1.2em", display: "block",}}
                       />
                     ) : (
                       <img
                         src={fire3Icon}
                         alt="Fire Level 3"
-                        style={{
-                          width: "1.2em",
-                          height: "1.2em",
-                          display: "block",
-                        }}
+                        style={{ width: "1.2em", height: "1.2em", display: "block",}}
                       />
                     );
                 }
@@ -858,7 +838,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 );
               })}
 
-              {/* VẼ TAG DI CHUYỂN, HÌNH QUẠT YAW */}
+              {/* VẼ TAG DI CHUYỂN, GÓC YAW */}
               {Object.entries(locations).map(([tagId, loc], idx) => {
                 const hexColor = TAG_COLORS[idx % TAG_COLORS.length];
                 if (loc.x === undefined || loc.y === undefined) return null;
@@ -866,7 +846,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 const valve = loc.valve_per !== undefined ? loc.valve_per : 0;
                 const spray = loc.spray_per !== undefined ? loc.spray_per : 100;
 
-                // --- 1. TÍNH TOÁN KÍCH THƯỚC VÀ GÓC CHO HÌNH QUẠT ---
                 const angle = 15 + (spray / 100) * (60 - 15);
                 const radiusM = 2.5 - (spray / 100) * (2.5 - 1.5);
                 const cellLengthMeters = Math.sqrt(
@@ -876,18 +855,19 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 const diameterPx = radiusInCells * CELL_SIZE * 2;
                 const startAngle = 360 - angle / 2;
 
-                // --- 2. HÀM CHUYỂN ĐỔI HEX SANG RGB ĐỂ CHỈNH OPACITY ---
-                // Cắt chuỗi HEX (VD: "#3b82f6") thành các cụm 2 ký tự và chuyển sang số nguyên
+                // Đổi hex sang rgba để chỉnh opacity động
                 const r = parseInt(hexColor.slice(1, 3), 16);
                 const g = parseInt(hexColor.slice(3, 5), 16);
                 const b = parseInt(hexColor.slice(5, 7), 16);
 
                 // Tính toán độ mờ (Alpha) dựa trên Valve. (Valve 0 -> alpha 0. Valve 100 -> alpha 0.7)
-                // Giới hạn max alpha là 0.7 để tia nước trên bản đồ không che khuất chữ bên dưới.
                 const alpha = (valve / 100) * 0.7;
-
                 // Nối lại thành chuỗi màu RGBA hoàn chỉnh
                 const rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                // Hiệu chỉnh góc yaw theo North Offset của map
+                const rawYaw = loc.yaw || 0;
+                const northOffset = mapData.north_offset || 0;
+                const realYaw = (rawYaw + northOffset + 360) % 360;
 
                 return (
                   <div
@@ -903,8 +883,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                       style={{
                         width: `${diameterPx}px`,
                         height: `${diameterPx}px`,
-                        transform: `translate(-50%, -50%) rotate(${loc.yaw || 0}deg)`,
-                        // ÁP DỤNG MÀU ĐỘNG CHỨA OPACITY VÀO ĐÂY
+                        transform: `translate(-50%, -50%) rotate(${realYaw}deg)`,
                         background: `conic-gradient(from ${startAngle}deg, ${rgbaColor} 0deg, ${rgbaColor} ${angle}deg, transparent ${angle}deg)`,
                       }}
                     ></div>
@@ -926,7 +905,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         </div>
       </div>
 
-      {/* POPUP OVERLAY BẮT ĐẦU VÀ ĐẾM NGƯỢC */}
+      {/* POPUP ĐẾM NGƯỢC */}
       {selectedScenarioId !== "free" && trainingState === "idle" && (
         <div className="rm-start-overlay">
           {countdown === null ? (
@@ -961,9 +940,9 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         </div>
       )}
 
+      {/* POPUP CẢNH BÁO LỬA LAN */}
       {spreadWarning && (
         <div className="spread-warning-banner">
-          {/* Cột trái: Icon tam giác đỏ, ruột trắng */}
           <div className="swb-icon">
             <AlertTriangle
               size={44}
@@ -972,8 +951,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
               strokeWidth={2}
             />
           </div>
-
-          {/* Cột phải: Text 2 dòng */}
           <div className="swb-content">
             <div className="swb-title">WARNING!</div>
             <div className="swb-desc">
@@ -987,3 +964,5 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 }
 
 export default RealtimeMonitor;
+
+// Góc yaw có cần north offset để vẽ chính xác không, như trong file tôi gửi là đang mặc định là góc north offset hướng lên đúng không. Bây giờ sửa code để có thể config được góc northoffset cho nó tính theo 1 góc bất kỳ được không. MCU cần góc north offset để làm gì.

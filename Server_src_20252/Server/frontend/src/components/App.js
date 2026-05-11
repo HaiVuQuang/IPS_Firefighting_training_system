@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import "../assets/css/App.css";
+import { useMessage } from "./MessageModal";
 import MapEditor from "./MapEditor";
 import CollectData from "./CollectData";
 import RealtimeMonitor from "./RealtimeMonitor";
@@ -33,6 +34,8 @@ function App() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { showConfirm } = useMessage();
 
   // Hàm gọi API tự động đổi endpoint dựa trên chế độ
   const fetchMaps = useCallback(async (currentMode) => {
@@ -76,22 +79,26 @@ function App() {
   };
 
   const handleDelete = async (id) => {
-    const ok = window.confirm("Delete this map?");
-    if (!ok) return;
-    setLoading(true);
-    setMessage("");
-    setError("");
+    showConfirm(
+      "Are you sure delete this map?",
+      "This action can't be undone. Please confirm if you want to proceed.",
+      async () => {
+        setLoading(true);
+        setMessage("");
+        setError("");
 
-    try {
-      const endpoint =
-        systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
-      await api.delete(`${endpoint}/${id}`);
-      setMessage("Map deleted successfully");
-      fetchMaps(systemMode);
-    } catch (err) {
-      setError(err.response?.data?.detail || "Delete failed");
-    }
-    setLoading(false);
+        try {
+          const endpoint =
+            systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
+          await api.delete(`${endpoint}/${id}`);
+          setMessage("Map deleted successfully");
+          fetchMaps(systemMode);
+        } catch (err) {
+          setError(err.response?.data?.detail || "Delete failed");
+        }
+        setLoading(false);
+      },
+    );
   };
 
   const onMapSaved = (savedMap) => {

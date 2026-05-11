@@ -483,7 +483,7 @@
   justify-content: center;
   color: #94a3b8;
   cursor: pointer;
-  opacity: 0.7; /* Ẩn theo mặc định */
+  opacity: 0.7;
   transition: all 0.2s ease;
 }
 .dm-device-card:hover .dm-btn-delete {

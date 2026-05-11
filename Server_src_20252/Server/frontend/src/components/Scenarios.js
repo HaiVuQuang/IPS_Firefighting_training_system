@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import "../assets/css/Scenarios.css";
+import { useMessage } from "./MessageModal";
 import fire1Icon from "../assets/picture/fire_1.svg";
 import fire2Icon from "../assets/picture/fire_2.svg";
 import fire3Icon from "../assets/picture/fire_3.svg";
@@ -35,6 +36,8 @@ function Scenarios({ mapData, systemMode, onBack }) {
   const cols = mapData.cols || 10;
   const blocked = new Set(mapData.blocked_cells || []);
   const routers = new Set(mapData.router_location || []);
+
+  const { showAlert, showConfirm } = useMessage();
 
   // Flag chống gọi API 2 lần
   const hasFetched = useRef(false);
@@ -75,7 +78,7 @@ function Scenarios({ mapData, systemMode, onBack }) {
     const key = `${coordX}:${coordY}`;
 
     if (blocked.has(key)) {
-      alert("Cannot place fire on a blocked cell!");
+      showAlert("Warning", "Cannot place fire on a blocked cell!");
       return;
     }
 
@@ -128,9 +131,9 @@ function Scenarios({ mapData, systemMode, onBack }) {
   };
 
   const handleSaveScenario = async () => {
-    if (!scenarioName.trim()) return alert("Please enter Scenario Name!");
+    if (!scenarioName.trim()) return showAlert("Warning", "Please enter Scenario Name!");
     if (fires.length === 0)
-      return alert("Please place at least one fire on the map!");
+      return showAlert("Warning", "Please place at least one fire on the map!");
 
     try {
       // MẸO UPDATE: Nếu đang sửa kịch bản cũ, xóa cái cũ trước khi tạo cái mới
@@ -161,25 +164,31 @@ function Scenarios({ mapData, systemMode, onBack }) {
 
       setTimeout(() => setMessage(""), 3000);
     } catch (err) {
-      alert("Failed to save scenario");
+      showAlert("Error", "Failed to save scenario.", "error");
       console.error(err);
     }
   };
 
-  const handleDeleteScenario = async () => {
-    if (!window.confirm("Are you sure you want to delete this scenario?"))
-      return;
-    try {
-      await axios.delete(`http://localhost:8000/scenarios/${activeScenarioId}`);
-      setMessage("Scenario deleted!");
-      fetchScenarios();
-      setActiveScenarioId("new");
-      setScenarioName("");
-      setFires([]);
-      setTimeout(() => setMessage(""), 3000);
-    } catch (err) {
-      alert("Delete failed");
-    }
+  const handleDeleteScenario = () => {
+    showConfirm(
+      "Are you sure delete this scenario?",
+      "This action can't be undone. Please confirm if you want to proceed.",
+      async () => {
+        try {
+          await axios.delete(
+            `http://localhost:8000/scenarios/${activeScenarioId}`,
+          );
+          setMessage("Scenario deleted!");
+          fetchScenarios();
+          setActiveScenarioId("new");
+          setScenarioName("");
+          setFires([]);
+          setTimeout(() => setMessage(""), 3000);
+        } catch (err) {
+          showAlert("Error", "Failed to delete scenario.", "error");
+        }
+      },
+    );
   };
 
   // Render các ô vuông

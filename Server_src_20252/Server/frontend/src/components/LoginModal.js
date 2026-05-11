@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { User, X } from "lucide-react";
 import "../assets/css/LoginModal.css";
+import { useMessage } from "./MessageModal";
 
 const api = axios.create({
   baseURL: "http://localhost:8000",
@@ -12,6 +13,7 @@ function LoginModal({ isOpen, onClose, initialMode, onLoginSuccess }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+  const { showAlert } = useMessage();
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
@@ -26,18 +28,24 @@ function LoginModal({ isOpen, onClose, initialMode, onLoginSuccess }) {
     e.preventDefault();
     const endpoint = mode === "login" ? "/login" : "/register";
     try {
-      await api.post(endpoint, { username, password });
+      const response = await api.post(endpoint, { username, password });
 
       if (mode === "login") {
+        localStorage.setItem("userId", response.data.user_id);
+        localStorage.setItem("username", response.data.username);
         onLoginSuccess();
         onClose();
       } else {
-        alert("Registration successful! Please log in.");
+        showAlert(
+          "Success!",
+          "Registration successful! Please log in.",
+          "success",
+        );
         setMode("login");
         setPassword("");
       }
     } catch (err) {
-      alert(err.response?.data?.detail || "Failed");
+      showAlert("Error", err.response?.data?.detail || "Failed", "error");
     }
   };
 

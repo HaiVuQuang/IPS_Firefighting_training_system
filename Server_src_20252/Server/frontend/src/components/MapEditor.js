@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import axios from "axios";
 import "../assets/css/MapEditor.css";
+import { useMessage } from "./MessageModal";
 import { Router, Box, Trash2, Plus, SquarePen } from "lucide-react";
 
 const MAX_SIZE = 20;
@@ -28,6 +29,8 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   const [dragStart, setDragStart] = useState(null);
   const [dragEnd, setDragEnd] = useState(null);
   const [dragAction, setDragAction] = useState(null);
+
+  const { showAlert } = useMessage();
 
   React.useEffect(() => {
     if (mapToEdit) {
@@ -166,7 +169,8 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
   };
 
   const saveBeacon = () => {
-    if (!editingBeacon.id) return alert("Please enter Beacon ID!");
+    if (!editingBeacon.id)
+      return showAlert("Warning", "Please enter Beacon ID!");
     setUwbBeacons((prev) => {
       const next = { ...prev };
 
@@ -345,7 +349,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
               </div>
               <div className="sidebar-actions">
                 <button
-                  className="btn-gray"
+                  className="btn-clear"
                   type="button"
                   onClick={resetBlocks}
                   disabled={blocked.size === 0}
@@ -354,7 +358,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
                 </button>
                 {systemMode === "fingerprint" && (
                   <button
-                    className="btn-gray"
+                    className="btn-clear"
                     type="button"
                     onClick={resetRouters}
                     disabled={routerLocations.size === 0}
@@ -570,7 +574,7 @@ function MapEditor({ mapToEdit, systemMode, onSaved, onCancel }) {
             {editingBeacon && (
               <div className="modal-overlay">
                 <div className="modal-content">
-                  <h3>Beacon Config</h3>
+                  <div className="modal-title">Beacon Config</div>
                   <div className="modal-form">
                     <label className="input-label">
                       Beacon ID

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import LoginModal from "./LoginModal";
+import { useMessage } from "./MessageModal";
 import "../assets/css/LandingPage.css";
 import uwbIcon from "../assets/picture/uwb-icon.png";
 import {
@@ -26,6 +27,8 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
   const [newDeviceName, setNewDeviceName] = useState("");
 
   const [trainingHistory, setTrainingHistory] = useState([]);
+
+  const { showAlert } = useMessage();
 
   // Flag chống gọi API 2 lần
   const hasFetchedHistory = useRef(false);
@@ -114,7 +117,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
       setEditingDevice(null);
       fetchDevices(); // Tải lại danh sách sau khi đổi tên
     } catch (e) {
-      alert("Failed to rename device");
+      showAlert("Error", "Failed to rename device.", "error");
     }
   };
 
@@ -125,7 +128,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
       await axios.delete(`http://localhost:8000/devices/${type}/${deviceId}`);
       fetchDevices();
     } catch (e) {
-      alert("Failed to delete device");
+      showAlert("Error", "Failed to delete device.", "error");
       console.error(e);
     }
   };
@@ -207,6 +210,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
                         {new Date(record.start_time).toLocaleDateString()} • {record.device_hex_id}
                       </span>
                     </div>
+                      <span className="hi-title">{record.username}</span>
                     <div className="hi-score" title="Score">
                       {record.score}
                     </div>

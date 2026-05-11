@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import "../assets/css/CollectData.css";
+import { useMessage } from "./MessageModal";
 
 const CELL_SIZE = 38;
 
@@ -29,17 +30,29 @@ function CollectData({ mapData }) {
   const blocked = new Set(mapData.blocked_cells || []);
   const routers = new Set(mapData.router_location || []);
 
+  const { showAlert, showConfirm } = useMessage();
+
   const handleCellClick = (r, c) => {
     const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
     if (blocked.has(key)) {
-      alert("Cannot collect data on a blocked cell!");
+      showAlert("Warning", "Cannot collect data on a blocked cell!");
       return;
     }
     if (collectedCells.has(key)) {
-      const confirmOverwrite = window.confirm(
+      showConfirm(
+        "Are you sure?",
         "This cell has already been data-collected. Are you sure you want to re-collect data?",
+        () => {
+          setSelectedCell({
+            r,
+            c,
+            x: (0.5 + c).toFixed(1),
+            y: (rows - 1 - r + 0.5).toFixed(1),
+          });
+          setMessage("");
+        },
       );
-      if (!confirmOverwrite) return;
+      return;
     }
     setSelectedCell({
       r,
@@ -71,7 +84,7 @@ function CollectData({ mapData }) {
       setMessage(res.data.message);
       setTimeout(() => setSelectedCell(null), 2000);
     } catch (err) {
-      alert("Failed to collect data");
+      showAlert("Error", "Failed to collect data.", "error");
     }
     setLoading(false);
   };
