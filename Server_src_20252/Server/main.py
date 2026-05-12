@@ -1,4 +1,5 @@
 import asyncio, os
+from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
@@ -787,12 +788,15 @@ def delete_scenario(scenario_id: int, db: Session = Depends(get_db)):
 # =====================================================================
 @app.post("/training_history")
 def save_training_history(payload: TrainingHistorySchema, db: Session = Depends(get_db)):
+    end_t = datetime.now()
+    start_t = end_t - timedelta(seconds=payload.time_elapsed)
     history = database_models.TrainingHistory(
-        user_id=payload.user_id,
+        trainee_name=payload.trainee_name,
         scenario_id=payload.scenario_id,
         device_hex_id=payload.device_hex_id,
         time_elapsed=payload.time_elapsed,   
-        end_time=func.now(),
+        start_time=start_t,
+        end_time=end_t,
         score=payload.score
     )
     db.add(history)
@@ -803,7 +807,7 @@ def save_training_history(payload: TrainingHistorySchema, db: Session = Depends(
 def get_training_history(db: Session = Depends(get_db)):
     records = db.query(
         database_models.TrainingHistory.history_id,
-        database_models.User.username,
+        database_models.TrainingHistory.trainee_name,
         database_models.TrainingHistory.scenario_id,
         database_models.TrainingHistory.device_hex_id,
         database_models.TrainingHistory.score,
@@ -811,14 +815,14 @@ def get_training_history(db: Session = Depends(get_db)):
         database_models.TrainingHistory.end_time,
         database_models.TrainingHistory.time_elapsed,
         database_models.Scenario.scenario_name
-        ).join(database_models.User).join(database_models.Scenario).order_by(
+        ).join(database_models.Scenario).order_by( 
         desc(database_models.TrainingHistory.start_time)
     ).all()
 
     return [
         {
             "history_id": r.history_id,
-            "username": r.username,
+            "trainee_name": r.trainee_name,
             "scenario_id": r.scenario_id,
             "scenario_name": r.scenario_name,
             "device_hex_id": r.device_hex_id,
@@ -830,7 +834,7 @@ def get_training_history(db: Session = Depends(get_db)):
         for r in records
     ]
 # =====================================================================
-# API GỬI TRẠNG THÁI NGỌN LỬA XUỐNG HARDWARE (TFT) QUA MQTT
+# API GỬI TRẠNG THÁI NGỌN LỬA XUỐNG DEVICE QUA MQTT
 # =====================================================================
 @app.post("/fire_update")
 def update_fire_mqtt(payload_data: dict):

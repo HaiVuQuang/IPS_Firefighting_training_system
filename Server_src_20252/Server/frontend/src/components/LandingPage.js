@@ -205,12 +205,12 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
                 trainingHistory.map((record) => (
                   <div key={record.history_id} className="history-item">
                     <div className="hi-left">
-                      <span className="hi-title">{record.scenario_name}</span>
+                      <span className="hi-title">{record.trainee_name}</span>
                       <span className="hi-subtitle">
                         {new Date(record.start_time).toLocaleDateString()} • {record.device_hex_id}
                       </span>
                     </div>
-                      <span className="hi-title">{record.username}</span>
+                      <span className="hi-title">{record.scenario_name}</span>
                     <div className="hi-score" title="Score">
                       {record.score}
                     </div>

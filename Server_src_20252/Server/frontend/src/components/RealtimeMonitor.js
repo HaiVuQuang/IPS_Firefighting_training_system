@@ -42,7 +42,8 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const [selectedScenarioId, setSelectedScenarioId] = useState("free");
   const [trainingState, setTrainingState] = useState("idle"); // "idle", "running", "finished"
   const [timeElapsed, setTimeElapsed] = useState(0);
-  const [score, setScore] = useState(1000);
+  const [scores, setScores] = useState({}); // Lưu điểm cho từng tag
+  const [traineeNames, setTraineeNames] = useState({}); // Lưu tên trainee
   const [sessionFires, setSessionFires] = useState([]); // Chứa danh sách lửa và trạng thái
   const [countdown, setCountdown] = useState(null);
   const intervalRef = useRef(null);
@@ -129,8 +130,8 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         timeRef.current += 1;
         setTimeElapsed(timeRef.current);
 
-        let scorePenalty = 0;
         let fireStateChanged = false;
+        let tagPenalties = {};
 
         // Xử lý logic lửa
         let newSpawnedFires = [];
@@ -209,21 +210,24 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             }
 
             // LOGIC DẬP LỬA
-            const tags = Object.values(locationsRef.current);
-            let isSomeoneStepping = false;
+            const tags = Object.entries(locationsRef.current).map(
+              ([id, loc]) => ({ id, ...loc }),
+            );
+
             let isSomeoneExtinguishing = false;
 
-            // Lấy độ dài của 1 ô vuông trên bản đồ (m) để quy đổi sang px
+            // Tính độ dài 1 ô vuông thực tế theo m đổi sang px
             const cellLengthMeters = Math.sqrt(mapData.area_of_one_unit || 1);
 
             for (const tag of tags) {
-              // Tính khoảng cách giữa Tag và Ngọn lửa
               const dx = fire.coord_x - tag.x;
               const dy = fire.coord_y - tag.y;
               const dist = Math.sqrt(dx * dx + dy * dy);
 
               // Dẫm lên lửa -> Bị trừ điểm
-              if (dist <= 0.5) isSomeoneStepping = true;
+              if (dist <= 0.5) {
+                tagPenalties[tag.id] = (tagPenalties[tag.id] || 0) + 20;
+              }
 
               const valve = tag.valve_per !== undefined ? tag.valve_per : 0;
 
@@ -259,8 +263,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
               }
             }
 
-            if (isSomeoneStepping) scorePenalty += 20;
-
             if (isSomeoneExtinguishing) {
               const requiredTime =
                 fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
@@ -289,7 +291,16 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         }
 
         // Trừ điểm phạt
-        setScore((s) => Math.max(0, s - 1 - scorePenalty));
+        setScores((prevScores) => {
+          const newScores = { ...prevScores };
+          Object.keys(locationsRef.current).forEach((tagId) => {
+            const currentScore =
+              newScores[tagId] !== undefined ? newScores[tagId] : 1000;
+            const penalty = tagPenalties[tagId] || 0;
+            newScores[tagId] = Math.max(0, currentScore - 1 - penalty);
+          });
+          return newScores;
+        });
 
         // Gửi MQTT id ô chứa lửa và level
         if (fireStateChanged) {
@@ -342,30 +353,48 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     if (trainingState === "finished") {
       showAlert(
         "Training successful!",
-        `Time: ${timeElapsed}s  Score: ${score}`,
+        "Training results have been saved to history.",
         "success",
       );
 
-      const userId = localStorage.getItem("userId");
-      // Lấy ID thiết bị đầu tiên làm người chơi chính
       const tagIds = Object.keys(locationsRef.current);
-      const mainDevice = tagIds.length > 0 ? tagIds[0] : "Unknown_Device";
 
-      axios
-        .post("http://localhost:8000/training_history", {
-          user_id: Number(userId),
-          scenario_id: Number(selectedScenarioId),
-          device_hex_id: mainDevice,
-          time_elapsed: timeElapsed,
-          score: score,
-        })
-        .then(() => console.log("History saved!"))
-        .catch((err) => console.error("Failed to save history", err));
+      Promise.all(
+        tagIds.map((tagId) => {
+          const trainee = traineeNames[tagId] || `Trainee_${tagId}`;
+          const tagScore = scores[tagId] || 0;
+
+          return axios.post("http://localhost:8000/training_history", {
+            trainee_name: trainee,
+            scenario_id: Number(selectedScenarioId),
+            device_hex_id: tagId,
+            time_elapsed: timeElapsed,
+            score: tagScore,
+          });
+        }),
+      ).catch((err) => console.error("Failed to save history", err));
     }
-  }, [trainingState, score, timeElapsed, selectedScenarioId]);
+  }, [trainingState, timeElapsed, selectedScenarioId]);
 
   // Hàm đếm ngược 3-2-1 trước khi Start
   const handleInitiateTraining = () => {
+    const tagIds = Object.keys(locations);
+    // Nếu không có thiết bị nào kết nối
+    if (tagIds.length === 0) {
+      showAlert("Warning", "No devices connected!");
+      return;
+    }
+    const isMissingName = tagIds.some(
+      (id) => !traineeNames[id] || traineeNames[id].trim() === "",
+    );
+    // Nếu chưa nhập tên
+    if (isMissingName) {
+      showAlert(
+        "Warning",
+        "Please enter Trainee Name for all devices before starting!",
+      );
+      return;
+    }
     setCountdown(3);
     let count = 3;
     const timer = setInterval(() => {
@@ -382,7 +411,6 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   // Hàm bắt đầu bài tập sau khi kết thúc đếm ngược
   const handleStartTraining = () => {
     if (selectedScenarioId === "free") return;
-
     const sc = scenarios.find(
       (s) => s.scenario_id === Number(selectedScenarioId),
     );
@@ -394,14 +422,19 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
       status: "waiting",
       progress: 0,
     }));
-
-    // Cập nhật cả Ref lẫn State
     firesRef.current = initializedFires;
     setSessionFires(initializedFires);
 
     timeRef.current = 0;
     setTimeElapsed(0);
-    setScore(1000);
+
+    // Set điểm 1000 cho tất cả thiết bị đang hoạt động
+    const initialScores = {};
+    Object.keys(locationsRef.current).forEach(
+      (tagId) => (initialScores[tagId] = 1000),
+    );
+    setScores(initialScores);
+
     setTrainingState("running");
   };
 
@@ -428,7 +461,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     setSessionFires([]);
     timeRef.current = 0;
     setTimeElapsed(0);
-    setScore(1000);
+    setScores({});
     setSelectedScenarioId("free");
   };
 
@@ -540,31 +573,50 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
             return (
               <div className="big-widget" key={tagId}>
-                <div className="widget-title">
-                  {displayName}
-                  <span style={{ fontSize: 14, color: color }}>
-                    Hex_ID: {tagId}
+                {/* Tên thiết bị, hex id và tọa độ */}
+                <div className="tag-widget-header">
+                  <span className="widget-device-name">{displayName}</span>
+                  <span className="widget-tag-id" style={{ color: color }}>
+                    Hex_id: {tagId}
+                  </span>
+                  <span className="widget-coords">
+                    <span style={{ marginRight: "12px" }}>
+                      X:{" "}
+                      <span className="coord-highlight">
+                        {loc.x !== undefined ? loc.x.toFixed(2) : "0.00"}
+                      </span>
+                    </span>
+                    <span>
+                      Y:{" "}
+                      <span className="coord-highlight">
+                        {loc.y !== undefined ? loc.y.toFixed(2) : "0.00"}
+                      </span>
+                    </span>
                   </span>
                 </div>
 
-                <div className="coord-row">
-                  <div className="coord-box">
-                    <span className="coord-label">Axis X:</span>
-                    <span className="coord-val">
-                      {loc.x !== undefined ? loc.x.toFixed(2) : "0.00"}
-                    </span>
+                {/* Ô nhập tên trainee và error/acc */}
+                <div className="tag-trainee-row">
+                  <div className="trainee-input-box">
+                    <input
+                      type="text"
+                      className="trainee-input"
+                      placeholder="Enter trainee name..."
+                      value={traineeNames[tagId] || ""}
+                      onChange={(e) =>
+                        setTraineeNames({
+                          ...traineeNames,
+                          [tagId]: e.target.value,
+                        })
+                      }
+                      disabled={trainingState !== "idle"}
+                    />
                   </div>
-                  <div className="coord-box">
-                    <span className="coord-label">Axis Y:</span>
-                    <span className="coord-val">
-                      {loc.y !== undefined ? loc.y.toFixed(2) : "0.00"}
-                    </span>
-                  </div>
-                  <div className="coord-box">
-                    <span className="coord-label">
+                  <div className="tag-error-box">
+                    <span className="coord-label-error">
                       {loc.type === "uwb" ? "Error:" : "Acc:"}
                     </span>
-                    <span className="coord-val" style={{ color: "#ef4444" }}>
+                    <span className="coord-val-error">
                       {loc.type === "uwb"
                         ? `${loc.error !== undefined ? loc.error : "0.0"}m`
                         : `${loc.accuracy !== undefined ? loc.accuracy : "0"}%`}
@@ -572,6 +624,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   </div>
                 </div>
 
+                {/* Dashboard thông số */}
                 <div className="small-widgets-row">
                   <div className="small-widget">
                     <div className="sw-title">Valve Opening</div>
@@ -681,9 +734,24 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 <div className="stat-box time-text">
                   <Timer size={16} /> {timeElapsed}s
                 </div>
-                <div className="stat-box score-text">
-                  <Trophy size={16} /> {score}
-                </div>
+                {/* HIỂN THỊ DANH SÁCH SCORE THEO MÀU CỦA TỪNG TAG */}
+                {Object.keys(locations).map((tagId, idx) => {
+                  const tagColor = TAG_COLORS[idx % TAG_COLORS.length];
+                  const currentScore =
+                    scores[tagId] !== undefined ? scores[tagId] : 1000;
+                  return (
+                    <div
+                      key={`score-${tagId}`}
+                      className="stat-box"
+                      style={{
+                        color: tagColor,
+                      }}
+                      title={`Score of ${tagId}`}
+                    >
+                      <Trophy size={16} /> {currentScore}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

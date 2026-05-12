@@ -10,7 +10,6 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True)
     password = Column(String(100))
-    histories = relationship("TrainingHistory", back_populates="user", cascade="all, delete-orphan")
 
 class DeviceRSSI(Base):
     __tablename__ = "device_rssi"
@@ -147,7 +146,7 @@ class ScenarioFire(Base):
 class TrainingHistory(Base):
     __tablename__ = "training_history"
     history_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    trainee_name = Column(String(100))
     scenario_id = Column(Integer, ForeignKey("scenarios.scenario_id", ondelete="CASCADE"))
     device_hex_id = Column(String(100))
     start_time = Column(DateTime(timezone=True), server_default=func.now())
@@ -155,5 +154,4 @@ class TrainingHistory(Base):
     time_elapsed = Column(Integer)
     score = Column(Integer)
 
-    user = relationship("User", back_populates="histories")
     scenario = relationship("Scenario", back_populates="histories")
