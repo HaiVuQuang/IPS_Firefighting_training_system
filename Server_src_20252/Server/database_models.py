@@ -82,6 +82,11 @@ class UserDataRSSI(Base):
     pitch = Column(Float)
     roll = Column(Float)
     yaw = Column(Float)
+    valve_open = Column(Float)
+    valve_mode = Column(Float)
+    btn_a = Column(Integer)
+    btn_b = Column(Integer)
+    btn_c = Column(Integer)
 
 class UserDataUWB(Base):
     __tablename__ = "user_data_uwb"
@@ -99,6 +104,11 @@ class UserDataUWB(Base):
     pitch = Column(Float)
     roll = Column(Float)
     yaw = Column(Float)
+    valve_open = Column(Float)
+    valve_mode = Column(Float)
+    btn_a = Column(Integer)
+    btn_b = Column(Integer)
+    btn_c = Column(Integer)
 
 class RSSIForTraining(Base):
     __tablename__ = "rssi_for_training"

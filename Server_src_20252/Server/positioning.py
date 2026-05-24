@@ -130,7 +130,7 @@ class Trilateration:
             logger.info(f"Filtered {len(filtered_beacons)} beacon(s) due to distance < {self.min_distance}m: {filtered_beacons}")
         
         if len(valid_beacons) < self.min_beacons:
-            logger.warning(f"Insufficient beacons: {len(valid_beacons)} < {self.min_beacons}")
+            logger.warning(f"Insufficient beacons or wrong ID: {len(valid_beacons)} < {self.min_beacons}")
             return None
         
         beacon_positions = np.array(valid_beacons)

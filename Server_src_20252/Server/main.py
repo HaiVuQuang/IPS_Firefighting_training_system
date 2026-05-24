@@ -1,5 +1,7 @@
 import asyncio, os
+import json
 from datetime import datetime, timedelta
+from unittest import result
 import pandas as pd
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
@@ -42,6 +44,10 @@ uwb_trackers = {}
 # Set theo dõi xem thiết bị đã được lưu vào DB chưa
 KNOWN_RSSI_DEVICES = set()
 KNOWN_UWB_DEVICES = set()
+# Biến lưu trữ điểm số đồng bộ từ Frontend gửi và gửi MQTT xuống thiết bị
+CURRENT_SCORES = {}
+# Biến cache lưu chiều dài cạnh 1 ô vuông của map
+CURRENT_UWB_CELL_LENGTH = 1.0
 
 kalman_filters = {}
 
@@ -53,29 +59,54 @@ def handle_incoming_mqtt_data(msg_dict):
 
     # /-------------------------- XỬ LÝ DỮ LIỆU UWB TỪ THIẾT BỊ ----------------------------/
     if data_type == "user_data_uwb":
+
         hex_id = msg_dict.get("hex_id")
-        yaw_val = msg_dict.get("yaw", 0.0)
-        valve_per_val = msg_dict.get("valve_per", 0.0)
-        spray_per_val = msg_dict.get("spray_per", 100.0)
+        bno_data = msg_dict.get("bno", {})
+        euler_data = bno_data.get("euler", {})
+        valve_data = msg_dict.get("valve", {})
+        button_data = msg_dict.get("button", {})
+        yaw_val = euler_data.get("yaw", 0.0)
+        valve_per_val = valve_data.get("open", 0.0)
+        spray_per_val = valve_data.get("mode", 100.0)
         
-        # Bắn góc Yaw qua WebSocket
+        # Bắn dữ liệu qua WebSocket
         if hex_id and active_websockets:
             for ws in active_websockets:
-                asyncio.create_task(ws.send_json({"tag_id": hex_id, "yaw": round(yaw_val, 1), "valve_per": round(valve_per_val, 1), "spray_per": round(spray_per_val, 1), "data_type": "uwb"}))
-                
-        # Tự động lưu thiết bị UWB mới vào DB
-        # if hex_id and hex_id not in KNOWN_UWB_DEVICES:
-        #     db = SessionLocal()
-        #     try:
-        #         new_dev = database_models.DeviceUWB(device_name=f"{hex_id}", device_hex_id=hex_id)
-        #         db.add(new_dev)
-        #         db.commit()
-        #         KNOWN_UWB_DEVICES.add(hex_id)
-        #         print(f"[Noti] 🌟 Found new UWB Device (IMU): {hex_id}")
-        #         for ws in device_manager_websockets:
-        #             asyncio.create_task(ws.send_json({"type": "new_device"}))
-        #     except Exception: pass
-        #     finally: db.close()
+                asyncio.create_task(ws.send_json({
+                    "tag_id": hex_id, 
+                    "yaw": round(yaw_val, 1), 
+                    "valve_per": round(valve_per_val, 1), 
+                    "spray_per": round(spray_per_val, 1), 
+                    "data_type": "uwb"
+                }))
+        # Lưu về DB
+        db = SessionLocal()
+        try:
+            new_record = database_models.UserDataUWB(
+                accx=bno_data.get("acc", {}).get("x", 0.0),
+                accy=bno_data.get("acc", {}).get("y", 0.0),
+                accz=bno_data.get("acc", {}).get("z", 0.0),
+                magx=bno_data.get("mag", {}).get("x", 0.0),
+                magy=bno_data.get("mag", {}).get("y", 0.0),
+                magz=bno_data.get("mag", {}).get("z", 0.0),
+                gyrox=bno_data.get("gyro", {}).get("x", 0.0),
+                gyroy=bno_data.get("gyro", {}).get("y", 0.0),
+                gyroz=bno_data.get("gyro", {}).get("z", 0.0),
+                pitch=euler_data.get("pitch", 0.0),
+                roll=euler_data.get("roll", 0.0),
+                yaw=yaw_val,
+                valve_open=valve_per_val,
+                valve_mode=spray_per_val,
+                btn_a=button_data.get("A", 0),
+                btn_b=button_data.get("B", 0),
+                btn_c=button_data.get("C", 0)
+            )
+            db.add(new_record)
+            db.commit()
+        except Exception as e:
+            print(f"[Err] ❌ Canot save UserDataUWB: {e}")
+        finally:
+            db.close()
         return
 
     # /------------------------- XỬ LÝ DỮ LIỆU UWB RANGING ----------------------------/
@@ -117,47 +148,113 @@ def handle_incoming_mqtt_data(msg_dict):
                     uwb_distance_buffer[tag_id].clear()
                     return
                 
-                result = uwb_trackers[tag_id].compute_position(BEACONS_CONFIG, uwb_distance_buffer[tag_id])
+                cell_length_m = CURRENT_UWB_CELL_LENGTH
+
+                # Chuyển tọa độ beacon sang mét
+                beacons_in_meters = {}
+                for b_id, b_pos in BEACONS_CONFIG.items():
+                    beacons_in_meters[b_id] = {
+                        "x": b_pos["x"] * cell_length_m,
+                        "y": b_pos["y"] * cell_length_m
+                    }
+
+                result = uwb_trackers[tag_id].compute_position(beacons_in_meters, uwb_distance_buffer[tag_id])
                 
                 if result:
+                    # Tọa độ tuyệt đối hệ Mét
+                    meter_x = result['x']
+                    meter_y = result['y']
 
-                    x_val = round(result['x'], 1)
-                    y_val = round(result['y'], 1)
+                    # Tọa độ quy đổi từ Mét -> Grid
+                    grid_x = meter_x / cell_length_m
+                    grid_y = meter_y / cell_length_m
+                    
+                    x_val_grid = round(grid_x, 1)
+                    y_val_grid = round(grid_y, 1)
                     err_val = result.get('error', result.get('accuracy', 0.0))
-                    # Gửi lên Web
+                    
+                    # Gửi tọa độ theo Grid lên Websocket
                     payload = {
                         "type": "uwb",
                         "tag_id": tag_id, 
-                        "x": x_val,
-                        "y": y_val,
+                        "x": x_val_grid,
+                        "y": y_val_grid,
                         "error": round(err_val, 1)
                     }
                     for ws in active_websockets:
                         asyncio.create_task(ws.send_json(payload))
 
-                    # Gửi lên MQTT
+                    # Gửi tọa độ theo mét qua MQTT
                     if mqtt_client:
                         topic = f"user_pos/{tag_id}"
-                        message = f"{x_val},{y_val}"
+                        tag_score = CURRENT_SCORES.get(tag_id, 1000)
+                        message = json.dumps({
+                            "x": float(round(meter_x, 1)),
+                            "y": float(round(meter_y, 1)),
+                            "score": int(tag_score)
+                        })                                                                                                                                                               
                         mqtt_client.publish(topic, message)
                         print(f'[MQTT] 👤 Sent User Position message: {message} to topic: {topic}')
                     
-                    # Sau khi tính xong, xóa buffer này để tính tiếp
+                    # Sau khi tính xong, xóa buffer này để tính tiếp    
                     uwb_distance_buffer[tag_id].clear()
         return
     # /---------------------------------------------------------------------------------/
     
-    # /-------------------------- XỬ LÝ DỮ LIỆU RSSI TỪ THIẾT BỊ ----------------------------/
-    if data_type == "user_data_rssi":
-
+    # /-------------------------- XỬ LÝ DỮ LIỆU RSSI TRAINING ----------------------------/
+    if data_type == "user_data_rssi_training":
         hex_id = msg_dict.get("hex_id")
-        yaw_val = msg_dict.get("yaw", 0.0)
+        rssi_w = msg_dict.get("rssi_wifi", {})
+        rssi_b = msg_dict.get("rssi_ble", {})
+        mag = msg_dict.get("bno", {}).get("mag", {})
+        
+        # Làm phẳng dữ liệu cho API Collect Data
+        flat_data = {
+            "hex_id": hex_id,
+            "rssi_wifi_1": rssi_w.get("1", 0.0), "rssi_wifi_2": rssi_w.get("2", 0.0),
+            "rssi_wifi_3": rssi_w.get("3", 0.0), "rssi_wifi_4": rssi_w.get("4", 0.0),
+            "rssi_ble_1": rssi_b.get("1", 0.0),  "rssi_ble_2": rssi_b.get("2", 0.0),
+            "rssi_ble_3": rssi_b.get("3", 0.0),  "rssi_ble_4": rssi_b.get("4", 0.0),
+            "magnetic_field_y": mag.get("y", 0.0),
+            "magnetic_field_z": mag.get("z", 0.0)
+        }
+        
+        if data_queue is not None:
+            if data_queue.full():
+                try:
+                    data_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+            data_queue.put_nowait(flat_data)
+        return
 
-        # Bắn góc Yaw qua WebSocket
+    # /-------------------------- XỬ LÝ DỮ LIỆU RSSI REALITY (DÀNH CHO HUẤN LUYỆN THỰC TẾ) ----------------------------/
+    if data_type == "user_data_rssi_reality":
+        hex_id = msg_dict.get("hex_id")
+        
+        bno_data = msg_dict.get("bno", {})
+        euler_data = bno_data.get("euler", {})
+        valve_data = msg_dict.get("valve", {})
+        button_data = msg_dict.get("button", {})
+        rssi_w = msg_dict.get("rssi_wifi", {})
+        rssi_b = msg_dict.get("rssi_ble", {})
+        
+        yaw_val = euler_data.get("yaw", 0.0)
+        valve_per_val = valve_data.get("open", 0.0)
+        spray_per_val = valve_data.get("mode", 100.0)
+
+        # Gửi thông số qua WebSocket
         if hex_id and active_websockets:
             for ws in active_websockets:
-                asyncio.create_task(ws.send_json({"tag_id": hex_id, "yaw": round(yaw_val, 1), "valve_per": round(valve_per_val, 1), "spray_per": round(spray_per_val, 1), "data_type": "rssi"}))
+                asyncio.create_task(ws.send_json({
+                    "tag_id": hex_id, 
+                    "yaw": round(yaw_val, 1), 
+                    "valve_per": round(valve_per_val, 1), 
+                    "spray_per": round(spray_per_val, 1), 
+                    "data_type": "rssi"
+                }))
 
+        # Phát hiện thiết bị mới
         if hex_id and hex_id not in KNOWN_RSSI_DEVICES:
             db = SessionLocal()
             try:
@@ -165,36 +262,45 @@ def handle_incoming_mqtt_data(msg_dict):
                 db.add(new_dev)
                 db.commit()
                 KNOWN_RSSI_DEVICES.add(hex_id)
-                print(f"[Noti] 🌟 Found new RSSI Device: {hex_id}")
-                # Bắn thông báo qua Websocket cho Frontend biết có thiết bị mới
                 for ws in device_manager_websockets:
                     asyncio.create_task(ws.send_json({"type": "new_device"}))
-            except Exception as e:
+            except Exception:
                 pass
             finally:
                 db.close()
 
-        # Đẩy data vào queue cho API collect data
-        # Logic: Nếu queue đầy đẩy phần tử cũ nhất ra thêm dữ liệu mới
-        if data_queue is not None:
-            if data_queue.full():
-                try:
-                    data_queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
-            data_queue.put_nowait(msg_dict)
+        # Lưu toàn bộ chi tiết quá trình huấn luyện vào DB
+        db = SessionLocal()
+        try:
+            new_record = database_models.UserDataRSSI(
+                rssi_wifi_1=rssi_w.get("1", 0.0), rssi_wifi_2=rssi_w.get("2", 0.0),
+                rssi_wifi_3=rssi_w.get("3", 0.0), rssi_wifi_4=rssi_w.get("4", 0.0),
+                rssi_ble_1=rssi_b.get("1", 0.0), rssi_ble_2=rssi_b.get("2", 0.0),
+                rssi_ble_3=rssi_b.get("3", 0.0), rssi_ble_4=rssi_b.get("4", 0.0),
+                accx=bno_data.get("acc", {}).get("x", 0.0), accy=bno_data.get("acc", {}).get("y", 0.0), accz=bno_data.get("acc", {}).get("z", 0.0),
+                magx=bno_data.get("mag", {}).get("x", 0.0), magy=bno_data.get("mag", {}).get("y", 0.0), magz=bno_data.get("mag", {}).get("z", 0.0),
+                gyrox=bno_data.get("gyro", {}).get("x", 0.0), gyroy=bno_data.get("gyro", {}).get("y", 0.0), gyroz=bno_data.get("gyro", {}).get("z", 0.0),
+                pitch=euler_data.get("pitch", 0.0), roll=euler_data.get("roll", 0.0), yaw=yaw_val,
+                valve_open=valve_per_val, valve_mode=spray_per_val,
+                btn_a=button_data.get("A", 0), btn_b=button_data.get("B", 0), btn_c=button_data.get("C", 0)
+            )
+            db.add(new_record)
+            db.commit()
+        except Exception as e:
+            print(f"[Err] ❌ Cannot save UserDataRSSI: {e}")
+        finally:
+            db.close()
 
-        # AI dự đoán vị trí
+        # 4. Dự đoán vị trí Realtime qua model AI và bắn MQTT tọa độ (Giữ nguyên logic cũ)
         if not active_websockets or ai_predictor is None or ai_predictor.model is None:
             return  
             
         features = [
-            msg_dict["rssi_wifi_1"], msg_dict["rssi_wifi_2"],
-            msg_dict["rssi_wifi_3"], msg_dict["rssi_wifi_4"],
-            msg_dict["rssi_ble_1"], msg_dict["rssi_ble_2"],
-            msg_dict["rssi_ble_3"], msg_dict["rssi_ble_4"],
-            msg_dict["magnetic_field_y"], msg_dict["magnetic_field_z"]
+            rssi_w.get("1", 0.0), rssi_w.get("2", 0.0), rssi_w.get("3", 0.0), rssi_w.get("4", 0.0),
+            rssi_b.get("1", 0.0), rssi_b.get("2", 0.0), rssi_b.get("3", 0.0), rssi_b.get("4", 0.0),
+            bno_data.get("mag", {}).get("y", 0.0), bno_data.get("mag", {}).get("z", 0.0)
         ]
+        
         if hex_id not in rssi_buffers:
             rssi_buffers[hex_id] = deque(maxlen=10)
         if hex_id not in kalman_filters:
@@ -202,30 +308,36 @@ def handle_incoming_mqtt_data(msg_dict):
         rssi_buffers[hex_id].append(features)
 
         if len(rssi_buffers[hex_id]) == 10:
-                window_data = np.array(rssi_buffers[hex_id])
-                try:
-                    raw_x, raw_y, accuracy = ai_predictor.predict_realtime(window_data)
-                    raw_x_smooth, raw_y_smooth = kalman_filters[hex_id].update(raw_x, raw_y)
-                    payload = {
-                        "type": "rssi",
-                        "tag_id": hex_id,
-                        "x": round(raw_x_smooth, 1),
-                        "y": round(raw_y_smooth, 1),
-                        "accuracy": round(accuracy * 100, 1)
-                    }
-                    
-                    for ws in active_websockets:
-                        asyncio.create_task(ws.send_json(payload))
+            window_data = np.array(rssi_buffers[hex_id])
+            try:
+                raw_x, raw_y, accuracy = ai_predictor.predict_realtime(window_data)
+                raw_x_smooth, raw_y_smooth = kalman_filters[hex_id].update(raw_x, raw_y)
+                
+                # Gửi lên WebSocket
+                payload = {
+                    "type": "rssi",
+                    "tag_id": hex_id,
+                    "x": round(raw_x_smooth, 1),
+                    "y": round(raw_y_smooth, 1),
+                    "accuracy": round(accuracy * 100, 1)
+                }
+                for ws in active_websockets:
+                    asyncio.create_task(ws.send_json(payload))
 
-                    # Gửi lên MQTT
-                    if mqtt_client:
-                        topic = f"user_pos/{hex_id}"
-                        message = f"{raw_x_smooth},{raw_y_smooth}"
-                        mqtt_client.publish(topic, message)
-                        print(f'[MQTT] 👤 Sent User Position message: {message} to topic: {topic}')
-                        
-                except Exception as e:
-                    print(f"[Err] ❌ Real-time prediction error: {e}")
+                # Đóng gói JSON gửi MQTT cho thiết bị
+                if mqtt_client:
+                    topic = f"user_pos/{hex_id}"
+                    tag_score = CURRENT_SCORES.get(hex_id, 1000)
+                    message = json.dumps({
+                        "x": float(raw_x_smooth),
+                        "y": float(raw_y_smooth),
+                        "score": int(tag_score)
+                    })
+                    mqtt_client.publish(topic, message)
+                    print(f'[MQTT] 👤 Sent User Position message: {message} to topic: {topic}')
+                    
+            except Exception as e:
+                print(f"[Err] ❌ Real-time prediction error: {e}")
     # /---------------------------------------------------------------------------------/
 
 # HÀM KHỞI ĐỘNG SERVER (LIFESPAN)
@@ -243,6 +355,7 @@ async def lifespan(app: FastAPI):
         uwb_latest_map = db.query(database_models.UwbMapInfo).order_by(database_models.UwbMapInfo.map_info_id.desc()).first()
         if uwb_latest_map and uwb_latest_map.beacon_location:
             BEACONS_CONFIG = uwb_latest_map.beacon_location
+            CURRENT_UWB_CELL_LENGTH = (uwb_latest_map.area_of_one_unit or 1.0) ** 0.5
             print("[Noti] ✅ UWB locations have been loaded from the database into RAM cache!")
     finally:
         db.close()
@@ -552,9 +665,19 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
 
         # Gửi Map xuống Device
         if mqtt_client:
-            cols = 10
+            MAX_COLS = 10
+            MAX_ROWS = 10
             offset = db_map.north_offset if db_map.north_offset else 0
-            blocked_ids = []
+            blocked_ids_set = set()
+
+            map_cols = db_map.cols if db_map.cols else MAX_COLS
+            map_rows = db_map.rows if db_map.rows else MAX_ROWS
+
+            for y in range(MAX_ROWS):
+                for x in range(MAX_COLS):
+                    if x >= map_cols or y >= map_rows:
+                        cell_id = y * MAX_COLS + x + 1
+                        blocked_ids_set.add(cell_id)
             
             if db_map.blocked_cells:
                 for cell in db_map.blocked_cells:
@@ -562,16 +685,18 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
                         x_str, y_str = cell.split(':')
                         x_idx = int(float(x_str))
                         y_idx = int(float(y_str))
-                        cell_id = y_idx * cols + x_idx + 1
-                        blocked_ids.append(str(cell_id))
+                        cell_id = y_idx * MAX_COLS + x_idx + 1
+                        blocked_ids_set.add(cell_id)
                     except Exception:
                         pass
-            
+                    
+            blocked_ids = [str(id) for id in sorted(list(blocked_ids_set))]
+
             payload = f"{offset}"
             if blocked_ids:
                 payload += "," + ",".join(blocked_ids)
                 
-            mqtt_client.publish("map_data", payload)
+            mqtt_client.publish("1/map_data", payload)
             print(f"[MQTT] 🗺️  Sent RSSI Map Data message: {payload}")
         
         return {"message": f"Successfully loaded AI Model for Map {id}"}
@@ -601,12 +726,19 @@ async def train_model(map_info_id: int):
 # =====================================================================
 @app.websocket("/ws/realtime_location")
 async def websocket_realtime_endpoint(websocket: WebSocket):
+    global CURRENT_SCORES
     await websocket.accept()
     active_websockets.append(websocket)
     try:
         while True:
             # Giữ kết nối mở và nhận tín hiệu ping/pong 
             data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "sync_scores":
+                    CURRENT_SCORES.update(msg.get("scores", {}))
+            except Exception:
+                pass
     except WebSocketDisconnect:
         active_websockets.remove(websocket)
         print("[Noti] ⚠️ A Client disconnected from Real-time Location")
@@ -672,7 +804,7 @@ def delete_uwb_map(id: int, db: Session = Depends(get_db)):
 # =====================================================================
 @app.post("/set_active_uwb_map/{id}")
 def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
-    global BEACONS_CONFIG, mqtt_client
+    global BEACONS_CONFIG, mqtt_client, CURRENT_UWB_CELL_LENGTH
     
     db_map = db.query(database_models.UwbMapInfo).filter(database_models.UwbMapInfo.map_info_id == id).first()
     
@@ -681,31 +813,57 @@ def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
         
     if db_map.beacon_location:
         BEACONS_CONFIG = db_map.beacon_location
+        CURRENT_UWB_CELL_LENGTH = (db_map.area_of_one_unit or 1.0) ** 0.5
     else:
         BEACONS_CONFIG = {}
     
     # Gửi Map xuống Device
     if mqtt_client:
-        cols = 10
+        MAX_COLS = 10
+        MAX_ROWS = 10
         offset = db_map.north_offset if db_map.north_offset else 0
-        blocked_ids = []
-        
-        # Chuyển đổi tọa độ thành danh sách ID
+        blocked_ids_set = set()
+
+        map_cols = db_map.cols if db_map.cols else MAX_COLS
+        map_rows = db_map.rows if db_map.rows else MAX_ROWS
+
+        # Danh sách các ô bị block
         if db_map.blocked_cells:
             for cell in db_map.blocked_cells:
                 try:
                     x_str, y_str = cell.split(':')
                     x_idx = int(float(x_str))
                     y_idx = int(float(y_str))
-                    cell_id = y_idx * cols + x_idx + 1
-                    blocked_ids.append(str(cell_id))
+                    cell_id = y_idx * MAX_COLS + x_idx + 1
+                    blocked_ids_set.add(cell_id)
                 except Exception:
                     pass
+        # Tính kích thước map
+        cell_length_m = (db_map.area_of_one_unit or 1.0) ** 0.5
+        map_width_m = int(map_cols * cell_length_m)
+        map_height_m = int(map_rows * cell_length_m)
+
+        # Vòng lặp tạo danh sách tọa độ các ô đi được
+        walkable_cells = {}
+        cell_counter = 1
+        for y in range(map_rows):
+            for x in range(map_cols):
+                cell_id = y * MAX_COLS + x + 1
+                
+                if cell_id not in blocked_ids_set:
+                    walkable_cells[str(cell_counter)] = [x, y]
+                    cell_counter += 1
         
-        payload = f"{offset}"
-        if blocked_ids:
-            payload += "," + ",".join(blocked_ids)
-            
+        payload_dict = {
+            "info": {
+                "x": map_width_m,
+                "y": map_height_m,
+                "north_offset": float(offset)
+            },
+            "cells": walkable_cells
+        }
+        
+        payload = json.dumps(payload_dict)
         mqtt_client.publish("map_data", payload)
         print(f"[MQTT] 🗺️  Sent UWB Map Data message: {payload}")
         
@@ -839,11 +997,12 @@ def get_training_history(db: Session = Depends(get_db)):
 @app.post("/fire_update")
 def update_fire_mqtt(payload_data: dict):
     global mqtt_client
-    data_str = payload_data.get("payload", "")
+    fire_dict = payload_data.get("payload", {})
     
     if mqtt_client:
-        mqtt_client.publish("firefighting_data", data_str)
-        print(f"[MQTT] 🔥 Sent Fire Data message: {data_str}")
+        payload = json.dumps(fire_dict)
+        mqtt_client.publish("fire_data", payload)
+        print(f"[MQTT] 🔥 Sent Fire Data message: {payload}")
         return {"status": "success"}
         
     return {"status": "error", "message": "MQTT not connected"}

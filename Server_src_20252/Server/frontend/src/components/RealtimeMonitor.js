@@ -49,6 +49,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const intervalRef = useRef(null);
   const timeRef = useRef(0);
   const firesRef = useRef([]);
+  const wsRef = useRef(null);
   const [spreadWarning, setSpreadWarning] = useState(false);
 
   const { showAlert } = useMessage();
@@ -86,6 +87,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
         // Kết nối WebSocket
         ws = new WebSocket("ws://localhost:8000/ws/realtime_location");
+        wsRef.current = ws;
         ws.onopen = () => setWsStatus("connected");
         ws.onmessage = (event) => {
           try {
@@ -299,28 +301,38 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             const penalty = tagPenalties[tagId] || 0;
             newScores[tagId] = Math.max(0, currentScore - 1 - penalty);
           });
+
+          // Gửi điểm mới lên WebSocket để đồng bộ với Frontend và gửi MQTT xuống thiết bị
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(
+              JSON.stringify({
+                type: "sync_scores",
+                scores: newScores,
+              }),
+            );
+          }
           return newScores;
         });
 
-        // Gửi MQTT id ô chứa lửa và level
+        // Gửi MQTT tọa độ ô chứa lửa và level
         if (fireStateChanged) {
-          const payloadArr = [];
-          updatedFires.forEach((f) => {
-            const xIdx = Math.floor(f.coord_x);
-            const yIdx = Math.floor(f.coord_y);
-            const cellId = yIdx * 10 + xIdx + 1;
+          const activeFires = updatedFires.filter(
+            (f) => f.status === "burning",
+          );
+          const firesArray = activeFires.map((f) => ({
+            x: Math.floor(f.coord_x),
+            y: Math.floor(f.coord_y),
+            level: f.level,
+          }));
 
-            let currentLevel = 0;
-            if (f.status === "burning") currentLevel = f.level;
-            else if (f.status === "extinguished" || f.status === "waiting")
-              currentLevel = 0;
+          // Đóng gói JSON
+          const payloadObj = {
+            fires_num: firesArray.length,
+            fires: firesArray,
+          };
 
-            payloadArr.push(`${cellId},${currentLevel}`);
-          });
-
-          const payloadStr = payloadArr.join(",");
           axios
-            .post("http://localhost:8000/fire_update", { payload: payloadStr })
+            .post("http://localhost:8000/fire_update", { payload: payloadObj })
             .catch((err) => console.error("MQTT Publish Error:", err));
         }
 
@@ -441,15 +453,14 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   // Hàm kết thúc bài tập giữa chừng
   const handleAbortTraining = () => {
     if (firesRef.current.length > 0) {
-      const payloadArr = firesRef.current.map((f) => {
-        const xIdx = Math.floor(f.coord_x);
-        const yIdx = Math.floor(f.coord_y);
-        const cellId = yIdx * 10 + xIdx + 1;
-        return `${cellId},0`; // Reset hết ngọn lửa về level 0
-      });
+      const payloadObj = {
+        fires_num: 0,
+        fires: [],
+      };
+
       axios
         .post("http://localhost:8000/fire_update", {
-          payload: payloadArr.join(","),
+          payload: payloadObj,
         })
         .catch((err) => console.error("Error:", err));
     }
