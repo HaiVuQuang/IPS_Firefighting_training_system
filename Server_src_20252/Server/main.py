@@ -20,6 +20,8 @@ from wbo_filter import Preprocessor
 from ml_model import MLModel
 from kalmanFilter import LinearKalmanFilter
 from positioning import ToFPositioning
+import time
+from sensor_fusion import StepDetection, PDRKalmanFusion
 
 
 
@@ -49,7 +51,12 @@ CURRENT_SCORES = {}
 # Biến cache lưu chiều dài cạnh 1 ô vuông của map
 CURRENT_UWB_CELL_LENGTH = 1.0
 
+db_buffer_uwb = []
+db_buffer_rssi = []
 kalman_filters = {}
+step_detectors = {}
+pdr_fusion_trackers = {}
+CURRENT_MAP_NORTH_OFFSET = 90.0
 
 # HÀM ĐƯỢC GỌI KHI CÓ TIN NHẮN MQTT
 def handle_incoming_mqtt_data(msg_dict):
@@ -80,33 +87,26 @@ def handle_incoming_mqtt_data(msg_dict):
                     "data_type": "uwb"
                 }))
         # Lưu về DB
-        db = SessionLocal()
-        try:
-            new_record = database_models.UserDataUWB(
-                accx=bno_data.get("acc", {}).get("x", 0.0),
-                accy=bno_data.get("acc", {}).get("y", 0.0),
-                accz=bno_data.get("acc", {}).get("z", 0.0),
-                magx=bno_data.get("mag", {}).get("x", 0.0),
-                magy=bno_data.get("mag", {}).get("y", 0.0),
-                magz=bno_data.get("mag", {}).get("z", 0.0),
-                gyrox=bno_data.get("gyro", {}).get("x", 0.0),
-                gyroy=bno_data.get("gyro", {}).get("y", 0.0),
-                gyroz=bno_data.get("gyro", {}).get("z", 0.0),
-                pitch=euler_data.get("pitch", 0.0),
-                roll=euler_data.get("roll", 0.0),
-                yaw=yaw_val,
-                valve_open=valve_per_val,
-                valve_mode=spray_per_val,
-                btn_a=button_data.get("A", 0),
-                btn_b=button_data.get("B", 0),
-                btn_c=button_data.get("C", 0)
-            )
-            db.add(new_record)
-            db.commit()
-        except Exception as e:
-            print(f"[Err] ❌ Canot save UserDataUWB: {e}")
-        finally:
-            db.close()
+        new_record = database_models.UserDataUWB(
+            accx=bno_data.get("acc", {}).get("x", 0.0),
+            accy=bno_data.get("acc", {}).get("y", 0.0),
+            accz=bno_data.get("acc", {}).get("z", 0.0),
+            magx=bno_data.get("mag", {}).get("x", 0.0),
+            magy=bno_data.get("mag", {}).get("y", 0.0),
+            magz=bno_data.get("mag", {}).get("z", 0.0),
+            gyrox=bno_data.get("gyro", {}).get("x", 0.0),
+            gyroy=bno_data.get("gyro", {}).get("y", 0.0),
+            gyroz=bno_data.get("gyro", {}).get("z", 0.0),
+            pitch=euler_data.get("pitch", 0.0),
+            roll=euler_data.get("roll", 0.0),
+            yaw=yaw_val,
+            valve_open=valve_per_val,
+            valve_mode=spray_per_val,
+            btn_a=button_data.get("A", 0),
+            btn_b=button_data.get("B", 0),
+            btn_c=button_data.get("C", 0)
+        )
+        db_buffer_uwb.append(new_record)
         return
 
     # /------------------------- XỬ LÝ DỮ LIỆU UWB RANGING ----------------------------/
@@ -115,22 +115,13 @@ def handle_incoming_mqtt_data(msg_dict):
         measurements = msg_dict["measurements"] 
         
         for tag_id, distance in measurements.items():
-            # Lưu UWB Device
+            # Lưu UWB Device (Nếu trong DB chưa có)
             if tag_id not in KNOWN_UWB_DEVICES:
-                db = SessionLocal()
-                try:
-                    new_dev = database_models.DeviceUWB(device_name=f"{tag_id}", device_hex_id=tag_id)
-                    db.add(new_dev)
-                    db.commit()
-                    KNOWN_UWB_DEVICES.add(tag_id)
-                    print(f"[Noti] 🌟 Found new UWB Device: {tag_id}")
-                    # Bắn thông báo qua Websocket cho Frontend biết có thiết bị mới
-                    for ws in device_manager_websockets:
-                        asyncio.create_task(ws.send_json({"type": "new_device"}))
-                except Exception as e:
-                    pass
-                finally:
-                    db.close()
+                KNOWN_UWB_DEVICES.add(tag_id)
+                asyncio.create_task(asyncio.to_thread(_save_new_device, "UWB", tag_id))
+                print(f"[Noti] 🌟 Found new UWB Device: {tag_id}")
+                for ws in device_manager_websockets:
+                    asyncio.create_task(ws.send_json({"type": "new_device"}))
             # Khởi tạo buffer cho Tag này nếu chưa có
             if tag_id not in uwb_distance_buffer:
                 uwb_distance_buffer[tag_id] = {}
@@ -254,71 +245,83 @@ def handle_incoming_mqtt_data(msg_dict):
                     "data_type": "rssi"
                 }))
 
-        # Phát hiện thiết bị mới
+        # Lưu RSSI Device (Nếu trong DB chưa có)
         if hex_id and hex_id not in KNOWN_RSSI_DEVICES:
-            db = SessionLocal()
-            try:
-                new_dev = database_models.DeviceRSSI(device_name=f"{hex_id}", device_hex_id=hex_id)
-                db.add(new_dev)
-                db.commit()
-                KNOWN_RSSI_DEVICES.add(hex_id)
-                for ws in device_manager_websockets:
-                    asyncio.create_task(ws.send_json({"type": "new_device"}))
-            except Exception:
-                pass
-            finally:
-                db.close()
-
+            KNOWN_RSSI_DEVICES.add(hex_id)
+            asyncio.create_task(asyncio.to_thread(_save_new_device, "RSSI", hex_id))
+            print(f"[Noti] 🌟 Found new RSSI Device: {hex_id}")
+            for ws in device_manager_websockets:
+                asyncio.create_task(ws.send_json({"type": "new_device"}))
+                
         # Lưu toàn bộ chi tiết quá trình huấn luyện vào DB
-        db = SessionLocal()
-        try:
-            new_record = database_models.UserDataRSSI(
-                rssi_wifi_1=rssi_w.get("1", 0.0), rssi_wifi_2=rssi_w.get("2", 0.0),
-                rssi_wifi_3=rssi_w.get("3", 0.0), rssi_wifi_4=rssi_w.get("4", 0.0),
-                rssi_ble_1=rssi_b.get("1", 0.0), rssi_ble_2=rssi_b.get("2", 0.0),
-                rssi_ble_3=rssi_b.get("3", 0.0), rssi_ble_4=rssi_b.get("4", 0.0),
-                accx=bno_data.get("acc", {}).get("x", 0.0), accy=bno_data.get("acc", {}).get("y", 0.0), accz=bno_data.get("acc", {}).get("z", 0.0),
-                magx=bno_data.get("mag", {}).get("x", 0.0), magy=bno_data.get("mag", {}).get("y", 0.0), magz=bno_data.get("mag", {}).get("z", 0.0),
-                gyrox=bno_data.get("gyro", {}).get("x", 0.0), gyroy=bno_data.get("gyro", {}).get("y", 0.0), gyroz=bno_data.get("gyro", {}).get("z", 0.0),
-                pitch=euler_data.get("pitch", 0.0), roll=euler_data.get("roll", 0.0), yaw=yaw_val,
-                valve_open=valve_per_val, valve_mode=spray_per_val,
-                btn_a=button_data.get("A", 0), btn_b=button_data.get("B", 0), btn_c=button_data.get("C", 0)
-            )
-            db.add(new_record)
-            db.commit()
-        except Exception as e:
-            print(f"[Err] ❌ Cannot save UserDataRSSI: {e}")
-        finally:
-            db.close()
+        new_record = database_models.UserDataRSSI(
+            rssi_wifi_1=rssi_w.get("1", 0.0), rssi_wifi_2=rssi_w.get("2", 0.0),
+            rssi_wifi_3=rssi_w.get("3", 0.0), rssi_wifi_4=rssi_w.get("4", 0.0),
+            rssi_ble_1=rssi_b.get("1", 0.0), rssi_ble_2=rssi_b.get("2", 0.0),
+            rssi_ble_3=rssi_b.get("3", 0.0), rssi_ble_4=rssi_b.get("4", 0.0),
+            accx=bno_data.get("acc", {}).get("x", 0.0), accy=bno_data.get("acc", {}).get("y", 0.0), accz=bno_data.get("acc", {}).get("z", 0.0),
+            magx=bno_data.get("mag", {}).get("x", 0.0), magy=bno_data.get("mag", {}).get("y", 0.0), magz=bno_data.get("mag", {}).get("z", 0.0),
+            gyrox=bno_data.get("gyro", {}).get("x", 0.0), gyroy=bno_data.get("gyro", {}).get("y", 0.0), gyroz=bno_data.get("gyro", {}).get("z", 0.0),
+            pitch=euler_data.get("pitch", 0.0), roll=euler_data.get("roll", 0.0), yaw=yaw_val,
+            valve_open=valve_per_val, valve_mode=spray_per_val,
+            btn_a=button_data.get("A", 0), btn_b=button_data.get("B", 0), btn_c=button_data.get("C", 0)
+        )
+        db_buffer_rssi.append(new_record)
 
-        # 4. Dự đoán vị trí Realtime qua model AI và bắn MQTT tọa độ (Giữ nguyên logic cũ)
+        # Dự đoán vị trí kết hợp PDR và CNN
         if not active_websockets or ai_predictor is None or ai_predictor.model is None:
             return  
+
+        current_time = time.time()
+
+        # 1. Khởi tạo các tracker cho thiết bị mới nếu chưa có
+        if hex_id not in rssi_buffers:
+            rssi_buffers[hex_id] = deque(maxlen=10)
+        if hex_id not in step_detectors:
+            step_detectors[hex_id] = StepDetection()
+        if hex_id not in pdr_fusion_trackers:
+            pdr_fusion_trackers[hex_id] = PDRKalmanFusion(initial_x=0.0, initial_y=0.0)
+
+        # 2. XỬ LÝ PDR (Mỗi khi có bản tin IMU đến)
+        # Tính góc di chuyển thực tế (Yaw + North Offset)
+        real_heading = (yaw_val + CURRENT_MAP_NORTH_OFFSET) % 360
+        acc_z = bno_data.get("acc", {}).get("z", 0.0)
+        
+        is_step = step_detectors[hex_id].detect_step(acc_z, current_time)
+        
+        if is_step:
+            # Nếu có bước chân -> PDR thực hiện Predict tịnh tiến vị trí
+            pdr_x, pdr_y = pdr_fusion_trackers[hex_id].predict_pdr(real_heading)
             
+            # (Tùy chọn) Bạn có thể bắn ngay tọa độ PDR này lên Web để trải nghiệm
+            # sự mượt mà theo từng bước chân mà không cần đợi 1 giây của CNN.
+
+        # 3. XỬ LÝ CNN (Gom đủ 10 mẫu RSSI mới dự đoán 1 lần)
         features = [
             rssi_w.get("1", 0.0), rssi_w.get("2", 0.0), rssi_w.get("3", 0.0), rssi_w.get("4", 0.0),
             rssi_b.get("1", 0.0), rssi_b.get("2", 0.0), rssi_b.get("3", 0.0), rssi_b.get("4", 0.0),
             bno_data.get("mag", {}).get("y", 0.0), bno_data.get("mag", {}).get("z", 0.0)
         ]
-        
-        if hex_id not in rssi_buffers:
-            rssi_buffers[hex_id] = deque(maxlen=10)
-        if hex_id not in kalman_filters:
-            kalman_filters[hex_id] = LinearKalmanFilter()
         rssi_buffers[hex_id].append(features)
 
         if len(rssi_buffers[hex_id]) == 10:
             window_data = np.array(rssi_buffers[hex_id])
             try:
+                # CNN Dự đoán tọa độ
                 raw_x, raw_y, accuracy = ai_predictor.predict_realtime(window_data)
-                raw_x_smooth, raw_y_smooth = kalman_filters[hex_id].update(raw_x, raw_y)
+                
+                # SENSOR FUSION: Đưa tọa độ CNN vào Kalman để Update/Nắn lại sai số PDR
+                final_x, final_y = pdr_fusion_trackers[hex_id].update_cnn(raw_x, raw_y)
+                
+                # Reset buffer để gom 10 mẫu tiếp theo
+                rssi_buffers[hex_id].clear()
                 
                 # Gửi lên WebSocket
                 payload = {
                     "type": "rssi",
                     "tag_id": hex_id,
-                    "x": round(raw_x_smooth, 1),
-                    "y": round(raw_y_smooth, 1),
+                    "x": round(final_x, 1),
+                    "y": round(final_y, 1),
                     "accuracy": round(accuracy * 100, 1)
                 }
                 for ws in active_websockets:
@@ -329,8 +332,8 @@ def handle_incoming_mqtt_data(msg_dict):
                     topic = f"user_pos/{hex_id}"
                     tag_score = CURRENT_SCORES.get(hex_id, 1000)
                     message = json.dumps({
-                        "x": float(raw_x_smooth),
-                        "y": float(raw_y_smooth),
+                        "x": float(round(final_x, 1)),
+                        "y": float(round(final_y, 1)),
                         "score": int(tag_score)
                     })
                     mqtt_client.publish(topic, message)
@@ -339,6 +342,49 @@ def handle_incoming_mqtt_data(msg_dict):
             except Exception as e:
                 print(f"[Err] ❌ Real-time prediction error: {e}")
     # /---------------------------------------------------------------------------------/
+# Hàm lưu thiết bị mới phát hiện vào DB
+def _save_new_device(device_type, hex_id):
+    db = SessionLocal()
+    try:
+        if device_type == "UWB":
+            new_dev = database_models.DeviceUWB(device_name=f"{hex_id}", device_hex_id=hex_id)
+        else:
+            new_dev = database_models.DeviceRSSI(device_name=f"{hex_id}", device_hex_id=hex_id)
+        db.add(new_dev)
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+# Hàm ghi dữ liệu từ buffer vào DB
+def _bulk_save_to_db(uwb_list, rssi_list):
+    if not uwb_list and not rssi_list: return
+    db = SessionLocal()
+    try:
+        if uwb_list:
+            db.bulk_save_objects(uwb_list) # bulk_save_objects: Cập nhật hàng loạt vào DB
+        if rssi_list:
+            db.bulk_save_objects(rssi_list)
+        db.commit()
+    except Exception as e:
+        print(f"[Err] ❌ Bulk Save DB Error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+async def periodic_db_save_task():
+    global db_buffer_uwb, db_buffer_rssi
+    while True:
+        await asyncio.sleep(1.0)
+        if db_buffer_uwb or db_buffer_rssi:
+            # Copy dữ liệu hiện tại và clear buffer chính
+            uwb_to_save = db_buffer_uwb[:]
+            rssi_to_save = db_buffer_rssi[:]
+            db_buffer_uwb.clear()
+            db_buffer_rssi.clear()
+            
+            # Đẩy lệnh lưu DB sang một Thread riêng để tránh block envent loop chính của FastAPI
+            await asyncio.to_thread(_bulk_save_to_db, uwb_to_save, rssi_to_save)
 
 # HÀM KHỞI ĐỘNG SERVER (LIFESPAN)
 @asynccontextmanager
@@ -362,6 +408,9 @@ async def lifespan(app: FastAPI):
 
     data_queue = asyncio.Queue(maxsize=500)
     loop = asyncio.get_running_loop()
+
+    # Task chạy ngầm ghi DB
+    db_task = asyncio.create_task(periodic_db_save_task())
     
     # Khởi động kết nối MQTT
     mqtt.init_async_bridge(loop, handle_incoming_mqtt_data)
@@ -370,6 +419,7 @@ async def lifespan(app: FastAPI):
     yield 
     
     # Đóng kết nối khi tắt server
+    db_task.cancel()
     mqtt_client.loop_stop()
     mqtt_client.disconnect()
 
@@ -668,17 +718,13 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
             MAX_COLS = 10
             MAX_ROWS = 10
             offset = db_map.north_offset if db_map.north_offset else 0
+            CURRENT_MAP_NORTH_OFFSET = float(offset)
             blocked_ids_set = set()
 
             map_cols = db_map.cols if db_map.cols else MAX_COLS
             map_rows = db_map.rows if db_map.rows else MAX_ROWS
 
-            for y in range(MAX_ROWS):
-                for x in range(MAX_COLS):
-                    if x >= map_cols or y >= map_rows:
-                        cell_id = y * MAX_COLS + x + 1
-                        blocked_ids_set.add(cell_id)
-            
+            # Danh sách các ô bị block
             if db_map.blocked_cells:
                 for cell in db_map.blocked_cells:
                     try:
@@ -689,14 +735,31 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
                         blocked_ids_set.add(cell_id)
                     except Exception:
                         pass
-                    
-            blocked_ids = [str(id) for id in sorted(list(blocked_ids_set))]
+            # Tính kích thước map
+            cell_length_m = (db_map.area_of_one_unit or 1.0) ** 0.5
+            map_width_m = int(map_cols * cell_length_m)
+            map_height_m = int(map_rows * cell_length_m)
 
-            payload = f"{offset}"
-            if blocked_ids:
-                payload += "," + ",".join(blocked_ids)
-                
-            mqtt_client.publish("1/map_data", payload)
+            # Vòng lặp tạo danh sách tọa độ các ô đi được
+            walkable_cells = []
+            for y in range(map_rows):
+                for x in range(map_cols):
+                    cell_id = y * MAX_COLS + x + 1
+                    
+                    if cell_id not in blocked_ids_set:
+                        walkable_cells.append([x, y])
+            
+            payload_dict = {
+                "info": {
+                    "x": map_width_m,
+                    "y": map_height_m,
+                    "north_offset": float(offset)
+                },
+                "cells": walkable_cells
+            }
+            
+            payload = json.dumps(payload_dict)
+            mqtt_client.publish("map_data", payload)
             print(f"[MQTT] 🗺️  Sent RSSI Map Data message: {payload}")
         
         return {"message": f"Successfully loaded AI Model for Map {id}"}
@@ -844,15 +907,13 @@ def set_active_uwb_map(id: int, db: Session = Depends(get_db)):
         map_height_m = int(map_rows * cell_length_m)
 
         # Vòng lặp tạo danh sách tọa độ các ô đi được
-        walkable_cells = {}
-        cell_counter = 1
+        walkable_cells = []
         for y in range(map_rows):
             for x in range(map_cols):
                 cell_id = y * MAX_COLS + x + 1
                 
                 if cell_id not in blocked_ids_set:
-                    walkable_cells[str(cell_counter)] = [x, y]
-                    cell_counter += 1
+                    walkable_cells.append([x, y])
         
         payload_dict = {
             "info": {

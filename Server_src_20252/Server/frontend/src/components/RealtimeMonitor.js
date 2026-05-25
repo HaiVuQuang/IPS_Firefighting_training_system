@@ -266,21 +266,33 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             }
 
             if (isSomeoneExtinguishing) {
-              const requiredTime =
-                fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
+              const requiredTimeToDrop = 3; // Thời gian giảm 1 level
               const newProgress = fire.progress + 1;
 
-              if (newProgress >= requiredTime) {
+              if (newProgress >= requiredTimeToDrop) {
                 fireStateChanged = true;
-                return {
-                  ...fire,
-                  status: "extinguished",
-                  progress: newProgress,
-                  level: 0,
-                };
+                const newLevel = fire.level - 1;
+
+                // Mức <= 0 : Dập tắt
+                if (newLevel <= 0) {
+                  return {
+                    ...fire,
+                    status: "extinguished",
+                    progress: 0,
+                    level: 0,
+                  };
+                } else {
+                  // Nếu level chưa về 0, giảm level và reset tiến trình
+                  return {
+                    ...fire,
+                    level: newLevel,
+                    progress: 0,
+                  };
+                }
               }
               return { ...fire, progress: newProgress };
             } else {
+              // Nếu đang xịt mà không xịt tiếp reset tiến trình
               return { ...fire, progress: 0 };
             }
           }
@@ -830,8 +842,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
               {/* VẼ NGỌN LỬA */}
               {sessionFires.map((fire, idx) => {
                 if (fire.status === "waiting") return null;
-                const requiredTime =
-                  fire.level === 1 ? 3 : fire.level === 2 ? 5 : 8;
+                const requiredTime = 3;
                 const progressPercent = (fire.progress / requiredTime) * 100;
 
                 let icon;
