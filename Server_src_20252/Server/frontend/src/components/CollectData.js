@@ -24,6 +24,7 @@ function CollectData({ mapData }) {
   const [submitMessage, setSubmitMessage] = useState("");
   const [trainModelStatus, setTrainModelStatus] = useState("idle");
   const [trainModelMessage, setTrainModelMessage] = useState("");
+  const [progress, setProgress] = useState(0);
 
   const rows = mapData.rows || 10;
   const cols = mapData.cols || 10;
@@ -31,6 +32,19 @@ function CollectData({ mapData }) {
   const routers = new Set(mapData.router_location || []);
 
   const { showAlert, showConfirm } = useMessage();
+
+  React.useEffect(() => {
+    const ws = new WebSocket("ws://localhost:8000/ws/realtime_location");
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "collect_progress") {
+          setProgress(data.collected);
+        }
+      } catch (err) {}
+    };
+    return () => ws.close();
+  }, []);
 
   const handleCellClick = (r, c) => {
     const key = `${(c + 0.5).toFixed(1)}:${(rows - 1 - r + 0.5).toFixed(1)}`;
@@ -66,6 +80,7 @@ function CollectData({ mapData }) {
   const handleCollectData = async () => {
     setLoading(true);
     setMessage("");
+    setProgress(0);
     try {
       const payload = {
         map_info_id: mapData.map_info_id,
@@ -82,11 +97,15 @@ function CollectData({ mapData }) {
       setCollectedCells((prev) => new Set(prev).add(cellKey));
 
       setMessage(res.data.message);
-      setTimeout(() => setSelectedCell(null), 2000);
+      setTimeout(() => {
+        setSelectedCell(null);
+        setLoading(false);
+        setProgress(0);
+      }, 2000);
     } catch (err) {
       showAlert("Error", "Failed to collect data.", "error");
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSubmit = async () => {
@@ -308,11 +327,18 @@ function CollectData({ mapData }) {
         </div>
       </div>
       {selectedCell && (
-        <div className="modal-overlay" onClick={() => setSelectedCell(null)}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            if (!loading) setSelectedCell(null);
+          }}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button
               className="btn-close-modal"
-              onClick={() => setSelectedCell(null)}
+              onClick={() => {
+                if (!loading) setSelectedCell(null);
+              }}
             >
               <X size={24} />
             </button>
@@ -343,9 +369,13 @@ function CollectData({ mapData }) {
             <button
               className="btn-modal-submit"
               onClick={handleCollectData}
-              disabled={loading}
+              disabled={loading || message !== ""}
             >
-              {loading ? "Collecting..." : "Start"}
+              {loading
+                ? `Collecting... (${progress}/${samples})`
+                : message
+                  ? "Done!"
+                  : "Start"}
             </button>
           </div>
         </div>

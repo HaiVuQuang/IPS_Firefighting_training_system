@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os
+import core.globals_var as globals_var
 
 class WBOFilter:
     def __init__(self, min_value, max_value, a_factor=10, b_factor=3, threshold=0):
@@ -130,15 +131,14 @@ class Preprocessor:
             
             final_filtered_df = pd.DataFrame(final_filtered_rows, columns=col_names)
             final_raw_df = pd.DataFrame(final_raw_rows, columns=col_names)
-            
-            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-            os.makedirs(os.path.join(BASE_DIR, 'rssi_data'), exist_ok=True)
+
+            os.makedirs(os.path.join(globals_var.ROOT_DIR, 'rssi_data'), exist_ok=True)
             
             # ---> SỬA TÊN FILE Ở ĐÂY: Nối chuỗi map_id vào đuôi tên file <---
-            filtered_file_path = os.path.join(BASE_DIR, 'rssi_data', f'rssi_preprocess_map_{self.map_id}.csv') 
+            filtered_file_path = os.path.join(globals_var.ROOT_DIR, 'rssi_data', f'rssi_preprocess_map_{self.map_id}.csv') 
             final_filtered_df.to_csv(filtered_file_path, index=False)
             
-            raw_file_path = os.path.join(BASE_DIR, 'rssi_data', f'rssi_preprocess_raw_map_{self.map_id}.csv') 
+            raw_file_path = os.path.join(globals_var.ROOT_DIR, 'rssi_data', f'rssi_preprocess_raw_map_{self.map_id}.csv') 
             final_raw_df.to_csv(raw_file_path, index=False)
             
             return filtered_file_path, raw_file_path

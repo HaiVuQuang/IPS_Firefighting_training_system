@@ -164,7 +164,7 @@ class KalmanFilter2D:
     Simple 2D Kalman filter for smoothing position estimates.
     """
     
-    def __init__(self, process_noise: float = 0.1, measurement_noise: float = 0.5):
+    def __init__(self, process_noise: float = 0.001, measurement_noise: float = 0.055):
         """
         Args:
             process_noise: Process noise covariance

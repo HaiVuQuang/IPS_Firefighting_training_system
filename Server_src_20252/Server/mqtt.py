@@ -47,7 +47,7 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode()  #chuyển tin nhắn từ bytes -> string
 
-# Xử lý tin nhắn với topic "reality_id/"
+    # Xử lý tin nhắn với topic bắt đầu bằng "reality_id/"
     if topic.startswith("reality_id/"):
 
         try:
@@ -67,7 +67,7 @@ def on_message(client, userdata, msg):
             print("[Err] ❌ Payload is not valid JSON")
 
     # Xử lý tin nhắn với topic bắt đầu bằng "training_id/"
-    elif topic.startswith("training_id/"):
+    if topic.startswith("training_id/"):
         try:
             hex_id = topic.split('/')[1]
             payload_dict = json.loads(payload)

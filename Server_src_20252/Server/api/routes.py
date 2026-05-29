@@ -1,4 +1,4 @@
-import os
+import os, traceback
 import json
 import asyncio
 import pandas as pd
@@ -52,11 +52,11 @@ def login(user: UserSchema, db: Session = Depends(get_db)):
 # =====================================================================
 # API QUẢN LÝ THIẾT BỊ 
 # =====================================================================
-@router.get("/devices/rssi")
+@router.get("/devices/fingerprint")
 def get_rssi_devices(db: Session = Depends(get_db)):
     return db.query(database_models.DeviceRSSI).all()
 
-@router.put("/devices/rssi/{device_id}")
+@router.put("/devices/fingerprint/{device_id}")
 def rename_rssi_device(device_id: int, payload: DeviceRenameSchema, db: Session = Depends(get_db)):
     dev = db.query(database_models.DeviceRSSI).filter_by(device_id=device_id).first()
     if not dev: raise HTTPException(status_code=404)
@@ -64,7 +64,7 @@ def rename_rssi_device(device_id: int, payload: DeviceRenameSchema, db: Session 
     db.commit()
     return dev
 
-@router.delete("/devices/rssi/{device_id}")
+@router.delete("/devices/fingerprint/{device_id}")
 def delete_rssi_device(device_id: int, db: Session = Depends(get_db)):
     dev = db.query(database_models.DeviceRSSI).filter_by(device_id=device_id).first()
     if not dev: 
@@ -180,7 +180,10 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
         print(f"[Noti] 🔄 Switching AI Model path to Map ID: {id}...")
         # Xóa sạch cũ (Ngoại trừ danh sách thiết bị KNOWN_RSSI_DEVICES)
         globals_var.rssi_buffers.clear()
-        globals_var.kalman_filters.clear()
+        globals_var.pdr_fusion_trackers.clear()
+        globals_var.step_detectors.clear() 
+        if hasattr(globals_var, 'kalman_filters'):
+            globals_var.kalman_filters.clear()
         
         # Load model mới
         globals_var.ai_predictor = MLModel(csv_path="", map_id=id)
@@ -237,7 +240,7 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
         
         return {"message": f"Successfully loaded AI Model for Map {id}"}
     except Exception as e:
-        print(f"[Err] ❌ Failed to load model for Map {id}: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=f"AI Model for Map {id} not found. Please train it first!")
 # =====================================================================
 # API THU THẬP DỮ LIỆU CHO FINGERPRINTING
@@ -281,6 +284,15 @@ async def collect_data(request: CollectDataRequestSchema, db: Session = Depends(
                 )
                 db.add(new_record)
                 collected += 1
+
+                if globals_var.active_websockets:
+                    payload = {
+                        "type": "collect_progress",
+                        "collected": collected,
+                        "total": request.samples
+                    }
+                    for ws in globals_var.active_websockets:
+                        asyncio.create_task(ws.send_json(payload))
 
             except asyncio.TimeoutError:
                 print("[Noti] ❌ Device stopped sending data.")
@@ -330,8 +342,7 @@ def preprocess_map_data(map_info_id: int, db: Session = Depends(get_db)):
 @router.post("/train_model/{map_info_id}")
 async def train_model(map_info_id: int):
     try:
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        csv_file_path = os.path.join(BASE_DIR, 'rssi_data', f'rssi_preprocess_map_{map_info_id}.csv')
+        csv_file_path = os.path.join(globals_var.ROOT_DIR, 'rssi_data', f'rssi_preprocess_map_{map_info_id}.csv')
         cnn_model = MLModel(csv_path=csv_file_path, map_id=map_info_id) 
         cnn_model.train_model()
         

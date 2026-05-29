@@ -1,3 +1,9 @@
+import os
+
+
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 data_queue = None               # Queue lưu dữ liệu RSSI từ MQTT để phục vụ API collect data
 
 ai_predictor = None             # Object Model AI load vào RAM

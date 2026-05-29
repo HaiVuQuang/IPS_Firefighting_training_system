@@ -10,6 +10,7 @@ from sklearn.preprocessing import LabelEncoder
 import os
 import pickle
 from wbo_filter import WBOFilter
+import core.globals_var as globals_var
 
 class MLModel:
     def __init__(self, csv_path, map_id=1):
@@ -103,23 +104,19 @@ class MLModel:
         return history.history["accuracy"][-1], history.history["val_accuracy"][-1]
 
     def save_model(self, X_min, X_max):
-            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-            # TẠO THƯ MỤC RIÊNG CHO TỪNG MAP
-            model_dir = os.path.join(BASE_DIR, "model", f"map_{self.map_id}")
-            os.makedirs(model_dir, exist_ok=True)
+        model_dir = os.path.join(globals_var.ROOT_DIR, "model", f"map_{self.map_id}")
+        os.makedirs(model_dir, exist_ok=True)
 
-            self.model.save(os.path.join(model_dir, "ml_model.keras"))
-            with open(os.path.join(model_dir, "model_meta.pkl"), "wb") as f:
-                pickle.dump({
-                    "label_encoder": self.label_encoder,
-                    "X_min": X_min,
-                    "X_max": X_max
-                }, f)
+        self.model.save(os.path.join(model_dir, "ml_model.keras"))
+        with open(os.path.join(model_dir, "model_meta.pkl"), "wb") as f:
+            pickle.dump({
+                "label_encoder": self.label_encoder,
+                "X_min": X_min,
+                "X_max": X_max
+            }, f)
 
     def load_saved_model(self):
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        # TRỎ ĐẾN ĐÚNG THƯ MỤC CỦA MAP
-        model_dir = os.path.join(BASE_DIR, "model", f"map_{self.map_id}")
+        model_dir = os.path.join(globals_var.ROOT_DIR, "model", f"map_{self.map_id}")
         
         self.model = tf.keras.models.load_model(os.path.join(model_dir, "ml_model.keras"))
         
