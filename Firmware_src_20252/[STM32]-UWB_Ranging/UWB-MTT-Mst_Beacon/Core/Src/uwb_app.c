@@ -36,32 +36,46 @@ uwb_dev_config_t uwb_cfg = {
     .ant_dly_rx = RX_ANT_DLY,				/* RX antena Delay */
 
 
-//    .config = {
-//		.chan = CHANNEL_NUM,				/* Channel number. */
-//		.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
-//		.txPreambLength = DWT_PLEN_128,		/* Preamble length. Used in TX only. */
-//		.rxPAC = DWT_PAC8,					/* Preamble acquisition chunk size. Used in RX only. */
-//		.txCode = 9,						/* TX preamble code. Used in TX only. */
-//		.rxCode = 9,						/* RX preamble code. Used in RX only. */
-//		.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
-//		.dataRate = DWT_BR_6M8,				/* Data rate. */
-//		.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
-//		.sfdTO = (129 + 8 - 8)				/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
-//    },
-
-	 /* RF Configuration */
     .config = {
 		.chan = CHANNEL_NUM,				/* Channel number. */
 		.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
-		.txPreambLength = DWT_PLEN_1024,	/* Preamble length. Used in TX only. */
-		.rxPAC = DWT_PAC32,					/* Preamble acquisition chunk size. Used in RX only. */
+		.txPreambLength = DWT_PLEN_128,		/* Preamble length. Used in TX only. */
+		.rxPAC = DWT_PAC8,					/* Preamble acquisition chunk size. Used in RX only. */
 		.txCode = 9,						/* TX preamble code. Used in TX only. */
 		.rxCode = 9,						/* RX preamble code. Used in RX only. */
 		.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
-		.dataRate = DWT_BR_850K,			/* Data rate. */
+		.dataRate = DWT_BR_6M8,				/* Data rate. */
 		.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
-		.sfdTO = (1024 + 1 + 8 - 32)		/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+		.sfdTO = (129 + 8 - 8)				/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
     },
+
+//	   .config = {
+//			.chan = CHANNEL_NUM,				/* Channel number. */
+//			.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
+//			.txPreambLength = DWT_PLEN_256,		/* Preamble length. Used in TX only. */
+//			.rxPAC = DWT_PAC16,					/* Preamble acquisition chunk size. Used in RX only. */
+//			.txCode = 9,						/* TX preamble code. Used in TX only. */
+//			.rxCode = 9,						/* RX preamble code. Used in RX only. */
+//			.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
+//			.dataRate = DWT_BR_6M8,				/* Data rate. */
+//			.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
+//			.sfdTO = (256 + 1 + 8 - 16)				/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+//	    },
+
+
+	 /* RF Configuration */
+//    .config = {
+//		.chan = CHANNEL_NUM,				/* Channel number. */
+//		.prf = DWT_PRF_64M,					/* Pulse repetition frequency. */
+//		.txPreambLength = DWT_PLEN_1024,	/* Preamble length. Used in TX only. */
+//		.rxPAC = DWT_PAC32,					/* Preamble acquisition chunk size. Used in RX only. */
+//		.txCode = 9,						/* TX preamble code. Used in TX only. */
+//		.rxCode = 9,						/* RX preamble code. Used in RX only. */
+//		.nsSFD = 0,							/* 0 to use standard SFD, 1 to use non-standard SFD. */
+//		.dataRate = DWT_BR_850K,			/* Data rate. */
+//		.phrMode = DWT_PHRMODE_STD,			/* PHY header mode. */
+//		.sfdTO = (1024 + 1 + 8 - 32)		/* SFD timeout (preamble length + 1 + SFD length - PAC size). Used in RX only. */
+//    },
 
     /* TX Power Configuration */
     .tx_config = {
@@ -152,6 +166,23 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 //    uint32_t ts_low = (uint32_t)(ts & 0xFFFFFFFF);
     return ts;
 }
+
+
+ /*! -------------------------------------------------------------------
+  * @brief:  Get the current system time in a 64-bit variable.
+  * @return  64-bit value of the current system time.
+  ----------------------------------------------------------------------*/
+ uint64_t get_sys_timestamp_u64(void) {
+     uint8_t ts_tab[5];
+     uint64_t ts = 0;
+     dwt_readsystime(ts_tab);
+
+     for (int i = 4; i >= 0; i--) {
+         ts <<= 8;
+         ts |= ts_tab[i];
+     }
+     return ts;
+ }
 
 
  /*------------------------------------------------------------------------
@@ -1076,7 +1107,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 	 // Reset TIM2 làm mốc 0 hệ thống
 	 __HAL_TIM_SET_COUNTER(&htim2, 0);
-//	 elapsed_us = 0;
+
 
 	 // Debug
 	  if (ret == DWT_SUCCESS){
@@ -1085,14 +1116,13 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);				// Xóa cờ TX: Transmit Frame Sent
 		  mst_state = MST_STATE_LISTENING_PACKET;
 //		  debug_print("[MST] Broadcast MST Poll -> OK\r\n");
-//		  debug_print("[MST] Current state -> LISTENING_PACKET\r\n");
 	  } else {
 		  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXBERR);				// Xóa cờ TX: Transmit Buffer Error
 //		  debug_print("[MST] Broadcast MST Poll -> FAIL\r\n");
 		  dwt_rxreset();													// Reset lại bộ receiver DW1000
 		  dwt_rxenable(DWT_START_RX_IMMEDIATE);
 		  mst_state = MST_STATE_LISTENING_PACKET;
-//		  debug_print("[MST] Current state -> LISTENING_PACKET\r\n");
+
 	  }
  }
 
@@ -1125,8 +1155,8 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 			 len += sprintf(uart_buf + len, "\r\n");
 
 			 // |BeaconID,TagID_1,Dist_1,TagID_2,Dist_2,...|
-//			 send_to_centralMCU((uint8_t*)uart_buf, len);
-			 debug_print(uart_buf);
+			 send_to_centralMCU((uint8_t*)uart_buf, len);
+//			 debug_print(uart_buf);
 		 }
 	 }
 
@@ -1139,8 +1169,8 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 	// ================== Timeout =====================
 	if (elapsed_us >= (CYCLE_PERIOD_MS + 1) * 1000) {
 		rf_is_idle = false;
+		dwt_rxreset();
 		mst_state = MST_STATE_PREPARE_MST_POLL;
-//		debug_print("[MST] Current state -> PREPARE_MST_POLL\r\n");
 	}
  }
 

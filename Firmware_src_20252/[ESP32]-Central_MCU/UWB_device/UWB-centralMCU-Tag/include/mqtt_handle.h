@@ -20,4 +20,6 @@ void reconnect_mqtt();
 bool publish_message(String topic, String message);
 
 void mqtt_callback(char* topic, byte* payload, unsigned int length);
+
+void publish_mqtt_payload_device_data(String device_payload_buffer);
 #endif

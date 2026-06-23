@@ -17,10 +17,14 @@
 //#define CHANNEL_NUM 4
 
 /* Default antenna delay values for 64 MHz PRF*/
-//#define TX_ANT_DLY 16436
-//#define RX_ANT_DLY 16436
-#define TX_ANT_DLY 16462
-#define RX_ANT_DLY 16462
+
+// Tag 0xC0
+#define TX_ANT_DLY 16522
+#define RX_ANT_DLY 16522
+
+//// Tag 0xD0
+//#define TX_ANT_DLY 16522
+//#define RX_ANT_DLY 16522
 
 /* UWB microsecond (uus) to device time unit (dtu, around 15.65 ps) conversion factor.
  * 1 uus = 512 / 499.2 �s and 1 �s = 499.2 * 128 dtu. */

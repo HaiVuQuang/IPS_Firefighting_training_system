@@ -37,7 +37,7 @@
 //#define MAX_TAGS            5				// Số lượng Tag tối đa hỗ trợ
 //#define MAX_SLAVES          7				// Số lượng Slv_Beacon tối đa hỗ trợ
 #define MAX_TAGS            3				// Số lượng Tag tối đa hỗ trợ
-#define MAX_SLAVES          5				// Số lượng Slv_Beacon tối đa hỗ trợ
+#define MAX_SLAVES          4				// Số lượng Slv_Beacon tối đa hỗ trợ
 
 
 //Node define
@@ -61,12 +61,12 @@ static const uint8_t SLV_TOPOLOGY_LIST[MAX_SLAVES] = {
 
 // --- Cấu hình ID cho Master Beacon ---
 #define MY_MST_BEACON_ID       0xF0
-#define TAG_TTL_MAX             20       // Time to live -> Tag bị xóa nếu ko Response quá 20 chu kỳ
+#define TAG_TTL_MAX             200       // Time to live -> Tag bị xóa nếu ko Response quá 50 chu kỳ
 #define MSG_QUEUE_SIZE          10      // Kích thước hàng đợi Ring Buffer cho UART
 
 // --- Danh sách ID các Slave Beacon thuộc quản lý ---
 static const uint8_t CONTROL_SLV_LIST[MAX_SLAVES] = {
-    0x01, 0x02, 0x03, 0x04, 0x05
+    0x01, 0x02, 0x03, 0x04
 };
 
 #endif
@@ -97,60 +97,60 @@ extern UART_HandleTypeDef huart2;		//UART2
 											// -> Xa hơn MAX_DIST_CM nguy cơ kết quả đo là NLOS và sai số cao -> Mặc định là INVALID_DIST và ko xử lý tiếp
 
 
-/* ====================== TDMA Timing ========================
-* 	|----------------------------------50ms----------------------------------|
-*	|--4--|------------25--------------|--2--|-----------15------------|--4--|
-*	(MST_Poll)		(SLV_Poll)		   (BACKUP)		  (TAG_RES)       (DIST_CAL)
-*/
-
-// ============================ MEDIUM SPEED OPTION: 50ms ====================================
-#define CYCLE_PERIOD_MS     		40				// Chu kỳ tổng mỗi pha Ranging
-#define MASTER_POLL_TIMEOUT			4000
-#define SLAVE_POLL_TIMEOUT			27000			// 25ms: (Max tải) + 2ms Backup
-#define TAG_RESPONSE_TIMEOUT		15000			// 15ms: (Max tải)
-#define DIST_CAL_TIMEOUT			4000			// 4ms:	Slv_Beacon tính toán k/c pha hiện tại
-
-#define SLAVE_TDMA_BASE_US  		5000  			// Slv_Beacon đầu tiên bắt đầu sau 5 ms từ đầu chu kỳ hiện tại
-#define SLAVE_SLOT_TDMA_US  		5000  			// Mỗi Slv_Beacon cách nhau 5ms
-#define TAG_TDMA_BASE_US    		32000 			// Tag đầu tiên bắt đầu sau 32 ms từ đầu chu kỳ hiện tại
-#define TAG_SLOT_TDMA_US    		5000  			// Mỗi Tag cách nhau 5ms
-
-// ============================ HIGH SPEED OPTION: 30ms =====================================
-//#define CYCLE_PERIOD_MS     		30				// Chu kỳ tổng mỗi pha Ranging (30ms ~ 33fps)
-//#define MASTER_POLL_TIMEOUT			2000
-//#define SLAVE_POLL_TIMEOUT			15000			// 14ms: (Max tải) + 1ms Backup
-//#define TAG_RESPONSE_TIMEOUT		11000			// 10ms: (Max tải) + 1ms Backup
-//#define DIST_CAL_TIMEOUT			2000			// 2ms:	Slv_Beacon tính toán k/c pha hiện tại
+///* ====================== TDMA Timing ========================
+//* |----------------------------------50ms----------------------------------|
+//*	|--4--|------------25--------------|--2--|-----------15------------|--4--|
+//*	(MST_Poll)		(SLV_Poll)		   (BACKUP)		  (TAG_RES)       (DIST_CAL)
+//*/
 //
-//#define SLAVE_TDMA_BASE_US  		2500  			// Slv_Beacon đầu tiên bắt đầu sau 2,5 ms từ đầu chu kỳ hiện tại
-//#define SLAVE_SLOT_TDMA_US  		2000  			// Mỗi Slv_Beacon cách nhau 2ms
-//#define TAG_TDMA_BASE_US    		17500 			// Tag đầu tiên bắt đầu sau 17,5 ms từ đầu chu kỳ hiện tại
-//#define TAG_SLOT_TDMA_US    		2000  			// Mỗi Tag cách nhau 2ms
-
-//// ============================ MEDIUM SPEED OPTION: 44ms ====================================
-//#define CYCLE_PERIOD_MS     		44				// Chu kỳ tổng mỗi pha Ranging
-//#define MASTER_POLL_TIMEOUT			3000
-//#define SLAVE_POLL_TIMEOUT			22000			// 21ms: (Max tải) + 1ms Backup
-//#define TAG_RESPONSE_TIMEOUT		16000			// 15ms: (Max tải) + 1ms Backup
-//#define DIST_CAL_TIMEOUT			3000			// 2ms:	Slv_Beacon tính toán k/c pha hiện tại
-//
-//#define SLAVE_TDMA_BASE_US  		3500  			// Slv_Beacon đầu tiên bắt đầu sau 3,5 ms từ đầu chu kỳ hiện tại
-//#define SLAVE_SLOT_TDMA_US  		3000  			// Mỗi Slv_Beacon cách nhau 3ms
-//#define TAG_TDMA_BASE_US    		25500 			// Tag đầu tiên bắt đầu sau 25.5 ms từ đầu chu kỳ hiện tại
-//#define TAG_SLOT_TDMA_US    		3000  			// Mỗi Tag cách nhau 3ms
-
-// ============================= LOW SPEED OPTION: 60ms =====================================
-//#define CYCLE_PERIOD_MS     		60				// Chu kỳ tổng mỗi pha Ranging
+//// ============================ MEDIUM SPEED OPTION: 50ms ====================================
+//#define CYCLE_PERIOD_MS     		50				// Chu kỳ tổng mỗi pha Ranging
 //#define MASTER_POLL_TIMEOUT			4000
-//#define SLAVE_POLL_TIMEOUT			30000			// 28ms: (Max tải) + 2ms Backup
-//#define TAG_RESPONSE_TIMEOUT		22000			// 20ms: (Max tải) + 2ms Backup
+//#define SLAVE_POLL_TIMEOUT			27000			// 25ms: (Max tải) + 2ms Backup
+//#define TAG_RESPONSE_TIMEOUT		15000			// 15ms: (Max tải)
 //#define DIST_CAL_TIMEOUT			4000			// 4ms:	Slv_Beacon tính toán k/c pha hiện tại
 //
 //#define SLAVE_TDMA_BASE_US  		5000  			// Slv_Beacon đầu tiên bắt đầu sau 5 ms từ đầu chu kỳ hiện tại
-//#define SLAVE_SLOT_TDMA_US  		4000  			// Mỗi Slv_Beacon cách nhau 2ms
-//#define TAG_TDMA_BASE_US    		35000 			// Tag đầu tiên bắt đầu sau 35 ms từ đầu chu kỳ hiện tại
-//#define TAG_SLOT_TDMA_US    		4000  			// Mỗi Tag cách nhau 4ms
+//#define SLAVE_SLOT_TDMA_US  		5000  			// Mỗi Slv_Beacon cách nhau 5ms
+//#define TAG_TDMA_BASE_US    		32000 			// Tag đầu tiên bắt đầu sau 32 ms từ đầu chu kỳ hiện tại
+//#define TAG_SLOT_TDMA_US    		5000  			// Mỗi Tag cách nhau 5ms
 
+
+/* ====================== TDMA Timing ========================
+* 	|----------------------------------36ms----------------------------------|
+*	|--3--|------------20--------------|--1--|-----------9-------------|--3--|
+*	(MST_Poll)		(SLV_Poll)		   (BACKUP)		  (TAG_RES)       (DIST_CAL)
+*/
+
+//// ============================ FAST SPEED OPTION: 36ms ====================================
+//#define CYCLE_PERIOD_MS     		36				// Chu kỳ tổng mỗi pha Ranging
+//#define MASTER_POLL_TIMEOUT			3000
+//#define SLAVE_POLL_TIMEOUT			21000			// 20ms: (Max tải) + 1ms Backup
+//#define TAG_RESPONSE_TIMEOUT		9000			// 15ms: (Max tải)
+//#define DIST_CAL_TIMEOUT			3000			// 4ms:	Slv_Beacon tính toán k/c pha hiện tại
+//
+//#define SLAVE_TDMA_BASE_US  		4000  			// Slv_Beacon đầu tiên bắt đầu sau 4 ms từ đầu chu kỳ hiện tại
+//#define SLAVE_SLOT_TDMA_US  		4000  			// Mỗi Slv_Beacon cách nhau 4 ms
+//#define TAG_TDMA_BASE_US    		25000 			// Tag đầu tiên bắt đầu sau 26 ms từ đầu chu kỳ hiện tại
+//#define TAG_SLOT_TDMA_US    		3000  			// Mỗi Tag cách nhau 3ms
+
+
+/* ====================== TDMA Timing ========================
+* 	|----------------------------------36ms-----------------------------------|
+*	|--2--|------------16--------------|--1--|-----------12-------------|--3--|
+*	(MST_Poll)		(SLV_Poll)		   (BACKUP)		  (TAG_RES)       (DIST_CAL)
+*/
+// ============================ FAST SPEED OPTION: 34ms ====================================
+#define CYCLE_PERIOD_MS     		34				// Chu kỳ tổng mỗi pha Ranging
+#define MASTER_POLL_TIMEOUT			2000
+#define SLAVE_POLL_TIMEOUT			17000			// 20ms: (Max tải) + 1ms Backup
+#define TAG_RESPONSE_TIMEOUT		12000			// 15ms: (Max tải)
+#define DIST_CAL_TIMEOUT			3000			// 4ms:	Slv_Beacon tính toán k/c pha hiện tại
+
+#define SLAVE_TDMA_BASE_US  		2000  			// Slv_Beacon đầu tiên bắt đầu sau 4 ms từ đầu chu kỳ hiện tại
+#define SLAVE_SLOT_TDMA_US  		4000  			// Mỗi Slv_Beacon cách nhau 4 ms
+#define TAG_TDMA_BASE_US    		19000 			// Tag đầu tiên bắt đầu sau 26 ms từ đầu chu kỳ hiện tại
+#define TAG_SLOT_TDMA_US    		4000  			// Mỗi Tag cách nhau 3ms
 
 // System Timeout
 #define ADV_CYCLE_MS 				300 			// Khoảng cách giữa các gói ADV (ms)
@@ -242,6 +242,8 @@ void port_set_dw1000_slowrate(SPI_HandleTypeDef *hspi);
 void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi);
 
 uint64_t get_rx_timestamp_u64(void);
+
+uint64_t get_sys_timestamp_u64(void);
 
 void debug_print(const char *format, ...);
 

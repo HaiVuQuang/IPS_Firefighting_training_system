@@ -7,8 +7,6 @@
 void setup() {
     Serial.begin(115200);
     
-    // CRITICAL: Expand the hardware RX buffer BEFORE calling begin()
-    // Default is 256 bytes. 1024 bytes guarantees we won't drop bursts.
     Serial2.setRxBufferSize(1024);
     Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
     
@@ -17,10 +15,10 @@ void setup() {
 }
 
 void loop() {
-    // 1. Maintain Network (Non-blocking)
+    // Maintain Network (Non-blocking)
     maintainMQTT();
 
-    // 2. High-speed UART drain
+    // High-speed UART drain
     static char rx_buf[128];
     static int rx_idx = 0;
 

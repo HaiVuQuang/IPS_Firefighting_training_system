@@ -12,19 +12,22 @@
 class MapDisplay
 {
 private:
-    // int north_offset;
     bool is_map_updated;
 
-    // Marker array for 10x10 map 
-    bool is_passable_grid_id[101];
+    int max_map_x;
+    int max_map_y;
 
-    // Convert from grid ID to grid's central pixel coordinate
-    void grid_id_to_topleft_coordinate(int id, int &pixel_x, int &pixel_y);
+    // Lưới 10x10 lưu trạng thái ĐI ĐƯỢC (true) hoặc KHÔNG ĐI ĐƯỢC (false)
+    // Truy cập bằng tọa độ Descartes: is_passable[x][y]
+    bool is_passable[10][10];
+
+    // Ánh xạ tọa độ Descartes (Góc dưới trái) sang Pixel TFT (Góc trên trái)
+    void coordinate_to_topleft_pixel(int x, int y, int &pixel_x, int &pixel_y);
 
 public:
     MapDisplay();
     
-    int north_offset;
+    float north_offset; // Đổi sang float để nhận giá trị góc chính xác hơn
 
     // Flag handle
     bool hasNewData() {return is_map_updated;};
@@ -37,6 +40,34 @@ public:
     void clearMap(Adafruit_ILI9341 &tft);
     void drawMap(Adafruit_ILI9341 &tft);
 };
+// class MapDisplay
+// {
+// private:
+//     // int north_offset;
+//     bool is_map_updated;
+
+//     // Marker array for 10x10 map 
+//     bool is_passable_grid_id[101];
+
+//     // Convert from grid ID to grid's central pixel coordinate
+//     void grid_id_to_topleft_coordinate(int id, int &pixel_x, int &pixel_y);
+
+// public:
+//     MapDisplay();
+    
+//     int north_offset;
+
+//     // Flag handle
+//     bool hasNewData() {return is_map_updated;};
+//     void clearFlag() {is_map_updated = false;};
+
+//     // Update map data
+//     void updateData(const char *payload);
+
+//     // TFT Display handle
+//     void clearMap(Adafruit_ILI9341 &tft);
+//     void drawMap(Adafruit_ILI9341 &tft);
+// };
 
 
 /*--------------------------------------------------------------------------------------------------------*/
@@ -59,11 +90,25 @@ private:
     float curr_yaw_angle;                   // User current yaw angle
     float prev_yaw_angle;                   // User previous yaw angle
 
-    static const int vision_range = 30;     // User vision range (Fire's impact range)
-    static const int view_cone_angle = 60;// User's POV (Fire's impact angle)  
+    // static const int vision_range = 28;     // User vision range (Fire's impact range)
+    // static const int view_cone_angle = 54;  // User's POV (Fire's impact angle)
+
+    // User vision range (Fire's impact range)
+    float curr_vision_range;
+    float prev_vision_range;
+
+    // User's POV (Fire's impact angle)  
+    float curr_view_cone_angle;
+    float prev_view_cone_angle;
 
     int user_score;                         // User score
-    int user_speed;                         // User speed
+
+    // Velocity 
+    float current_vx;
+    float current_vy;
+    unsigned long last_speed_cal_time;
+    float user_speed;
+
     bool is_user_updated;                   // Updated flag 
 
     void coordinate_to_pixel_position(float coor_x, float coor_y, int &pixel_x, int &pixel_y);
@@ -80,8 +125,14 @@ public:
 
     // TFT Display handle
     void clearUser(Adafruit_ILI9341 &tft);
-    void drawUser(Adafruit_ILI9341 &tft, MapDisplay &map_instance);
+    void drawUser(Adafruit_ILI9341 &tft, MapDisplay &map_instance, IMU_Data &imu_data, Valve_Data &valve_data);
+    void calculateSpeed(const IMU_Data &imu_data);
 
+    // User data
+    int getScore() const { return user_score; }
+    float getCoorX() const { return curr_pos.coor_x; }
+    float getCoorY() const { return curr_pos.coor_y; }
+    float getSpeed() const { return user_speed; }
 };
 
 
@@ -92,23 +143,78 @@ public:
  * @brief
  */
 /*--------------------------------------------------------------------------------------------------------*/
+// class FlamesDisplay  
+// {
+// private:
+//     // Flame properties
+//     typedef struct 
+//     {
+//         int flame_id;
+//         int flame_lvl;
+
+//     } flame_properties_t;
+    
+//     // Flames data (max 100 flames simultaneously on a 10x10 map )
+//     typedef struct 
+//     {
+//         flame_properties_t data[101];
+//     } flames_t;
+
+//     // Size of Flame icon
+//     static const int ICON_WIDTH = 16;
+//     static const int ICON_HEIGHT = 15;
+//     // Flame icon bitmap
+//     static const unsigned char icon_flame[] PROGMEM;
+
+//     const uint16_t flames_lvl_color[6] = {
+//     BLACK,  // lv0
+//     0xFFF0, // lv1: 
+//     0xFE00, // lv2: 
+//     0xFC00, // lv3: 
+//     0xF800, // lv4: 
+//     0xA000  // lv5: 
+//     };
+
+//     // Flames updated flag
+//     bool is_flames_updated;
+
+//     // Flames handle struct
+//     flames_t prev_flames;
+//     flames_t curr_flames;
+
+//     // Convert from grid ID to grid's central pixel coordinate
+//     void grid_id_to_central_coordinate(int id, int &pixel_x, int &pixel_y);
+
+// public:
+//     FlamesDisplay();
+
+//     // Flag handle
+//     bool hasNewData() {return is_flames_updated;};
+//     void clearFlag() {is_flames_updated = false;};
+
+//     // Update Flames data
+//     void updateData(const char *payload);
+
+//     // TFT Display handle
+//     void clearFlames(Adafruit_ILI9341 &tft);
+//     void drawFlames(Adafruit_ILI9341 &tft);
+
+// };
+
 class FlamesDisplay  
 {
 private:
+    // Max flames appearred
+    static const int MAX_FLAMES_ON_SCREEN = 99;
+
     // Flame properties
     typedef struct 
     {
-        int flame_id;
-        int flame_lvl;
-
-    } flame_properties_t;
+        int x;
+        int y;
+        int level;
+    } flame_data_t;
     
-    // Flames data (max 100 flames simultaneously on a 10x10 map )
-    typedef struct 
-    {
-        flame_properties_t data[101];
-    } flames_t;
-
     // Size of Flame icon
     static const int ICON_WIDTH = 16;
     static const int ICON_HEIGHT = 15;
@@ -116,27 +222,27 @@ private:
     // Flame icon bitmap
     static const unsigned char icon_flame[] PROGMEM;
 
-    // Flame lvl colors
+    // Flames lvl color
     const uint16_t flames_lvl_color[6] = {
     BLACK,  // lv0
-    0xF800, // lv1
-    0xFFF0, // lv2
-    0xFD04, // lv3
-    0xA984, // lv4
-    0xA804  // lv5
+    0xFFF0, // lv1: 
+    0xFE00, // lv2: 
+    0xFC00, // lv3: 
+    0xF800, // lv4: 
+    0xA000  // lv5: 
     };
-
-
 
     // Flames updated flag
     bool is_flames_updated;
 
     // Flames handle struct
-    flames_t prev_flames;
-    flames_t curr_flames;
+    flame_data_t prev_flames[MAX_FLAMES_ON_SCREEN];
+    flame_data_t curr_flames[MAX_FLAMES_ON_SCREEN];
+    int prev_fires_num;
+    int curr_fires_num;
 
-    // Convert from grid ID to grid's central pixel coordinate
-    void grid_id_to_central_coordinate(int id, int &pixel_x, int &pixel_y);
+    // Convert/Maping absolute descartes coordinate to tft pixel coordinate
+    void coordinate_to_pixel_position(float coor_x, float coor_y, int &pixel_x, int &pixel_y);
 
 public:
     FlamesDisplay();
@@ -153,9 +259,6 @@ public:
     void drawFlames(Adafruit_ILI9341 &tft);
 
 };
-
-
-
 
 
 /*--------------------------------------------------------------------------------------------------------*/

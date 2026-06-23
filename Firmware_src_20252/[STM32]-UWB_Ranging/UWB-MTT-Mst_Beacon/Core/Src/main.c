@@ -180,7 +180,7 @@ int main(void)
 
   // Configure DW1000 Hardware and RF transceiver
   dwt_configure(&uwb_cfg.config);
-  dwt_configuretxrf(&uwb_cfg.tx_config);
+//  dwt_configuretxrf(&uwb_cfg.tx_config);
 
   dwt_setrxantennadelay(uwb_cfg.ant_dly_rx);
   dwt_settxantennadelay(uwb_cfg.ant_dly_tx);

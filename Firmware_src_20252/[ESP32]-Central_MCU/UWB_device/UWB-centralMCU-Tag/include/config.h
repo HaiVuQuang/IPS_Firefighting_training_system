@@ -8,6 +8,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <wifi.h>
+#include <ArduinoJson.h>
 
 #include <stdio.h>
 #include <stdint.h>
@@ -19,8 +20,14 @@ using namespace std;
 
 // DEVICE SETTING
 /*#############################################################################################################*/
-#define MY_DEVICE_ID                0xC0
-#define MY_IPS_ALGO_CODE            2
+#define TYPE_NOZZLE             1
+#define TYPE_EXTINGUISHER       2
+
+#define DEVICE_TYPE             TYPE_NOZZLE
+// #define DEVICE_TYPE             TYPE_EXTINGUISHER
+#define MY_DEVICE_ID            0xC0
+
+#define MY_IPS_ALGO_CODE        2
 
 // SERIAL SETTING
 /*#############################################################################################################*/
@@ -52,7 +59,9 @@ using namespace std;
 // BNO055 I2C Configuration
 #define I2C_SDA 21                              // Default SDA pin for ESP32
 #define I2C_SCL 22                              // Default SCL pin for ESP32
-#define BNO055_ADDRESS 0x28                     // Default I2C address for BNO055
+#define INT_BNO055_ADDRESS 0x29                 // I2C address for internal (Onbroad) BNO055
+// #define INT_BNO055_ADDRESS 0x28                 // I2C address for internal (Onbroad) BNO055 -> TEST
+#define EXT_BNO055_ADDRESS 0x28                 // I2C address for external BNO055
 
 // BNO055 Register Addresses
 #define ACC_DATA_START 0x28                     // Accelerometer data registers 0x08-0x0D
@@ -122,12 +131,14 @@ using namespace std;
 /*#############################################################################################################*/
 // Button Pins
 #define MODE_SWITCH_PIN 32                      // Training/Reality mode switch
-#define TRANS_PIN 33                            // Chuyen doi tu default sang hai che do con lai
+#define TRANS_PIN 33                            // Mode change
 
 // Analog Input Pins
 #define VALVE_PIN 34                            // Valve control analog input in reality mode
-#define MODE_PIN 35                             // Mode control analog input in reality mode
 
+#if (DEVICE_TYPE == TYPE_NOZZLE)
+#define MODE_PIN 35                             // Mode control analog input in reality mode
+#endif
 // System Modes
 #define MODE_REALITY 0                          // Reality mode
 #define MODE_TRAINING 1                         // Training mode
