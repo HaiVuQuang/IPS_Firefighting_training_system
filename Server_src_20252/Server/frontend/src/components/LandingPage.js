@@ -96,7 +96,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
 
   const fetchDevices = async () => {
     try {
-      const resRssi = await axios.get("http://localhost:8000/devices/rssi");
+      const resRssi = await axios.get("http://localhost:8000/devices/fingerprint");
       const resUwb = await axios.get("http://localhost:8000/devices/uwb");
       setRssiDevices(resRssi.data);
       setUwbDevices(resUwb.data);

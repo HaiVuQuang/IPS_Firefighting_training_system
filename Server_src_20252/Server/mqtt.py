@@ -9,6 +9,7 @@ from models import RSSIForTrainingSchema, RealityPayloadSchema, TrainingPayloadS
 from pydantic import ValidationError
 
 broker = '127.0.0.1'
+# broker = '192.168.0.102'
 port = 1883
 client_id = f'python-mqtt-{randrange(0, 100)}'
 
@@ -60,6 +61,7 @@ def on_message(client, userdata, msg):
             msg_dict["data_type"] = "user_data_rssi_reality"
             msg_dict["hex_id"] = hex_id
             _loop.call_soon_threadsafe(safe_callback, msg_dict)
+            print(f"[MQTT] Received message: {payload_dict}")
             
         except ValidationError as e:
             print(f"[Err] ❌ Invalid Reality payload structure: {e}")

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, text
+import subprocess
 
 import database_models
 import core.globals_var as globals_var
@@ -16,6 +17,7 @@ from models import (
 )
 from wbo_filter import Preprocessor
 from ml_model import MLModel
+from plot.plot_rssi import plot_before_after_rssi
 
 router = APIRouter()
 
@@ -325,11 +327,20 @@ def preprocess_map_data(map_info_id: int, db: Session = Depends(get_db)):
             'rssi_ble_3': r.rssi_ble_3, 'rssi_ble_4': r.rssi_ble_4,
             'magnetic_field_y': r.magnetic_field_y, 'magnetic_field_z': r.magnetic_field_z
         })
-    df = pd.DataFrame(data_dicts)
+    df_raw = pd.DataFrame(data_dicts)
 
     # Đưa vào bộ lọc WBO
-    processor = Preprocessor(data_df=df, map_id=map_info_id)
+    processor = Preprocessor(data_df=df_raw, map_id=map_info_id)
     filtered_path, raw_path = processor.preprocess()
+
+    try:
+        # Đọc lại file CSV đã được bộ lọc làm mượt
+        df_filtered = pd.read_csv(filtered_path)
+        
+        # Truyền cả 2 bản gốc và bản mượt vào hàm vẽ
+        plot_before_after_rssi(df_raw, df_filtered, output_dir="graphs")
+    except Exception as e:
+        print(f"⚠️ Error plotting graphs: {e}")
 
     return {
         "message": "Data filtered successfully!", 
@@ -613,3 +624,25 @@ def update_fire_mqtt(payload_data: dict):
         return {"status": "success"}
         
     return {"status": "error", "message": "MQTT not connected"}
+# =====================================================================
+# API VẼ VÀ QUẢN LÝ QUỸ ĐẠO (TRAJECTORY) BẰNG TIẾN TRÌNH ĐỘC LẬP
+# =====================================================================
+@router.get("/trajectory/plot")
+def api_plot_trajectory_process():
+    try:
+        # Lấy đường dẫn đến file script Python độc lập
+        script_path = os.path.join(globals_var.ROOT_DIR, 'plot', 'draw_trajectory.py')
+        
+        # Popen sẽ tạo ra một luồng xử lý riêng biệt chạy ngầm, không làm API bị chờ đợi
+        subprocess.Popen(["python", script_path])
+        
+        return {"status": "success", "message": "Background plotting process triggered successfully!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/trajectory/clear")
+def api_clear_trajectory():
+    csv_path = os.path.join(globals_var.ROOT_DIR, 'trajectory_log.csv')
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
+    return {"status": "cleared"}

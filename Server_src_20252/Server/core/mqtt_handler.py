@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import csv
 import time
 from collections import deque
 import numpy as np
@@ -10,7 +12,18 @@ from core.background_tasks import _save_new_device
 from positioning import ToFPositioning
 from sensor_fusion import StepDetection, PDRKalmanFusion
 
+LOG_DIR = os.path.join(globals_var.ROOT_DIR, 'trajectory_data')
+os.makedirs(LOG_DIR, exist_ok=True) # Đảm bảo thư mục tồn tại trước khi ghi
+TRAJECTORY_CSV_PATH = os.path.join(LOG_DIR, 'trajectory_log.csv')
 
+def log_trajectory(tag_id, x, y, pos_type):
+    """Hàm ghi log tọa độ xuống CSV"""
+    file_exists = os.path.exists(TRAJECTORY_CSV_PATH)
+    with open(TRAJECTORY_CSV_PATH, mode='a', newline='') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["timestamp", "tag_id", "x", "y", "type"])
+        writer.writerow([time.time(), tag_id, x, y, pos_type])
 
 # HÀM ĐƯỢC GỌI KHI CÓ TIN NHẮN MQTT
 def handle_incoming_mqtt_data(msg_dict):
@@ -139,6 +152,8 @@ def handle_incoming_mqtt_data(msg_dict):
                         })                                                                                                                                                               
                         globals_var.mqtt_client.publish(topic, message)
                         print(f'[MQTT] 👤 Sent User Position message: {message} to topic: {topic}')
+
+                        log_trajectory(tag_id, meter_x, meter_y, "UWB")
                     
                     # Sau khi tính xong, xóa buffer này để tính tiếp    
                     globals_var.uwb_distance_buffer[tag_id].clear()
@@ -255,12 +270,12 @@ def handle_incoming_mqtt_data(msg_dict):
         globals_var.rssi_buffers[hex_id].append(features)
 
         if len(globals_var.rssi_buffers[hex_id]) == 10:
-            window_data = np.array(globals_var.rssi_buffers[hex_id])
+            window_data = np.array(globals_var.rssi_buffers[hex_id]).reshape(1, -1)
             try:
                 # CNN Dự đoán tọa độ
                 raw_x, raw_y, accuracy = globals_var.ai_predictor.predict_realtime(window_data)
                 
-                # SENSOR FUSION: Đưa tọa độ CNN vào Kalman để Update/Nắn lại sai số PDR
+                # SENSOR FUSION
                 final_x, final_y = globals_var.pdr_fusion_trackers[hex_id].update_cnn(raw_x, raw_y)
                 
                 # Reset buffer để gom 10 mẫu tiếp theo
@@ -288,6 +303,8 @@ def handle_incoming_mqtt_data(msg_dict):
                     })
                     globals_var.mqtt_client.publish(topic, message)
                     print(f'[MQTT] 👤 Sent User Position message: {message} to topic: {topic}')
+
+                    log_trajectory(hex_id, final_x, final_y, "RSSI")
                     
             except Exception as e:
                 print(f"[Err] ❌ Real-time prediction error: {e}")

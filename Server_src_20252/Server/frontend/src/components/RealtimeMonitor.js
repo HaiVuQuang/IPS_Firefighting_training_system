@@ -50,7 +50,10 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
   const timeRef = useRef(0);
   const firesRef = useRef([]);
   const wsRef = useRef(null);
+  const hasSavedHistory = useRef(false);
   const [spreadWarning, setSpreadWarning] = useState(false);
+  const [showTrajectory, setShowTrajectory] = useState(false);
+  const trajectoryRef = useRef({});
 
   const { showAlert } = useMessage();
 
@@ -104,6 +107,28 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 return newLocs;
               });
             }
+
+            // Lưu lịch sử vẽ quỹ đạo
+            if (!trajectoryRef.current[data.tag_id]) {
+              trajectoryRef.current[data.tag_id] = [];
+            }
+
+            const history = trajectoryRef.current[data.tag_id];
+            const lastPoint =
+              history.length > 0 ? history[history.length - 1] : null;
+
+            // Chỉ lưu thêm điểm mới nếu Tag đã di chuyển một khoảng nhất định
+            if (
+              !lastPoint ||
+              Math.abs(lastPoint.x - data.x) > 0.05 ||
+              Math.abs(lastPoint.y - data.y) > 0.05
+            ) {
+              history.push({ x: data.x, y: data.y });
+
+              if (history.length > 200) {
+                history.shift();
+              }
+            }
           } catch (err) {
             console.error("WS error:", err);
           }
@@ -133,7 +158,11 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
         setTimeElapsed(timeRef.current);
 
         let fireStateChanged = false;
-        let tagPenalties = {};
+        let tagPointChanges = {};
+
+        Object.keys(locationsRef.current).forEach((tagId) => {
+          tagPointChanges[tagId] = 0;
+        });
 
         // Xử lý logic lửa
         let newSpawnedFires = [];
@@ -154,7 +183,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
             // Logic lửa lan (sau mỗi 30s)
             // prettier-ignore
-            if (fire.is_spreading && fire.burn_time % 30 === 0) {
+            if (fire.is_spreading && fire.burn_time % 10 === 0) {
               const directions = [
                 [-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1],
               ];
@@ -216,19 +245,21 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
               ([id, loc]) => ({ id, ...loc }),
             );
 
-            let isSomeoneExtinguishing = false;
+            let activeTagsForThisFire = []; // Danh sách các tag đang dập lửa này
 
             // Tính độ dài 1 ô vuông thực tế theo m đổi sang px
             const cellLengthMeters = Math.sqrt(mapData.area_of_one_unit || 1);
 
             for (const tag of tags) {
-              const dx = fire.coord_x - tag.x;
-              const dy = fire.coord_y - tag.y;
+              const clampedX = Math.max(0, Math.min(cols, tag.x || 0));
+              const clampedY = Math.max(0, Math.min(rows, tag.y || 0));
+              const dx = fire.coord_x - clampedX;
+              const dy = fire.coord_y - clampedY;
               const dist = Math.sqrt(dx * dx + dy * dy);
 
               // Dẫm lên lửa -> Bị trừ điểm
               if (dist <= 0.5) {
-                tagPenalties[tag.id] = (tagPenalties[tag.id] || 0) + 20;
+                tagPointChanges[tag.id] -= 10;
               }
 
               const valve = tag.valve_per !== undefined ? tag.valve_per : 0;
@@ -251,7 +282,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
                   const rawYaw = tag.yaw || 0;
                   const northOffset = mapData.north_offset || 0; // Lấy từ mapData
-                  const realYaw = (rawYaw + northOffset + 360) % 360;
+                  const realYaw = rawYaw - northOffset;
 
                   // Tính độ chênh lệch góc giữa hướng Tag và hướng ngọn lửa
                   let diff = Math.abs((angleToFire - realYaw + 360) % 360);
@@ -259,13 +290,13 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
                   // ĐIỀU KIỆN 3: Góc từ ngọn lửa đến tag < 1/2 góc hình quạt
                   if (diff <= sprayAngle / 2) {
-                    isSomeoneExtinguishing = true;
+                    activeTagsForThisFire.push(tag.id);
                   }
                 }
               }
             }
 
-            if (isSomeoneExtinguishing) {
+            if (activeTagsForThisFire.length > 0) {
               const requiredTimeToDrop = 3; // Thời gian giảm 1 level
               const newProgress = fire.progress + 1;
 
@@ -273,7 +304,11 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 fireStateChanged = true;
                 const newLevel = fire.level - 1;
 
-                // Mức <= 0 : Dập tắt
+                const rewardPoints = fire.is_spreading ? 100 : 50;
+                activeTagsForThisFire.forEach((tagId) => {
+                  tagPointChanges[tagId] += rewardPoints;
+                });
+
                 if (newLevel <= 0) {
                   return {
                     ...fire,
@@ -282,18 +317,19 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                     level: 0,
                   };
                 } else {
-                  // Nếu level chưa về 0, giảm level và reset tiến trình
-                  return {
-                    ...fire,
-                    level: newLevel,
-                    progress: 0,
-                  };
+                  return { ...fire, level: newLevel, progress: 0 };
                 }
               }
               return { ...fire, progress: newProgress };
             } else {
-              // Nếu đang xịt mà không xịt tiếp reset tiến trình
-              return { ...fire, progress: 0 };
+              // Nếu không có tag nào dập lửa
+              if (fire.progress > 0) {
+                // Đang xịt mà không dập khiến lửa hồi lại -> Trừ 5 điểm
+                Object.keys(locationsRef.current).forEach((tagId) => {
+                  tagPointChanges[tagId] -= 5;
+                });
+                return { ...fire, progress: 0 };
+              }
             }
           }
           return fire;
@@ -304,14 +340,14 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           updatedFires.push(...newSpawnedFires);
         }
 
-        // Trừ điểm phạt
+        // Cập nhật điểm
         setScores((prevScores) => {
           const newScores = { ...prevScores };
           Object.keys(locationsRef.current).forEach((tagId) => {
             const currentScore =
-              newScores[tagId] !== undefined ? newScores[tagId] : 1000;
-            const penalty = tagPenalties[tagId] || 0;
-            newScores[tagId] = Math.max(0, currentScore - 1 - penalty);
+              newScores[tagId] !== undefined ? newScores[tagId] : 0;
+            const change = tagPointChanges[tagId] || 0;
+            newScores[tagId] = Math.max(0, currentScore + change);
           });
 
           // Gửi điểm mới lên WebSocket để đồng bộ với Frontend và gửi MQTT xuống thiết bị
@@ -374,7 +410,9 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
 
   // 4. HOOK xử lý khi kết thúc bài tập
   useEffect(() => {
-    if (trainingState === "finished") {
+    if (trainingState === "finished" && !hasSavedHistory.current) {
+      hasSavedHistory.current = true;
+      const scoreTimeBonus = Math.max(0, 100 - timeElapsed * 1); // Điểm thưởng khi kết thúc bài tập
       showAlert(
         "Training successful!",
         "Training results have been saved to history.",
@@ -386,7 +424,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
       Promise.all(
         tagIds.map((tagId) => {
           const trainee = traineeNames[tagId] || `Trainee_${tagId}`;
-          const tagScore = scores[tagId] || 0;
+          const tagScore = (scores[tagId] || 0) + scoreTimeBonus;
 
           return axios.post("http://localhost:8000/training_history", {
             trainee_name: trainee,
@@ -397,6 +435,9 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
           });
         }),
       ).catch((err) => console.error("Failed to save history", err));
+    }
+    if (trainingState === "idle") {
+      hasSavedHistory.current = false;
     }
   }, [trainingState, timeElapsed, selectedScenarioId]);
 
@@ -452,10 +493,10 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
     timeRef.current = 0;
     setTimeElapsed(0);
 
-    // Set điểm 1000 cho tất cả thiết bị đang hoạt động
+    // Set điểm 0 cho tất cả thiết bị đang hoạt động
     const initialScores = {};
     Object.keys(locationsRef.current).forEach(
-      (tagId) => (initialScores[tagId] = 1000),
+      (tagId) => (initialScores[tagId] = 0),
     );
     setScores(initialScores);
 
@@ -548,6 +589,30 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
             {wsStatus === "connected" ? "WebSocket Connected" : "Lost"}
           </div>
         </div>
+        {/* Nút gạt bật/tắt quỹ đạo */}
+        <label className="switch" title="Trajectory">
+          <input
+            type="checkbox"
+            checked={showTrajectory}
+            onChange={async (e) => {
+              const isChecked = e.target.checked;
+              setShowTrajectory(isChecked);
+
+              if (isChecked) {
+                try {
+                  // 1 luồng request gọi API, API sẽ đánh thức file Python kia chạy
+                  await axios.get("http://localhost:8000/trajectory/plot");
+                } catch (error) {
+                  console.error(
+                    "Failed to call the trajectory drawing API:",
+                    error,
+                  );
+                }
+              }
+            }}
+          />
+          <span className="slider"></span>
+        </label>
       </div>
 
       {/* --- BỐ CỤC 2 CỘT --- */}
@@ -605,13 +670,19 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   <span className="widget-coords">
                     <span style={{ marginRight: "12px" }}>
                       X:{" "}
-                      <span className="coord-highlight">
+                      <span
+                        className="coord-highlight"
+                        style={{ color: color }}
+                      >
                         {loc.x !== undefined ? loc.x.toFixed(2) : "0.00"}
                       </span>
                     </span>
                     <span>
                       Y:{" "}
-                      <span className="coord-highlight">
+                      <span
+                        className="coord-highlight"
+                        style={{ color: color }}
+                      >
                         {loc.y !== undefined ? loc.y.toFixed(2) : "0.00"}
                       </span>
                     </span>
@@ -761,7 +832,7 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                 {Object.keys(locations).map((tagId, idx) => {
                   const tagColor = TAG_COLORS[idx % TAG_COLORS.length];
                   const currentScore =
-                    scores[tagId] !== undefined ? scores[tagId] : 1000;
+                    scores[tagId] !== undefined ? scores[tagId] : 0;
                   return (
                     <div
                       key={`score-${tagId}`}
@@ -861,10 +932,22 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                         alt="Spreading Fire Level 2"
                         style={{ width: "1.2em", height: "1.2em", display: "block",}}
                       />
-                    ) : (
+                    ) : fire.level === 3 ? (
                       <img
                         src={fireSpread3Icon}
                         alt="Spreading Fire Level 3"
+                        style={{ width: "1.2em", height: "1.2em", display: "block",}}
+                      />
+                    ) : fire.level === 4 ? (
+                      <img
+                        src={fireSpread3Icon}
+                        alt="Spreading Fire Level 4"
+                        style={{ width: "1.2em", height: "1.2em", display: "block",}}
+                      />
+                    ) : (
+                      <img
+                        src={fireSpread3Icon}
+                        alt="Spreading Fire Level 5"
                         style={{ width: "1.2em", height: "1.2em", display: "block",}}
                       />
                     );
@@ -927,69 +1010,120 @@ function RealtimeMonitor({ mapData, systemMode, onBack }) {
                   </div>
                 );
               })}
-
-              {/* VẼ TAG DI CHUYỂN, GÓC YAW */}
-              {Object.entries(locations).map(([tagId, loc], idx) => {
-                const hexColor = TAG_COLORS[idx % TAG_COLORS.length];
-                if (loc.x === undefined || loc.y === undefined) return null;
-
-                const valve = loc.valve_per !== undefined ? loc.valve_per : 0;
-                const spray = loc.spray_per !== undefined ? loc.spray_per : 100;
-
-                const angle = 15 + (spray / 100) * (60 - 15);
-                const radiusM = 2.5 - (spray / 100) * (2.5 - 1.5);
-                const cellLengthMeters = Math.sqrt(
-                  mapData.area_of_one_unit || 1,
-                );
-                const radiusInCells = radiusM / cellLengthMeters;
-                const diameterPx = radiusInCells * CELL_SIZE * 2;
-                const startAngle = 360 - angle / 2;
-
-                // Đổi hex sang rgba để chỉnh opacity động
-                const r = parseInt(hexColor.slice(1, 3), 16);
-                const g = parseInt(hexColor.slice(3, 5), 16);
-                const b = parseInt(hexColor.slice(5, 7), 16);
-
-                // Tính toán độ mờ (Alpha) dựa trên Valve. (Valve 0 -> alpha 0. Valve 100 -> alpha 0.7)
-                const alpha = (valve / 100) * 0.7;
-                // Nối lại thành chuỗi màu RGBA hoàn chỉnh
-                const rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-                // Hiệu chỉnh góc yaw theo North Offset của map
-                const rawYaw = loc.yaw || 0;
-                const northOffset = mapData.north_offset || 0;
-                const realYaw = (rawYaw + northOffset + 360) % 360;
-
-                return (
-                  <div
-                    key={tagId}
-                    className="radar-dot"
+              <div className="radar-clipping-layer">
+                {/* VẼ ĐƯỜNG QUỸ ĐẠO BẰNG SVG */}
+                {showTrajectory && (
+                  <svg
                     style={{
-                      left: `${loc.x * CELL_SIZE}px`,
-                      top: `${(rows - loc.y) * CELL_SIZE}px`,
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      pointerEvents: "none" /* Chống click nhầm vào nét vẽ */,
+                      zIndex: 1,
                     }}
                   >
-                    <div
-                      className="yaw-cone"
-                      style={{
-                        width: `${diameterPx}px`,
-                        height: `${diameterPx}px`,
-                        transform: `translate(-50%, -50%) rotate(${realYaw}deg)`,
-                        background: `conic-gradient(from ${startAngle}deg, ${rgbaColor} 0deg, ${rgbaColor} ${angle}deg, transparent ${angle}deg)`,
-                      }}
-                    ></div>
+                    {Object.entries(trajectoryRef.current).map(
+                      ([tagId, points], idx) => {
+                        if (points.length < 2) return null;
 
+                        const color = TAG_COLORS[idx % TAG_COLORS.length];
+                        const pointsString = points
+                          .map((p) => {
+                            const cx =
+                              Math.max(0, Math.min(cols, p.x)) * CELL_SIZE;
+                            const cy =
+                              (rows - Math.max(0, Math.min(rows, p.y))) *
+                              CELL_SIZE;
+                            return `${cx},${cy}`;
+                          })
+                          .join(" ");
+
+                        return (
+                          <polyline
+                            key={`traj-${tagId}`}
+                            points={pointsString}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth="1.5"
+                            opacity="0.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        );
+                      },
+                    )}
+                  </svg>
+                )}
+                {/* VẼ TAG DI CHUYỂN, GÓC YAW */}
+                {Object.entries(locations).map(([tagId, loc], idx) => {
+                  const hexColor = TAG_COLORS[idx % TAG_COLORS.length];
+                  if (loc.x === undefined || loc.y === undefined) return null;
+
+                  // Giới hạn tọa độ của tag trong phạm vi map
+                  const clampedX = Math.max(0, Math.min(cols, loc.x));
+                  const clampedY = Math.max(0, Math.min(rows, loc.y));
+
+                  const valve = loc.valve_per !== undefined ? loc.valve_per : 0;
+                  const spray =
+                    loc.spray_per !== undefined ? loc.spray_per : 100;
+
+                  const angle = 15 + (spray / 100) * (60 - 15);
+                  const radiusM = 2 - (spray / 100) * (2 - 1);
+                  const cellLengthMeters = Math.sqrt(
+                    mapData.area_of_one_unit || 1,
+                  );
+                  const radiusInCells = radiusM / cellLengthMeters;
+                  const diameterPx = radiusInCells * CELL_SIZE * 2;
+                  const startAngle = 360 - angle / 2;
+
+                  // Đổi hex sang rgba để chỉnh opacity động
+                  const r = parseInt(hexColor.slice(1, 3), 16);
+                  const g = parseInt(hexColor.slice(3, 5), 16);
+                  const b = parseInt(hexColor.slice(5, 7), 16);
+
+                  // Tính toán độ mờ (Alpha) dựa trên Valve. (Valve 0 -> alpha 0. Valve 100 -> alpha 0.7)
+                  const alpha = (valve / 100) * 0.7;
+                  // Nối lại thành chuỗi màu RGBA hoàn chỉnh
+                  const rgbaColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                  // Hiệu chỉnh góc yaw theo North Offset của map
+                  const rawYaw = loc.yaw || 0;
+                  const northOffset = mapData.north_offset || 0;
+                  const realYaw = rawYaw - northOffset;
+
+                  return (
                     <div
-                      className="tag-base"
-                      style={{ boxShadow: `0 0 8px ${hexColor}` }}
+                      key={tagId}
+                      className="radar-dot"
+                      style={{
+                        left: `${clampedX * CELL_SIZE}px`,
+                        top: `${(rows - clampedY) * CELL_SIZE}px`,
+                      }}
                     >
                       <div
-                        className="tag-core"
-                        style={{ backgroundColor: hexColor }}
+                        className="yaw-cone"
+                        style={{
+                          width: `${diameterPx}px`,
+                          height: `${diameterPx}px`,
+                          transform: `translate(-50%, -50%) rotate(${realYaw}deg)`,
+                          background: `conic-gradient(from ${startAngle}deg, ${rgbaColor} 0deg, ${rgbaColor} ${angle}deg, transparent ${angle}deg)`,
+                        }}
                       ></div>
+
+                      <div
+                        className="tag-base"
+                        style={{ boxShadow: `0 0 8px ${hexColor}` }}
+                      >
+                        <div
+                          className="tag-core"
+                          style={{ backgroundColor: hexColor }}
+                        ></div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

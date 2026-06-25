@@ -107,11 +107,15 @@ function Scenarios({ mapData, systemMode, onBack }) {
     if (isSpreading) {
       if (level === 1) return <img src={fireSpread1Icon} alt="Spreading Level 1" className="fire-svg-icon" />;
       if (level === 2) return <img src={fireSpread2Icon} alt="Spreading Level 2" className="fire-svg-icon" />;
-      return <img src={fireSpread3Icon} alt="Spreading Level 3" className="fire-svg-icon" />;
+      if (level === 3) return <img src={fireSpread3Icon} alt="Spreading Level 3" className="fire-svg-icon" />;
+      if (level === 4) return <img src={fireSpread3Icon} alt="Spreading Level 4" className="fire-svg-icon" />;
+      return <img src={fireSpread3Icon} alt="Spreading Level 5" className="fire-svg-icon" />;
     }
     if (level === 1) return <img src={fire1Icon} alt="Fire Level 1" className="fire-svg-icon" />;
     if (level === 2) return <img src={fire2Icon} alt="Fire Level 2" className="fire-svg-icon" />;
-    return <img src={fire3Icon} alt="Fire Level 3" className="fire-svg-icon" />;
+    if (level === 3) return <img src={fire3Icon} alt="Fire Level 3" className="fire-svg-icon" />;
+    if (level === 4) return <img src={fire3Icon} alt="Fire Level 4" className="fire-svg-icon" />;
+    return <img src={fire3Icon} alt="Fire Level 5" className="fire-svg-icon" />;
   };
 
   const handleSaveFire = () => {
@@ -313,7 +317,6 @@ function Scenarios({ mapData, systemMode, onBack }) {
             <div className="beacon-list-container">
               {fires.map((f, i) => (
                 <div key={i} className="fire-item">
-                  {/* ĐÃ SỬA: Hiển thị đúng SVG của ngọn lửa thay vì Emoji */}
                   <div className="fire-chip">
                     {getFireIcon(f.level, f.is_spreading)}
                   </div>
@@ -508,6 +511,8 @@ function Scenarios({ mapData, systemMode, onBack }) {
                   <option value={1}>Level 1 (Small)</option>
                   <option value={2}>Level 2 (Medium)</option>
                   <option value={3}>Level 3 (Large)</option>
+                  <option value={4}>Level 4 (Super Large)</option>
+                  <option value={5}>Level 5 (Enormous)</option>
                 </select>
               </label>
 
