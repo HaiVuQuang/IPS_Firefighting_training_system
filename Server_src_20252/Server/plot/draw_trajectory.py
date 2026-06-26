@@ -21,17 +21,26 @@ def main():
         print("[Error] Trajectory CSV file is empty.")
         sys.exit(1)
 
+    # 1. Lọc bỏ các giá trị tọa độ âm (chỉ giữ lại x >= 0 và y >= 0)
+    df = df[(df['x'] >= 0) & (df['y'] >= 0)]
+    
+    if df.empty:
+        print("[Error] No positive coordinates left to plot after filtering.")
+        sys.exit(1)
+
     # Đảm bảo thư mục graphs tồn tại
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(6, 11)) # Điều chỉnh tỷ lệ khung ảnh cho phù hợp với 5x10
     
-    colors = ['#3b82f6', '#8b5cf6', '#10b981', '#ef4444', '#f59e0b']
+    colors = ['#ef4444', '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b']
     
     # Nhóm theo tag_id và vẽ từng đường
     for idx, (tag, group) in enumerate(df.groupby("tag_id")):
         color = colors[idx % len(colors)]
-        ax.plot(group['x'], group['y'], marker='o', markersize=4, linestyle='--', 
-                linewidth=1.5, color=color, alpha=0.7, label=f"Tag: {tag}")
+        
+        # 2. Sửa nét đứt thành nét liền (linestyle='-') và tăng độ dày (linewidth=3.0)
+        ax.plot(group['x'], group['y'], marker='o', markersize=4, linestyle='-', 
+                linewidth=5.0, color=color, alpha=0.8, label=f"Tag: {tag}")
         
         # Đánh dấu điểm Đầu (Xanh) và Cuối (Đỏ)
         ax.plot(group['x'].iloc[0], group['y'].iloc[0], marker='s', markersize=8, color='green')
@@ -39,8 +48,19 @@ def main():
 
     ax.set_xlabel('X Coordinate (m)', fontsize=12)
     ax.set_ylabel('Y Coordinate (m)', fontsize=12)
+    
+    # 3. Fix cứng tọa độ trục X (0 -> 5) và Y (0 -> 10)
+    ax.set_xlim(0, 5)
+    ax.set_ylim(0, 10)
+    
+    # 4. Chia lưới đúng 1 đơn vị = 1m cho cả 2 trục
+    ax.set_xticks(range(0, 6))
+    ax.set_yticks(range(0, 11))
+    
     ax.grid(True, linestyle='--', alpha=0.6)
-    ax.set_aspect('equal', adjustable='datalim')
+    
+    # 5. Ép khung đồ thị theo đúng tỷ lệ thực (adjustable='box' để nó không tự scale)
+    ax.set_aspect('equal', adjustable='box')
     ax.legend(loc='upper right')
     
     plt.tight_layout()
@@ -49,7 +69,7 @@ def main():
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close('all') 
     
-    print(f"Image saved at {save_path}")
+    print(f"[Success] Image saved at {save_path}")
 
 if __name__ == "__main__":
     main()

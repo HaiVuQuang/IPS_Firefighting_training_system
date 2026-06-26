@@ -34,8 +34,8 @@ class PDRKalmanFusion:
         self.P = np.eye(2) * 5.0  # Ma trận hiệp phương sai ban đầu
         
         # Ma trận hệ thống
-        self.Q = np.eye(2) * 0.1  # Nhiễu quá trình (PDR sai số ít)
-        self.R = np.eye(2) * 2.0  # Nhiễu đo lường (CNN sai số nhiều hơn)
+        self.Q = np.eye(2) * 0.1  # Q (Process Noise) Tăng -> nhạy
+        self.R = np.eye(2) * 2.0  # R (Measurement Noise) Nhiễu đo lường : Tăng -> Lì
         
     def predict_pdr(self, yaw_degrees):
         """1: Dự đoán vị trí dựa trên bước chân (PDR)"""
