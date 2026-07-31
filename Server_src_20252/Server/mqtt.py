@@ -8,8 +8,8 @@ from random import randrange
 from models import RSSIForTrainingSchema, RealityPayloadSchema, TrainingPayloadSchema, UwbPayloadSchema
 from pydantic import ValidationError
 
-broker = '127.0.0.1'
-# broker = '192.168.0.102'
+# broker = '127.0.0.1'
+broker = '192.168.0.102'
 port = 1883
 client_id = f'python-mqtt-{randrange(0, 100)}'
 

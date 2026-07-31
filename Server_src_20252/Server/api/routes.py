@@ -237,7 +237,7 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
             }
             
             payload = json.dumps(payload_dict)
-            globals_var.mqtt_client.publish("map_data", payload)
+            globals_var.mqtt_client.publish("map_data/14", payload)
             print(f"[MQTT] 🗺️  Sent RSSI Map Data message: {payload}")
         
         return {"message": f"Successfully loaded AI Model for Map {id}"}
@@ -619,7 +619,7 @@ def update_fire_mqtt(payload_data: dict):
     
     if globals_var.mqtt_client:
         payload = json.dumps(fire_dict)
-        globals_var.mqtt_client.publish("fire_data", payload)
+        globals_var.mqtt_client.publish("fire_data/14", payload)
         print(f"[MQTT] 🔥 Sent Fire Data message: {payload}")
         return {"status": "success"}
         
