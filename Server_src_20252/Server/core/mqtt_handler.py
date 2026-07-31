@@ -13,11 +13,10 @@ from positioning import ToFPositioning
 from sensor_fusion import StepDetection, PDRKalmanFusion
 
 LOG_DIR = os.path.join(globals_var.ROOT_DIR, 'trajectory_data')
-os.makedirs(LOG_DIR, exist_ok=True) # Đảm bảo thư mục tồn tại trước khi ghi
+os.makedirs(LOG_DIR, exist_ok=True)
 TRAJECTORY_CSV_PATH = os.path.join(LOG_DIR, 'trajectory_log.csv')
 
 def log_trajectory(tag_id, x, y, pos_type):
-    """Hàm ghi log tọa độ xuống CSV"""
     file_exists = os.path.exists(TRAJECTORY_CSV_PATH)
     with open(TRAJECTORY_CSV_PATH, mode='a', newline='') as f:
         writer = csv.writer(f)

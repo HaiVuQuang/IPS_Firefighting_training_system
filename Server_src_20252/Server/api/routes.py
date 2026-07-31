@@ -169,7 +169,7 @@ def delete_map(id: int, db: Session = Depends(get_db)):
 
     return {"status": "deleted"}
 # =====================================================================
-# API CHỌN MAP ĐỂ LOAD MODEL AI VÀ GỬI THÔNG TIN MAP (North Offset, Ô bị cản) XUỐNG DEVICE QUA MQTT
+# API CHỌN MAP ĐỂ LOAD MODEL AI VÀ GỬI THÔNG TIN MAP XUỐNG DEVICE QUA MQTT
 # =====================================================================
 @router.post("/set_active_rssi_map/{id}")
 def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
@@ -180,7 +180,7 @@ def set_active_rssi_map(id: int, db: Session = Depends(get_db)):
         
     try:
         print(f"[Noti] 🔄 Switching AI Model path to Map ID: {id}...")
-        # Xóa sạch cũ (Ngoại trừ danh sách thiết bị KNOWN_RSSI_DEVICES)
+
         globals_var.rssi_buffers.clear()
         globals_var.pdr_fusion_trackers.clear()
         globals_var.step_detectors.clear() 
@@ -334,10 +334,8 @@ def preprocess_map_data(map_info_id: int, db: Session = Depends(get_db)):
     filtered_path, raw_path = processor.preprocess()
 
     try:
-        # Đọc lại file CSV đã được bộ lọc làm mượt
         df_filtered = pd.read_csv(filtered_path)
-        
-        # Truyền cả 2 bản gốc và bản mượt vào hàm vẽ
+
         plot_before_after_rssi(df_raw, df_filtered, output_dir="graphs")
     except Exception as e:
         print(f"⚠️ Error plotting graphs: {e}")
@@ -630,10 +628,8 @@ def update_fire_mqtt(payload_data: dict):
 @router.get("/trajectory/plot")
 def api_plot_trajectory_process():
     try:
-        # Lấy đường dẫn đến file script Python độc lập
         script_path = os.path.join(globals_var.ROOT_DIR, 'plot', 'draw_trajectory.py')
         
-        # Popen sẽ tạo ra một luồng xử lý riêng biệt chạy ngầm, không làm API bị chờ đợi
         subprocess.Popen(["python", script_path])
         
         return {"status": "success", "message": "Background plotting process triggered successfully!"}

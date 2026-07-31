@@ -128,7 +128,6 @@ def on_message(client, userdata, msg):
                         except ValueError:
                             print(f"[Err] ❌ Skip invalid value of {tag_id}: {dist_str}")
                 
-                # Chỉ gửi bản tin lên Main xử lý nếu có ít nhất 1 Tag hợp lệ
                 if measurements:
                     uwb_msg = {
                         "data_type": "uwb_ranging",

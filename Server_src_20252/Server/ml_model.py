@@ -31,14 +31,14 @@ class MLModel:
         X_val_raw = val_data.drop(columns=["label", "split"]).values.astype("float32")
         y_val_raw = val_data["label"].values
 
-        # fit scaler trên train thôi
+        # Fit scaler trên tập train
         X_min = np.min(X_train_raw, axis=0)
         X_max = np.max(X_train_raw, axis=0)
 
         X_train = (X_train_raw - X_min) / (X_max - X_min + 1e-6)
         X_val = (X_val_raw - X_min) / (X_max - X_min + 1e-6)
 
-        # reshape về (time_steps=10, features=10)
+        # Reshape về (time_steps=10, features=10)
         X_train = X_train.reshape(-1, 10, 10)
         X_val = X_val.reshape(-1, 10, 10)
 
@@ -129,38 +129,29 @@ class MLModel:
         print(f"✅ AI Model for Map {self.map_id} Loaded successfully!")
 
     def predict_realtime(self, window_data):
-            """Hàm này nhận 1 mảng 10x10 từ MQTT, LỌC WBO, chuẩn hóa và đưa AI phán đoán"""
-            
-            # Tạo một bản sao để tránh làm hỏng dữ liệu gốc trong Buffer
+
             filtered_window = np.copy(window_data)
             
-            # BƯỚC MỚI: ÁP DỤNG WBO FILTER CHO 8 CỘT SÓNG (Bỏ qua 2 cột từ trường)
-            # 8 cột sóng tương ứng với index từ 0 đến 7 trong features
+            # ÁP DỤNG WBO FILTER CHO 8 RSSI
             for col_idx in range(8):
                 col_data = filtered_window[:, col_idx]
                 min_val = int(round(np.min(col_data)))
                 max_val = int(round(np.max(col_data)))
-                
-                # Chỉ lọc nếu có sự dao động sóng (min khác max)
+
                 if min_val != max_val:
                     wbo = WBOFilter(min_val, max_val)
                     filtered_window[:, col_idx] = [wbo.proposed_filter(int(round(val))) for val in col_data]
 
-            # 1. Chuẩn hóa bằng đúng X_min, X_max lúc train (áp dụng lên data ĐÃ LỌC)
             X_scaled = (filtered_window - self.X_min) / (self.X_max - self.X_min + 1e-6)
-            
-            # 2. Reshape về đúng chuẩn (1 batch, 10 timesteps, 10 features)
+  
             X_input = X_scaled.reshape(1, 10, 10)
-            
-            # 3. Dự đoán (verbose=0 để không in log rác ra terminal)
+
             pred_probs = self.model.predict(X_input, verbose=0)
-            
-            # 4. Lấy kết quả cao nhất
+
             pred_idx = np.argmax(pred_probs, axis=1)[0]
-            accuracy = float(np.max(pred_probs)) # Độ tự tin của AI (0 -> 1)
+            accuracy = float(np.max(pred_probs))
             
             label = self.label_encoder.inverse_transform([pred_idx])[0]
-            
-            # Tách chuỗi "x_y" thành 2 số riêng biệt
+
             x_str, y_str = label.split("_")
             return float(x_str), float(y_str), accuracy
