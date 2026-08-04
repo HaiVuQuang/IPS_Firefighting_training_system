@@ -309,9 +309,12 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  static volatile uint8_t tag_ev_tail = 0;
 
 
- /*----------------------------------------------------------------------
-   * @brief:
-   ----------------------------------------------------------------------*/
+ /*------------------------------------------------------------------------
+  * @brief: [TAG] Push SLV Poll RX event to queue
+  * @param
+  * 		uint8_t slv_id: ID SLV Beacon
+  * 		uint32_t rx_ts: RX timestamp
+  -----------------------------------------------------------------------*/
  static void push_slv_poll_event(uint8_t slv_id, uint32_t rx_ts) {
      uint8_t next = (tag_ev_head + 1) % TAG_EVENT_QUEUE_SIZE;
      if (next != tag_ev_tail) {
@@ -322,9 +325,11 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  }
 
 
- /*----------------------------------------------------------------------
-   * @brief:
-   ----------------------------------------------------------------------*/
+ /*------------------------------------------------------------------------
+  * @brief: [TAG] Pop SLV Poll RX event
+  * @param
+  * 		slv_poll_event_t* ev: Event queue
+  -----------------------------------------------------------------------*/
  static bool pop_slv_poll_event(slv_poll_event_t* ev) {
      if (tag_ev_head == tag_ev_tail) return false;
      *ev = slave_queue[tag_ev_tail];
@@ -335,6 +340,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
  /*----------------------------------------------------------------------
   * @brief: [TAG] RX callback function
+  * @param:
+  * 		uwb_msg_frame_t *rx_frame: RX frame
+  * 		uint8_t func_code: Msg function code
   ----------------------------------------------------------------------*/
  void tag_rx_handler(uwb_msg_frame_t *rx_frame, uint8_t func_code) {
 
@@ -342,6 +350,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 	 if (func_code == FUNC_MASTER_POLL) {
 
 		 __HAL_TIM_SET_COUNTER(&htim2, 0);
+
 		 master_poll_rx_ts = get_rx_timestamp_u64();
 
 		 memcpy(&cached_mst_poll, rx_frame->payload, sizeof(pkt_master_poll_t));
@@ -352,12 +361,10 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 	 else if ((func_code == FUNC_SLAVE_POLL) && recieved_mst_poll) {
 
 		 uint32_t rx_ts = dwt_readrxtimestamplo32();
+
 		 pkt_slave_poll_t* spoll = (pkt_slave_poll_t*)rx_frame->payload;
 
 		 push_slv_poll_event(spoll->slv_id, rx_ts);
-//		 if (is_debug_tx_ready) {
-//			 debug_print("[TAG] Rec_SLV_POLL\r\n");
-//		 }
 	 }
 
 	 dwt_rxenable(DWT_START_RX_IMMEDIATE);
@@ -365,7 +372,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 
  /*------------------------------------------------------------------------
-   * @brief:
+   * @brief: [TAG] Handle Advertising
    -----------------------------------------------------------------------*/
  static void handle_tag_state_adv (void) {
 
@@ -388,9 +395,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
               tag_state = TAG_STATE_WAIT_SLV_POLL; // Chuyển thẳng sang đợi Slave Poll
               resp_payload.beacon_count = 0;
               recieved_mst_poll = true;
-
-              // Xóa rác queue cũ
+              // Xóa queue cũ
               tag_ev_head = 0; tag_ev_tail = 0;
+
               return;
           }
       }
@@ -428,15 +435,17 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
           } else {
               dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXBERR);
               if (is_debug_tx_ready) debug_print("[TAG] Broadcast ADV -> FAIL!\r\n");
-              dwt_forcetrxoff();
+              dwt_rxreset();
               dwt_rxenable(DWT_START_RX_IMMEDIATE);
           }
       }
   }
 
- /*------------------------------------------------------------------------
-   * @brief:
-   -----------------------------------------------------------------------*/
+ /*----------------------------------------------------------------------
+  * @brief: [TAG] Handle TAG_STATE_WAIT_MST_POLL state
+  * @param:
+  * 		uint16_t elapsed_us: elapsed time (us)
+  ----------------------------------------------------------------------*/
  static void handle_state_wait_mst_poll(uint16_t elapsed_us) {
      // Xử lý Master Poll bị đẩy vào Queue từ ISR
      if (flag_process_mst_poll) {
@@ -470,9 +479,11 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
      }
  }
 
- /*------------------------------------------------------------------------
-   * @brief:
-   -----------------------------------------------------------------------*/
+ /*----------------------------------------------------------------------
+  * @brief: [TAG] Handle TAG_STATE_WAIT_SLV_POLL state
+  * @param:
+  * 		uint16_t elapsed_us: elapsed time (us)
+  ----------------------------------------------------------------------*/
  static void handle_state_wait_slv_poll(uint16_t elapsed_us) {
 	 slv_poll_event_t ev;
 
@@ -484,46 +495,41 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 			 resp_payload.rx_infos[slot].poll_rx_ts = ev.rx_ts;
 			 resp_payload.beacon_count++;
 		 }
-
-		 // Debug
-//		 if (is_debug_tx_ready) {
-//			 debug_print("[TAG] Rec SlvPoll: %02X\r\n", ev.slv_id);
-//		 }
 	 }
 
 	 // =============== Timeout chuyển TAG_STATE_PREPARE_TAG_RES ===============
-	 if (elapsed_us >= (MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT)) {
-//		 dwt_forcetrxoff();
+	 if (elapsed_us >= (MASTER_POLL_TIMEOUT + SLAVE_POLL_TIMEOUT - 1000)) {
 		 has_prepared_res = false;
 		 tag_state = TAG_STATE_PREPARE_TAG_RES;
+		 dwt_forcetrxoff();
 
 	 }
  }
- /*------------------------------------------------------------------------
-   * @brief:
-   -----------------------------------------------------------------------*/
+
+
+ /*----------------------------------------------------------------------
+  * @brief: [TAG] Handle TAG_STATE_PREPARE_TAG_RES state
+  * @param:
+  * 		uint16_t elapsed_us: elapsed time (us)
+  ----------------------------------------------------------------------*/
  static void handle_state_prepare_tag_res(uint16_t elapsed_us) {
 
 	 // =============== Chuẩn bị và Broadcast Tag Response ====================
 	 if (!has_prepared_res) {
 
-		 dwt_forcetrxoff();
+		 // Dùng mốc MST Poll
+		 uint32_t delay_us = TAG_TDMA_BASE_US + 500 + (my_tdma_index * TAG_SLOT_TDMA_US);	// Tính toán TDMA time slot
+		 uint64_t delay_dwt = (uint64_t)delay_us * UUS_TO_DWT_TIME;							// Quy đổi từ micro-giây sang DW1000 time units
+		 uint64_t res_tx_ts_u64 = delay_dwt + master_poll_rx_ts;							// Timestamp Broadcast gói Response (DW1000)
 
-		 // --- Tính toán Timestamp TX Response và cài Delay TX ---
-		 uint32_t delay_us = TAG_TDMA_BASE_US + (my_tdma_index * TAG_SLOT_TDMA_US);		// Tính toán TDMA time slot
-		 uint64_t delay_dwt = (uint64_t)delay_us * UUS_TO_DWT_TIME;						// Quy đổi từ micro-giây sang DW1000 time units
-		 uint64_t res_tx_ts_u64 = delay_dwt + master_poll_rx_ts;						// Timestamp Broadcast gói Response (DW1000)
-
-		 res_tx_ts_u64 &= 0xFFFFFFFFFFULL;												// Lấy 40-bit thấp
-		 uint32_t res_tx_ts_u32 = (uint32_t)(res_tx_ts_u64 >> 8);						// Masking lấy 32-bit (bỏ 8 bit thấp theo y/c Deca API)
-		 dwt_setdelayedtrxtime(res_tx_ts_u32);											// Setup Delay TX
+		 res_tx_ts_u64 &= 0xFFFFFFFFFFULL;													// Lấy 40-bit thấp
+		 uint32_t res_tx_ts_u32 = (uint32_t)(res_tx_ts_u64 >> 8);							// Masking lấy 32-bit (bỏ 8 bit thấp theo y/c Deca API)
+		 dwt_setdelayedtrxtime(res_tx_ts_u32);												// Setup Delay TX
 
 
 		 // --- Chuẩn bị Response payload ---
 		 resp_payload.func_code = FUNC_TAG_RESP;
 		 resp_payload.tag_id = MY_TAG_ID;
-//		 resp_payload.resp_tx_ts = (uint32_t)(res_tx_ts_u64 + TX_ANT_DLY);
-//		 uint64_t actual_tx_time_u64 = ((uint64_t)res_tx_ts_u32 << 8);
 		 uint64_t actual_tx_time_u64 = (((uint64_t)(res_tx_ts_u32 & 0xFFFFFFFEUL)) << 8);	// Zeros 8-bit thấp
 		 resp_payload.resp_tx_ts = (uint32_t)(actual_tx_time_u64 + TX_ANT_DLY);				// Bù Anten delay
 
@@ -535,12 +541,6 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 memcpy(resp_frame.payload, &resp_payload, payload_len);
 		 uint16_t resp_frame_len = MAC_HDR_LEN + payload_len + FCS_LEN;					// Độ dài Response frame
 
-		 // Debug
-//		 if (is_debug_tx_ready) {
-//		     debug_print("[TAG] Sending RES, %d Slv\r\n", resp_payload.beacon_count);
-//		 }
-
-
 		 // --- Nạp dữ liệu + Delay TX Response frame ---
 		 dwt_writetxdata(resp_frame_len, (uint8_t*)&resp_frame, 0);
 		 dwt_writetxfctrl(resp_frame_len, 0, 1);
@@ -551,16 +551,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 			  while (!(dwt_read32bitreg(SYS_STATUS_ID) & SYS_STATUS_TXFRS))					// Đợi cờ truyền xong
 			  {};
 			  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXFRS);						// Xóa cờ TX: Transmit Frame Sent
-//			  dwt_forcetrxoff();														// Tắt bộ RF
-//			 if (is_debug_tx_ready) {
-//				 debug_print("[TAG] res_tx_ts_u32: %lu | actual: %lu \r\n",
-//						 res_tx_ts_u32, dwt_readtxtimestamplo32());
-//			 }
-//			  debug_print("[TAG] Broadcast RES -> OK!\r\n");
 		  } else {
 			  dwt_write32bitreg(SYS_STATUS_ID, SYS_STATUS_TXBERR);						// Xóa cờ TX: Transmit Buffer Error
-//			  debug_print("[TAG] Broadcast RES -> FAIL!\r\n");
-//			  dwt_rxreset();															// Reset lại bộ receiver DW1000
+			  dwt_rxreset();															// Reset lại bộ receiver DW1000
 			  dwt_rxenable(DWT_START_RX_IMMEDIATE);
 		  }
 
@@ -568,14 +561,11 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 	 }
 
 	 // ================== Chuyển trạng thái TAG_STATE_WAIT_MST_POLL ========================
-	 if (elapsed_us >= ((CYCLE_PERIOD_MS * 1000) - 4000)) {
-		 tag_state = TAG_STATE_WAIT_MST_POLL;
-//		 dwt_forcetrxoff();
-
-		 dwt_rxreset();
+	 if (elapsed_us >= ((CYCLE_PERIOD_MS * 1000) - 3000)) {
 		 dwt_rxenable(DWT_START_RX_IMMEDIATE);
+		 tag_state = TAG_STATE_WAIT_MST_POLL;
 		 recieved_mst_poll = false;
-//		 debug_print("[TAG] Current state -> WAIT_MST_POLL\r\n");
+		 memset(resp_payload.rx_infos, 0, sizeof(resp_payload.rx_infos));
 //		 has_prepared_res = false;
 	 }
  }
@@ -708,12 +698,13 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  static slv_ranging_data_t ranging_data[MAX_TAGS];
  static double filtered_ratio[MAX_TAGS] = {0.0};
 
- /*----------------------------------------------------------------------
-  * @brief: [SLV_BEACON] Handle function
-  ----------------------------------------------------------------------*/
 
  /*----------------------------------------------------------------------
-  * @brief:
+  * @brief: [SLV] Push RX Tag Response to event queue
+  * @param:
+  * 		pkt_tag_resp_t* payload: msg payload
+  * 		uint64_t rx_ts: Tag Poll Rx timestamp
+  * 		int32_t carrier: Carrier interger of that Tag
   ----------------------------------------------------------------------*/
  static void push_tag_res_event(pkt_tag_resp_t* payload, uint64_t rx_ts, int32_t carrier) {
      uint8_t next = (slv_ev_head + 1) % SLV_EVENT_QUEUE_SIZE;
@@ -726,7 +717,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  }
 
  /*----------------------------------------------------------------------
-  * @brief:
+  * @brief: [SLV] Pop Rx Tag Response out of event queue
+  * @param:
+  * 		tag_res_event_t* ev: Event queue
   ----------------------------------------------------------------------*/
  static bool pop_tag_res_event(tag_res_event_t* ev) {
      if (slv_ev_head == slv_ev_tail) return false;
@@ -736,7 +729,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  }
 
  /*----------------------------------------------------------------------
-  * @brief: Hàm init Slave Beacon (gọi khi khởi động lần đầu ở main.c)
+  * @brief: [SLV] Setup & Initalisation
   ----------------------------------------------------------------------*/
  void slv_beacon_init(void) {
 	 // Xác định TDMA slot
@@ -768,7 +761,10 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 
  /*----------------------------------------------------------------------
-  * @brief: Slave Beacon RX callback
+  * @brief: [SLV] Slave Beacon RX callback
+  * @param:
+  * 		uwb_msg_frame_t *rx_frame: Pointer to RX frame
+  * 		uint8_t func_code: Msg function code
   ----------------------------------------------------------------------*/
  void slv_rx_handler(uwb_msg_frame_t *rx_frame, uint8_t func_code) {
 	 // ====================== Master Beacon Poll ==========================
@@ -802,7 +798,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 
  /*----------------------------------------------------------------------
-  * @brief:
+  * @brief: [SLV] Hanlde SLV_STATE_WAIT_MST_POLL
   ----------------------------------------------------------------------*/
  static void handle_slv_wait_mst_poll(void) {
 	 if (flag_process_mst_poll) {
@@ -840,7 +836,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 
  /*----------------------------------------------------------------------
-  * @brief:
+  * @brief: [SLV] Handle SLV_STATE_PREPARE_SLV_POLL state
+  * @param:
+  * 		uint16_t elapsed_us: Elasped time (us)
   ----------------------------------------------------------------------*/
  static void handle_slv_prepare_poll(uint16_t elapsed_us) {
 
@@ -885,7 +883,6 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 		 dwt_writetxfctrl(frame_len, 0, 1);
 
 		 // Tx sau khoảng Delay, sau khi TX xong tự về IDLE
-//		 int ret = dwt_starttx(DWT_START_TX_DELAYED);
 		 int ret = dwt_starttx(DWT_START_TX_IMMEDIATE);
 
 		 if (ret != DWT_SUCCESS) {
@@ -917,8 +914,10 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 
  /*----------------------------------------------------------------------
-   * @brief:
-   ----------------------------------------------------------------------*/
+  * @brief: [SLV] Handle SLV_STATE_WAIT_TAG_RES state
+  * @param:
+  * 		uint16_t elapsed_us: Elasped time (us)
+  ----------------------------------------------------------------------*/
  static void handle_slv_wait_tag_res(uint16_t elapsed_us) {
 	 tag_res_event_t ev;
 
@@ -954,7 +953,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 
  /*----------------------------------------------------------------------
-  * @brief:	Handle tính toán khoảng cách giữa Slv Beacon và các Tag
+  * @brief:	Handle Filter & Calculate distance
   ----------------------------------------------------------------------*/
  static void handle_slv_calc_ranging(uint16_t elapsed_us) {
 	 if (!has_calculated) {
@@ -1128,11 +1127,12 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  // --- Buffer ---
  pkt_master_poll_t mst_poll_payload;
  uwb_msg_frame_t mst_poll_frame;
- /*----------------------------------------------------------------------
-  * @brief: [MST_BEACON] Handle function
-  ----------------------------------------------------------------------*/
 
- // Hàm đẩy data vào Ring Buffer (Ngắt)
+
+ /*----------------------------------------------------------------------
+  * @brief: [MST] Handle function
+  ----------------------------------------------------------------------*/
+ // Hàm đẩy data vào Ring Buffer
  static void push_slv_msg(pkt_slave_poll_t* spoll) {
      uint8_t next = (msg_head + 1) % MSG_QUEUE_SIZE;
      if (next != msg_tail) { // Tránh tràn Queue
@@ -1152,8 +1152,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
      return true;
  }
 
+
  /*----------------------------------------------------------------------
-  * @brief: Hàm khởi tạo Master Beacon
+  * @brief: [MST] Setup & Initialise
   ----------------------------------------------------------------------*/
  void mst_beacon_init(void) {
      tag_queue_count = 0;
@@ -1163,8 +1164,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 //     debug_print("[MST] Current state -> PREPARE_MST_POLL\r\n");
  }
 
+
  /*----------------------------------------------------------------------
-  * @brief: Xử lý Ngắt Nhận (DW1000 RX Callback) cho Master
+  * @brief: Xử lý Ngắt Nhận DW1000 RX Callback cho Master
   ----------------------------------------------------------------------*/
  void mst_rx_handler(uwb_msg_frame_t *rx_frame, uint8_t func_code) {
 
@@ -1188,7 +1190,6 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 //         dwt_rxenable(DWT_START_RX_IMMEDIATE);
      }
-
      // =================== Tag Response & Tag ADV =======================
      else if (func_code == FUNC_TAG_RESP || func_code == FUNC_ADV) {
          uint8_t tid;
@@ -1296,6 +1297,9 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
  }
 
 
+ /*----------------------------------------------------------------------
+  * @brief: Hàm xử lý trạng thái MST_STATE_LISTENING_PACKET
+  ----------------------------------------------------------------------*/
  static void handle_mst_listening_packet (uint16_t elapsed_us) {
 	 // ============== Xử lý dữ liệu Ranging từng Slv Beacon trong Queue ==========
 	 pkt_slave_poll_t slv_poll_payload;
@@ -1324,8 +1328,8 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 			 len += sprintf(uart_buf + len, "\r\n");
 
 			 // |BeaconID,TagID_1,Dist_1,TagID_2,Dist_2,...|
-//			 send_to_centralMCU((uint8_t*)uart_buf, len);
-			 debug_print(uart_buf);
+			 send_to_centralMCU((uint8_t*)uart_buf, len);
+//			 debug_print(uart_buf);
 		 }
 	 }
 
@@ -1345,7 +1349,7 @@ void port_set_dw1000_fastrate(SPI_HandleTypeDef *hspi) {
 
 
  /*----------------------------------------------------------------------
-  * @brief: [MST_BEACON] Main loop
+  * @brief: [MST] Main loop
   ----------------------------------------------------------------------*/
  void mst_beacon_loop (void) {
 	 uint16_t elapsed_us = __HAL_TIM_GET_COUNTER(&htim2);

@@ -22,17 +22,17 @@
 //#define TX_ANT_DLY 16521
 //#define RX_ANT_DLY 16521
 
-//// Slv Beacon 0x02
-//#define TX_ANT_DLY 16528
-//#define RX_ANT_DLY 16528
+// Slv Beacon 0x02
+#define TX_ANT_DLY 16528
+#define RX_ANT_DLY 16528
 //
-// Slv Beacon 0x03
-#define TX_ANT_DLY 16562
-#define RX_ANT_DLY 16562
+//// Slv Beacon 0x03
+//#define TX_ANT_DLY 16552
+//#define RX_ANT_DLY 16552
 //
 //// Slv Beacon 0x04
-//#define TX_ANT_DLY 16504
-//#define RX_ANT_DLY 16504
+//#define TX_ANT_DLY 16524
+//#define RX_ANT_DLY 16524
 
 /* UWB microsecond (uus) to device time unit (dtu, around 15.65 ps) conversion factor.
  * 1 uus = 512 / 499.2 �s and 1 �s = 499.2 * 128 dtu. */

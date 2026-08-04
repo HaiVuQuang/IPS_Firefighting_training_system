@@ -4,25 +4,9 @@ String device_payload_buffer = "";
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Handle User data topic
  */
 /*--------------------------------------------------------------------------------------------------------*/
-// void handle_mqtt_topic_user_pos(UserDisplay &user_instance, const char* payload)
-// {
-//     String data = String(payload);
-//     int commaIndex1 = data.indexOf(',');
-//     int commaIndex2 = data.indexOf(',', commaIndex1 + 1);
-
-//     if (commaIndex1 != -1 && commaIndex2 != -1) {
-//         String x = data.substring(0, commaIndex1);
-//         String y = data.substring(commaIndex1 + 1, commaIndex2);
-//         String score = data.substring(commaIndex2 + 1);
-        
-//         // user_instance.hasNewData();
-//         user_instance.updateData(x.toFloat(), y.toFloat(), score.toInt());
-//         // Serial.println("User position updated!"\r\n);
-//     }
-// }
 void handle_mqtt_topic_user_pos(UserDisplay &user_instance, const char* payload)
 {
     //De-serialise payload
@@ -48,7 +32,7 @@ void handle_mqtt_topic_user_pos(UserDisplay &user_instance, const char* payload)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Handle Flames data topic
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void handle_mqtt_topic_flames_data(FlamesDisplay &flames_instance, const char* payload)
@@ -61,7 +45,7 @@ void handle_mqtt_topic_flames_data(FlamesDisplay &flames_instance, const char* p
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Handle Map data topic
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void handle_mqtt_topic_map_data(MapDisplay &map_instance, const char* payload)
@@ -74,7 +58,7 @@ void handle_mqtt_topic_map_data(MapDisplay &map_instance, const char* payload)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Packing nozzel_device telementy data payload
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void nozzel_device_packing_mqtt_payload(IMU_Data &imu_data, Valve_Data &valve_data, String &device_payload_buffer){
@@ -119,7 +103,7 @@ void nozzel_device_packing_mqtt_payload(IMU_Data &imu_data, Valve_Data &valve_da
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Packing extinguisher_device telementy data payload (Support in the future)
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void extinguisher_device_packing_mqtt_payload(IMU_Data &imu_data, Valve_Data &valve_data, String &device_payload_buffer){

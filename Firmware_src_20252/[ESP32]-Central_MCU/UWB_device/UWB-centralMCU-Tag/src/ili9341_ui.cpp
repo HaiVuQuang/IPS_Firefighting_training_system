@@ -2,7 +2,7 @@
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Draw progress bar
  */
 /*--------------------------------------------------------------------------------------------------------*/
 static void draw_progress_bar(Adafruit_ILI9341 &tft, int x, int y, int width, int height, int percentage)
@@ -37,7 +37,7 @@ static void draw_progress_bar(Adafruit_ILI9341 &tft, int x, int y, int width, in
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Setup map axes outline
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_setup_map_axes_outline(Adafruit_ILI9341 &tft)
@@ -100,7 +100,7 @@ void tft_setup_map_axes_outline(Adafruit_ILI9341 &tft)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Setup static text 
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_setup_static_text_outline(Adafruit_ILI9341 &tft)
@@ -146,18 +146,7 @@ void tft_setup_static_text_outline(Adafruit_ILI9341 &tft)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
- */
-/*--------------------------------------------------------------------------------------------------------*/
-void tft_setup_intro(Adafruit_ILI9341 &tft)
-{
-
-}
-
-
-/*--------------------------------------------------------------------------------------------------------*/
-/**
- * @brief
+ * @brief: Setup Static UI
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_setup_static_ui(Adafruit_ILI9341 &tft)
@@ -169,7 +158,7 @@ void tft_setup_static_ui(Adafruit_ILI9341 &tft)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief Score, speed, current pos, imu data, valve data
+ * @brief Update Score, speed, current pos, imu data, valve data
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_update_device_info_text(Adafruit_ILI9341 &tft, UserDisplay &user, IMU_Data &imu_data, Valve_Data &valve_data)
@@ -216,7 +205,7 @@ void tft_update_device_info_text(Adafruit_ILI9341 &tft, UserDisplay &user, IMU_D
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief: Render new excercise frame 
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_render_new_exercise_frame(Adafruit_ILI9341 &tft, UserDisplay &user, FlamesDisplay &flames, MapDisplay &map, IMU_Data &imu_data, Valve_Data &valve_data)
@@ -254,7 +243,7 @@ void tft_render_new_exercise_frame(Adafruit_ILI9341 &tft, UserDisplay &user, Fla
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief TFT interface main loop handler
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_main_loop_handler(Adafruit_ILI9341 &tft, UserDisplay &user, FlamesDisplay &flames, 

@@ -6,7 +6,7 @@
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Map UI class
  */
 /*--------------------------------------------------------------------------------------------------------*/
 class MapDisplay
@@ -40,39 +40,12 @@ public:
     void clearMap(Adafruit_ILI9341 &tft);
     void drawMap(Adafruit_ILI9341 &tft);
 };
-// class MapDisplay
-// {
-// private:
-//     // int north_offset;
-//     bool is_map_updated;
 
-//     // Marker array for 10x10 map 
-//     bool is_passable_grid_id[101];
-
-//     // Convert from grid ID to grid's central pixel coordinate
-//     void grid_id_to_topleft_coordinate(int id, int &pixel_x, int &pixel_y);
-
-// public:
-//     MapDisplay();
-    
-//     int north_offset;
-
-//     // Flag handle
-//     bool hasNewData() {return is_map_updated;};
-//     void clearFlag() {is_map_updated = false;};
-
-//     // Update map data
-//     void updateData(const char *payload);
-
-//     // TFT Display handle
-//     void clearMap(Adafruit_ILI9341 &tft);
-//     void drawMap(Adafruit_ILI9341 &tft);
-// };
 
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief User data & interface class
  */
 /*--------------------------------------------------------------------------------------------------------*/
 class UserDisplay
@@ -136,71 +109,11 @@ public:
 };
 
 
-
-
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Flame data and UI class
  */
 /*--------------------------------------------------------------------------------------------------------*/
-// class FlamesDisplay  
-// {
-// private:
-//     // Flame properties
-//     typedef struct 
-//     {
-//         int flame_id;
-//         int flame_lvl;
-
-//     } flame_properties_t;
-    
-//     // Flames data (max 100 flames simultaneously on a 10x10 map )
-//     typedef struct 
-//     {
-//         flame_properties_t data[101];
-//     } flames_t;
-
-//     // Size of Flame icon
-//     static const int ICON_WIDTH = 16;
-//     static const int ICON_HEIGHT = 15;
-//     // Flame icon bitmap
-//     static const unsigned char icon_flame[] PROGMEM;
-
-//     const uint16_t flames_lvl_color[6] = {
-//     BLACK,  // lv0
-//     0xFFF0, // lv1: 
-//     0xFE00, // lv2: 
-//     0xFC00, // lv3: 
-//     0xF800, // lv4: 
-//     0xA000  // lv5: 
-//     };
-
-//     // Flames updated flag
-//     bool is_flames_updated;
-
-//     // Flames handle struct
-//     flames_t prev_flames;
-//     flames_t curr_flames;
-
-//     // Convert from grid ID to grid's central pixel coordinate
-//     void grid_id_to_central_coordinate(int id, int &pixel_x, int &pixel_y);
-
-// public:
-//     FlamesDisplay();
-
-//     // Flag handle
-//     bool hasNewData() {return is_flames_updated;};
-//     void clearFlag() {is_flames_updated = false;};
-
-//     // Update Flames data
-//     void updateData(const char *payload);
-
-//     // TFT Display handle
-//     void clearFlames(Adafruit_ILI9341 &tft);
-//     void drawFlames(Adafruit_ILI9341 &tft);
-
-// };
-
 class FlamesDisplay  
 {
 private:
@@ -263,7 +176,7 @@ public:
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Extern TFT class
  */
 /*--------------------------------------------------------------------------------------------------------*/
 extern UserDisplay user;

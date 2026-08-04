@@ -10,7 +10,7 @@ MapDisplay exercise_map;
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief: [USER] Class contructor
  */
 /*--------------------------------------------------------------------------------------------------------*/
 UserDisplay::UserDisplay()
@@ -35,7 +35,7 @@ UserDisplay::UserDisplay()
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [USER] Mapping Tool -> Convert Descartes to TFT pixel coordinate
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void UserDisplay::coordinate_to_pixel_position(float coor_x, float coor_y, int &pixel_x, int &pixel_y)
@@ -55,7 +55,7 @@ void UserDisplay::coordinate_to_pixel_position(float coor_x, float coor_y, int &
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [USER] Update user data
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void UserDisplay::updateData(float coor_x, float coor_y, int score)
@@ -76,7 +76,7 @@ void UserDisplay::updateData(float coor_x, float coor_y, int score)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [USER] Clear current user dot position and POV display
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void UserDisplay::clearUser(Adafruit_ILI9341 &tft)
@@ -85,28 +85,6 @@ void UserDisplay::clearUser(Adafruit_ILI9341 &tft)
     int cx = prev_pos.pixel_x;
     int cy = prev_pos.pixel_y;
     
-    // const int num_segments = 6; 
-    // float total_view_angle_rad = view_cone_angle * (PI / 180.0f);
-    // float angle_step = total_view_angle_rad / num_segments;
-    
-    
-    // float start_angle = prev_yaw_angle - (total_view_angle_rad / 2.0f);
-
-    // int prev_x = cx + round(vision_range * sinf(start_angle));
-    // int prev_y = cy - round(vision_range * cosf(start_angle));
-
-    // for (int i = 1; i <= num_segments; i++) 
-    // {
-    //     float current_angle = start_angle + (i * angle_step);
-        
-    //     int next_x = cx + round(vision_range * sinf(current_angle));
-    //     int next_y = cy - round(vision_range * cosf(current_angle));
-
-    //     tft.fillTriangle(cx, cy, prev_x, prev_y, next_x, next_y, BACKGROUND_COLOR);
-
-    //     prev_x = next_x;
-    //     prev_y = next_y;
-    // }
 
     if (prev_vision_range > 0) {
         const int num_segments = 6; 
@@ -138,59 +116,17 @@ void UserDisplay::clearUser(Adafruit_ILI9341 &tft)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [USER] Draw & Update User dot posstion and POV
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void UserDisplay::drawUser(Adafruit_ILI9341 &tft, MapDisplay &map_instance, IMU_Data &imu_data, Valve_Data &valve_data)
 {
-
-    // float half_view_cone_angle = view_cone_angle * (PI / 180);
-    // float user_yaw_angle = (imu_data.euler.z - map_instance.north_offset) * (PI / 180.0f);
-
-    // // Draw User dot
-    // tft.fillCircle(curr_pos.pixel_x, curr_pos.pixel_y, 3, BLUE);
-
-    // // Draw view 
-    // for (float a = - half_view_cone_angle; a <= half_view_cone_angle; a += (1.5 * PI / 180.0f))
-    // {
-    //     float angle = user_yaw_angle + a;
-    //     int x_edge = curr_pos.pixel_x + round(vision_range * sin(angle));
-    //     int y_edge = curr_pos.pixel_y - round(vision_range * cos(angle));
-    //     tft.drawLine(curr_pos.pixel_x, curr_pos.pixel_y, x_edge, y_edge, GREEN);
-    // }
 
     curr_yaw_angle = (imu_data.euler.z - map_instance.north_offset) * (PI / 180.0f);
     
     // User pixel coordinate
     int cx = curr_pos.pixel_x;
     int cy = curr_pos.pixel_y;
-
-    // // Number of triangle segments
-    // const int num_segments = 6; 
-    
-    // // View angle & angle step
-    // float total_view_angle_rad = view_cone_angle * (PI / 180.0f);
-    // float angle_step = total_view_angle_rad / num_segments;
-    
-    // // Start angle 
-    // float start_angle = curr_yaw_angle - (total_view_angle_rad / 2.0f);
-
-    // int prev_x = cx + round(vision_range * sin(start_angle));
-    // int prev_y = cy - round(vision_range * cos(start_angle));
-
-    // // Draw num_segments triangle
-    // for (int i = 1; i <= num_segments; i++) 
-    // {
-    //     float current_angle = start_angle + (i * angle_step);
-        
-    //     int next_x = cx + round(vision_range * sinf(current_angle));
-    //     int next_y = cy - round(vision_range * cosf(current_angle));
-
-    //     tft.fillTriangle(cx, cy, prev_x, prev_y, next_x, next_y, USER_VIEW_CONE_COLOR);
-
-    //     prev_x = next_x;
-    //     prev_y = next_y;
-    // }
 
     // Calculate user vison_range based on valve_open_status and mode_status
     if (valve_data.mode_status < 50) {
@@ -242,7 +178,7 @@ void UserDisplay::drawUser(Adafruit_ILI9341 &tft, MapDisplay &map_instance, IMU_
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [USER] Calculate speed
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void UserDisplay::calculateSpeed(const IMU_Data &imu_data)
@@ -292,7 +228,7 @@ void UserDisplay::calculateSpeed(const IMU_Data &imu_data)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [FLAME] Bitmap for Flame levels
  */
 /*--------------------------------------------------------------------------------------------------------*/
 const unsigned char FlamesDisplay::icon_flame[] PROGMEM = 
@@ -304,7 +240,7 @@ const unsigned char FlamesDisplay::icon_flame[] PROGMEM =
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [FLAME] Class constructor
  */
 /*--------------------------------------------------------------------------------------------------------*/
 FlamesDisplay::FlamesDisplay()
@@ -317,7 +253,7 @@ FlamesDisplay::FlamesDisplay()
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [FLAME] Mapping tool -> Descartes coordinate to TFT pixel coordinate
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void FlamesDisplay::coordinate_to_pixel_position(float coor_x, float coor_y, int &pixel_x, int &pixel_y)
@@ -337,7 +273,7 @@ void FlamesDisplay::coordinate_to_pixel_position(float coor_x, float coor_y, int
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [FLAME] Update Flames data
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void FlamesDisplay::updateData(const char *payload)
@@ -387,7 +323,7 @@ void FlamesDisplay::updateData(const char *payload)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [FLAME] Check & clear previous cycle Flame list on Map
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void FlamesDisplay::clearFlames(Adafruit_ILI9341 &tft)
@@ -408,8 +344,8 @@ void FlamesDisplay::clearFlames(Adafruit_ILI9341 &tft)
         // Clear flame
         if(!keep_flame && prev_flames[i].level > 0) {
             int draw_x = prev_flames[i].x;
-            int draw_y = prev_flames[i].y - ICON_HEIGHT;
-            tft.fillRect(draw_x, draw_y, ICON_WIDTH, ICON_HEIGHT, BACKGROUND_COLOR);
+            int draw_y = prev_flames[i].y - ICON_HEIGHT ;
+            tft.fillRect(draw_x, draw_y, ICON_WIDTH + 2, ICON_HEIGHT + 2, BACKGROUND_COLOR);
         }
     }
 }
@@ -417,7 +353,7 @@ void FlamesDisplay::clearFlames(Adafruit_ILI9341 &tft)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [FLAME] Draw current cycle Flame list on Map
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void FlamesDisplay::drawFlames(Adafruit_ILI9341 &tft)
@@ -428,17 +364,6 @@ void FlamesDisplay::drawFlames(Adafruit_ILI9341 &tft)
 
         bool already_drawn = false;
 
-        // Browse through current flames list & check if it was đrawn
-        // for (int p = 0; p < prev_fires_num; p++){
-        //     if (prev_flames[p].x == curr_flames[i].x &&
-        //         prev_flames[p].y == curr_flames[i].y &&
-        //         prev_flames[p].level == curr_flames[i].level) 
-        //         {
-        //             already_drawn = true;
-        //             break;
-        //         } 
-        // }
-
         // If not drawn -> draw
         if(!already_drawn) {
             int draw_x = curr_flames[i].x + 2;
@@ -446,283 +371,14 @@ void FlamesDisplay::drawFlames(Adafruit_ILI9341 &tft)
             uint16_t color = flames_lvl_color[curr_flames[i].level];
             tft.drawBitmap(draw_x, draw_y, icon_flame, ICON_WIDTH, ICON_HEIGHT, color);
         }
-
     }
 }
 
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// FlamesDisplay::FlamesDisplay()
-// {
-//     is_flames_updated = false;
-    
-//     // Browse through & Reset all Flames 
-//     for(int i = 0; i <= 100; i++) {
-//         curr_flames.data[i].flame_id = i;
-//         curr_flames.data[i].flame_lvl = 0;
-        
-//         prev_flames.data[i].flame_id = i;
-//         prev_flames.data[i].flame_lvl = 0;
-//     }
-// }
-
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// void FlamesDisplay::updateData(const char *payload)
-// {
-//     prev_flames = curr_flames;
-
-//     // Reset flames data buffer
-//     for(int i = 0; i < 100; i++) {
-//         curr_flames.data[i].flame_id = 0;
-//         curr_flames.data[i].flame_lvl = 0; 
-//     }
-
-//     char buffer[strlen(payload) + 1];
-//     strcpy(buffer, payload);
-
-//     char* token = strtok(buffer, ",");
-
-//     // Browse through the payload 
-//     while (token != NULL) {
-//         // Get ID
-//         int id = atoi(token);
-
-//         // Get lvl
-//         token = strtok(NULL, ",");
-//         if (token == NULL) break;
-//         int lvl = atoi(token);
-
-//         // Save flames data
-//         if (id >= 1 && id <= 100) {
-//             if (lvl > 5) lvl = 5;
-//             if (lvl < 0) lvl = 0;
-            
-//             curr_flames.data[id].flame_lvl = lvl;
-//         }
-
-//         // Move to next <id>,<lvl>
-//         token = strtok(NULL, ",");
-//     }
-
-//     // Set flames's updated flag
-//     is_flames_updated = true;
-// }
-
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// void FlamesDisplay::grid_id_to_central_coordinate(int id, int &pixel_x, int &pixel_y)
-// {
-//     // Descartes coordinate mapping
-//     int coor_x, coor_y;
-//     if (id % 10 != 0) {
-//         coor_x = id % 10;
-//         coor_y = (id / 10) + 1;
-//     }
-//     else {
-//         coor_x = 10;
-//         coor_y = id / 10;
-//     }
-
-//     // Normalize outlier
-//     if (coor_x < 0) coor_x = 0;
-//     if (coor_x > 10) coor_x = 10;
-//     if (coor_y < 0) coor_y = 0;
-//     if (coor_y > 10) coor_y = 10;
-
-//     // Convert to grid's central pixel coordinate
-//     pixel_x = (20 + (coor_x - 1 ) * 20);
-//     // pixel_y = (211 - coor_y * 20);
-//     pixel_y = (230 - coor_y * 20);
-// }
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// void FlamesDisplay::clearFlames(Adafruit_ILI9341 &tft)
-// {
-//     for(int i = 1; i <= 100; i++){
-//         int curr_lvl = curr_flames.data[i].flame_lvl;
-//         int prev_lvl = prev_flames.data[i].flame_lvl;
-
-//         // If unchanged, keep it
-//         if (curr_lvl == prev_lvl){
-//             continue;
-//         }
-//         else if(prev_lvl > 0){
-//             int pixel_x, pixel_y;
-//             grid_id_to_central_coordinate(i, pixel_x, pixel_y);
-//             int draw_x = pixel_x - (ICON_WIDTH / 2);
-//             int draw_y = pixel_y - (ICON_HEIGHT / 2);
-//             tft.fillRect(draw_x, draw_y, ICON_WIDTH, ICON_HEIGHT, BACKGROUND_COLOR);
-//         }
-//     }
-// }
-
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// void FlamesDisplay::drawFlames(Adafruit_ILI9341 &tft)
-// {
-//     for(int i = 1; i <= 100; i++){
-//         // Get flames lvl
-//         int curr_lvl = curr_flames.data[i].flame_lvl;
-//         int prev_lvl = prev_flames.data[i].flame_lvl;
-
-//         if (curr_lvl > 0) {
-//             int pixel_x, pixel_y;
-//             // Convert from grid id to central pixel coordinate 
-//             grid_id_to_central_coordinate(i, pixel_x, pixel_y);
-//             // Align flame icon in the middle of grid
-//             int draw_x = pixel_x - (ICON_WIDTH / 2);
-//             int draw_y = pixel_y - (ICON_HEIGHT / 2);
-//             uint16_t color = flames_lvl_color[curr_lvl];
-//             //Draw bitmap for flame icon
-//             tft.drawBitmap(draw_x, draw_y, icon_flame, ICON_WIDTH, ICON_HEIGHT, color);
-//         }
-//     }
-// }
-
-
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// MapDisplay::MapDisplay()
-// {
-//     north_offset = 0;
-//     is_map_updated = false;
-    
-//     // Defaut true
-//     for(int i = 0; i <= 100; i++) {
-//         is_passable_grid_id[i] = true;
-//     }
-// }
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// void MapDisplay::grid_id_to_topleft_coordinate(int id, int &pixel_x, int &pixel_y)
-// {
-//     // Descartes coordinate mapping
-//     int coor_x, coor_y;
-//     if (id % 10 != 0) {
-//         coor_x = id % 10;
-//         coor_y = (id / 10) + 1;
-//     }
-//     else {
-//         coor_x = 10;
-//         coor_y = id / 10;
-//     }
-
-//     // Normalize outlier
-//     if (coor_x < 0) coor_x = 0;
-//     if (coor_x > 10) coor_x = 10;
-//     if (coor_y < 0) coor_y = 0;
-//     if (coor_y > 10) coor_y = 10;
-
-//     // Convert to grid's top left pixel coordinate
-//     pixel_x = (10 + (coor_x - 1 ) * 20);
-//     pixel_y = (221 - coor_y * 20);
-// }
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// void MapDisplay::updateData(const char *payload)
-// {
-//     // Reset map marker array 
-//     for(int i = 1; i <= 100; i++) {
-//         is_passable_grid_id[i] = true;
-//     }
-
-//     // Payload buffer
-//     char buffer[512];
-//     strncpy(buffer, payload, sizeof(buffer) - 1);
-//     buffer[sizeof(buffer) - 1] = '\0';
-
-//     // The first element is map's north offset angle
-//     char* token = strtok(buffer, ",");
-//     if(token != NULL) {
-//         north_offset = atoi(token);
-//     }
-
-//     // Mark not passable grid
-//     while (token != NULL) {
-//         token = strtok(NULL, ",");
-//         if(token == NULL) break;
-
-//         int id = atoi(token);
-//         if(id >= 1 && id <= 100){
-//             is_passable_grid_id[id] = false;            
-//         }
-//     }
-//     is_map_updated = true;
-// }
-
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// void MapDisplay::clearMap(Adafruit_ILI9341 &tft)
-// {
-//     // Draw fuking huge big black box :))
-//     tft.fillRect(10, 21, 200, 200, BACKGROUND_COLOR);
-// }
-
-
-// /*--------------------------------------------------------------------------------------------------------*/
-// /**
-//  * @brief
-//  */
-// /*--------------------------------------------------------------------------------------------------------*/
-// void MapDisplay::drawMap(Adafruit_ILI9341 &tft)
-// {
-//     int pixel_x, pixel_y;
-//     for (int i = 1; i <= 100; i++){
-//         // Draw passable map grid
-//         if(is_passable_grid_id[i]){
-//             grid_id_to_topleft_coordinate(i, pixel_x, pixel_y);
-//             tft.drawRect(pixel_x, pixel_y, 20, 20, MAP_GRID_COLOR);
-//         }
-//         // Draw unpassable map grid
-//         else{
-//             grid_id_to_topleft_coordinate(i, pixel_x, pixel_y);
-//             tft.drawLine(pixel_x + 10, pixel_y, pixel_x, pixel_y + 10, NOT_MAP_GRID_COLOR);
-//             // tft.drawLine(x_coord + 20, y_coord, x_coord, y_coord + 20, WHITE);
-//             tft.drawLine(pixel_x + 20, pixel_y + 10, pixel_x + 10, pixel_y + 20, NOT_MAP_GRID_COLOR);
-//         }
-//     }
-// }
 
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [MAP] Class constructor
  */
 /*--------------------------------------------------------------------------------------------------------*/
 MapDisplay::MapDisplay()
@@ -741,7 +397,7 @@ MapDisplay::MapDisplay()
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [MAP] Mapping tool -> Grid coordinate to Top left TFT pixel
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void MapDisplay::coordinate_to_topleft_pixel(int x, int y, int &pixel_x, int &pixel_y)
@@ -755,7 +411,7 @@ void MapDisplay::coordinate_to_topleft_pixel(int x, int y, int &pixel_x, int &pi
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [MAP] Update map data
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void MapDisplay::updateData(const char *payload)
@@ -800,7 +456,7 @@ void MapDisplay::updateData(const char *payload)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief [MAP] Clear Map
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void MapDisplay::clearMap(Adafruit_ILI9341 &tft)
@@ -811,8 +467,8 @@ void MapDisplay::clearMap(Adafruit_ILI9341 &tft)
 
 
 /*--------------------------------------------------------------------------------------------------------*/
-/**
- * @brief
+/** 
+ * @brief [MAP] Draw map (Passable and un-passable grid)
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void MapDisplay::drawMap(Adafruit_ILI9341 &tft)

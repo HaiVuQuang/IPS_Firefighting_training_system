@@ -48,7 +48,7 @@
 
 #elif (CURRENT_NODE_TYPE == TYPE_SLAVE)
 // --- Cấu hình ID cho Slave Beacon ---
-#define MY_SLV_BEACON_ID        0x04
+#define MY_SLV_BEACON_ID        0x03
 #define MY_MST_ID		 		0xF0
 #define SLV_EVENT_QUEUE_SIZE 	10
 
@@ -97,24 +97,6 @@ extern UART_HandleTypeDef huart2;		//UART2
 #define MAX_DIST_CM			5000			// K/c tối đa cho phép (cm) từ Tag -> Beacon. Y/c bố trí vị trí Beacon hợp lý trong khu vực
 											// -> Xa hơn MAX_DIST_CM nguy cơ kết quả đo là NLOS và sai số cao -> Mặc định là INVALID_DIST và ko xử lý tiếp
 
-
-///* ====================== TDMA Timing ========================
-//* 	|----------------------------------50ms----------------------------------|
-//*	|--4--|------------25--------------|--2--|-----------15------------|--4--|
-//*	(MST_Poll)		(SLV_Poll)		   (BACKUP)		  (TAG_RES)       (DIST_CAL)
-//*/
-//
-//// ============================ MEDIUM SPEED OPTION: 50ms ====================================
-//#define CYCLE_PERIOD_MS     		50				// Chu kỳ tổng mỗi pha Ranging
-//#define MASTER_POLL_TIMEOUT			4000
-//#define SLAVE_POLL_TIMEOUT			27000			// 25ms: (Max tải) + 2ms Backup
-//#define TAG_RESPONSE_TIMEOUT		15000			// 15ms: (Max tải)
-//#define DIST_CAL_TIMEOUT			4000			// 4ms:	Slv_Beacon tính toán k/c pha hiện tại
-//
-//#define SLAVE_TDMA_BASE_US  		5000  			// Slv_Beacon đầu tiên bắt đầu sau 5 ms từ đầu chu kỳ hiện tại
-//#define SLAVE_SLOT_TDMA_US  		5000  			// Mỗi Slv_Beacon cách nhau 5ms
-//#define TAG_TDMA_BASE_US    		32000 			// Tag đầu tiên bắt đầu sau 32 ms từ đầu chu kỳ hiện tại
-//#define TAG_SLOT_TDMA_US    		5000  			// Mỗi Tag cách nhau 5ms
 
 /* ====================== TDMA Timing ========================
 * 	|----------------------------------34ms----------------------------------|
