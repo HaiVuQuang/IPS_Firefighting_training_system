@@ -6,13 +6,13 @@ An advanced, real-time Indoor Positioning System utilizing Ultra-Wideband (UWB) 
 
 Firefighting training with real fire poses significant safety risks, incurs high material costs, and lacks the flexibility to dynamically change scenarios. Transitioning to a simulated or Virtual Reality (VR) training environment is an inevitable trend. However, to create a highly interactive simulation, the system must solve a critical challenge: **Tracking the trainee's exact location and actions indoors in real-time.** 
 
-Since traditional Global Positioning Systems (GPS) fail in indoor environments due to signal attenuation and concrete blockage, this project focuses on developing a **Indoor Positioning System (IPS)**. By leveraging **Ultra-Wideband (UWB)** technology — which uses nanosecond radio pulses to measure the Time of Flight (ToF)—this system achieves centimeter-level positioning accuracy. The system completely digitizes a physical fire hose, tracking the user's coordinates, nozzle direction, and valve operations to interact with virtual fires seamlessly.
+Since traditional Global Positioning Systems (GPS) fail in indoor environments due to signal attenuation and concrete blockage, this project focuses on developing a **Indoor Positioning System (IPS)**. By leveraging **Ultra-Wideband (UWB)** technology - which uses sub nanosecond radio pulses to measure the Time of Flight (ToF) - this system achieves decimeter-level positioning accuracy. The system completely digitizes a physical Firehose nozzles, tracking the user's coordinates, nozzle direction, and valve operations to interact with virtual fires seamlessly.
 
 ## Key Features
 
 - **High-Precision UWB Positioning:** Utilizes Single-Sided Two-Way Ranging (SS-TWR) combined with a Time Division Multiple Access (TDMA) network to prevent radio collisions and ensure stable multi-tag tracking.
 - **Hardware-Level Clock Drift Compensation:** Implements advanced algorithms directly reading the DW1000's Carrier Integrator register to compensate for crystal oscillator deviations, maximizing ToF accuracy.
-- **Fire Nozzel Prototype:** A real firefighting nozzle retrofitted with 9-DoF IMU sensors, valve actuators, and an LCD screen to provide an immersive First-Person View (FPV) training experience.
+- **Firehose nozzles prototype:** A real firefighting nozzle retrofitted with 9-DoF IMU sensors, valve actuators, and an LCD screen to provide an immersive First-Person View (FPV) training experience.
 - **Tracking Algorithms:** Integrates a **1D Kalman Filter** for noise reduction and the **Levenberg-Marquardt (LM)** non-linear optimization algorithm to solve the 2D Trilateration problem with minimal latency.
 - **Web-based Management Dashboard:** A centralized control system via MQTT and WebSockets, allowing instructors to draw indoor maps, spawn virtual fires, and monitor the trainees' trajectories in real-time.
 
@@ -35,7 +35,7 @@ The system is built upon a modular, dual-MCU architecture to separate high-speed
 The hardware devices is entirely custom-built to ensure high mobility, stable power management, and a realistic training experience. It consists of two main physical components: the interactive training equipment and the spatial referencing network of Beacons. This design approach enables trainees to acquire practical experience and execute fundamental firefighting maneuvers using authentic equipment, thereby ensuring highly realistic training while strictly maintaining a hazard-free environment.
 
 <p align="center">
-  <img src="Documents/Results/Prototype.png" alt="Fire Nozzel Prototype" width="80%">
+  <img src="Documents/Results/Prototype.png" alt="Firehose nozzles prototype" width="80%">
 </p>
 
 *Hardware Showcase 1: The trainning prototype modified directly from a real firefighting nozzle. It has the custom dual-MCU PCB, a 9-DoF IMU for orientation tracking, mechanical potentiometers to digitize valve operations, and a 2.8" TFT screen serving as the trainee's FPV interface.*
