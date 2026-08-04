@@ -130,7 +130,7 @@ class Trilateration:
             logger.info(f"Filtered {len(filtered_beacons)} beacon(s) due to distance < {self.min_distance}m: {filtered_beacons}")
         
         if len(valid_beacons) < self.min_beacons:
-            logger.warning(f"Insufficient beacons: {len(valid_beacons)} < {self.min_beacons}")
+            logger.warning(f"Insufficient beacons or wrong ID: {len(valid_beacons)} < {self.min_beacons}")
             return None
         
         beacon_positions = np.array(valid_beacons)
@@ -164,7 +164,7 @@ class KalmanFilter2D:
     Simple 2D Kalman filter for smoothing position estimates.
     """
     
-    def __init__(self, process_noise: float = 0.1, measurement_noise: float = 0.5):
+    def __init__(self, process_noise: float = 0.05, measurement_noise: float = 1.0):
         """
         Args:
             process_noise: Process noise covariance
@@ -208,7 +208,7 @@ class ToFPositioning:
     """
     
     def __init__(self, min_beacons: int = 3, use_kalman: bool = True,
-                 process_noise: float = 0.1, measurement_noise: float = 0.5,
+                 process_noise: float = 0.05, measurement_noise: float = 1.0,
                  min_distance: float = 0.1, max_distance: float = 15.0):
         """
         Args:

@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, JSON, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 
@@ -29,6 +29,7 @@ class RSSIMapInfo(Base):
     map_info_id = Column(Integer, primary_key=True)
     total_units = Column(Integer)
     area_of_one_unit = Column(Float)
+    north_offset = Column(Integer, default=90)
     walkable_area = Column(Integer)
     router_number = Column(Integer)
     router_location = Column(JSON, default=[])
@@ -56,6 +57,7 @@ class UwbMapInfo(Base):
     map_info_id = Column(Integer, primary_key=True)
     total_units = Column(Integer)
     area_of_one_unit = Column(Float)
+    north_offset = Column(Integer, default=90)
     walkable_area = Column(Integer)
     beacon_number = Column(Integer)
     beacon_location = Column(JSON, default={})
@@ -63,10 +65,10 @@ class UwbMapInfo(Base):
     cols = Column(Integer)
     blocked_cells = Column(JSON, default=[])
   
-class DeviceInfo(Base):
-    __tablename__ = "device_info"
+class UserDataRSSI(Base):
+    __tablename__ = "user_data_rssi"
 
-    device_info_id = Column(Integer, primary_key=True)
+    user_data_rssi_id = Column(Integer, primary_key=True)
     rssi_wifi_1 = Column(Float)
     rssi_wifi_2 = Column(Float)
     rssi_wifi_3 = Column(Float)
@@ -84,9 +86,36 @@ class DeviceInfo(Base):
     gyrox = Column(Float)
     gyroy = Column(Float)
     gyroz = Column(Float)
-    eulerx = Column(Float)
-    eulery = Column(Float)
-    eulerz = Column(Float)
+    pitch = Column(Float)
+    roll = Column(Float)
+    yaw = Column(Float)
+    valve_open = Column(Float)
+    valve_mode = Column(Float)
+    btn_a = Column(Integer)
+    btn_b = Column(Integer)
+    btn_c = Column(Integer)
+
+class UserDataUWB(Base):
+    __tablename__ = "user_data_uwb"
+
+    user_data_uwb_id = Column(Integer, primary_key=True)
+    accx = Column(Float)
+    accy = Column(Float)
+    accz = Column(Float)
+    magx = Column(Float)
+    magy = Column(Float)
+    magz = Column(Float)
+    gyrox = Column(Float)
+    gyroy = Column(Float)
+    gyroz = Column(Float)
+    pitch = Column(Float)
+    roll = Column(Float)
+    yaw = Column(Float)
+    valve_open = Column(Float)
+    valve_mode = Column(Float)
+    btn_a = Column(Integer)
+    btn_b = Column(Integer)
+    btn_c = Column(Integer)
 
 class RSSIForTraining(Base):
     __tablename__ = "rssi_for_training"
@@ -110,4 +139,37 @@ class RSSIForTraining(Base):
 
     map_reference = relationship("RSSIMapInfo", back_populates="rssi_data")
 
-    map_reference = relationship("RSSIMapInfo", back_populates="rssi_data")
+class Scenario(Base):
+    __tablename__ = "scenarios"
+    scenario_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    map_info_id = Column(Integer, index=True)
+    map_type = Column(String(50))
+    scenario_name = Column(String(255))
+
+    fires = relationship("ScenarioFire", back_populates="scenario", cascade="all, delete-orphan")
+    histories = relationship("TrainingHistory", back_populates="scenario", cascade="all, delete-orphan")
+
+class ScenarioFire(Base):
+    __tablename__ = "scenario_fires"
+    fire_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    scenario_id = Column(Integer, ForeignKey("scenarios.scenario_id", ondelete="CASCADE"))
+    coord_x = Column(Float)
+    coord_y = Column(Float)
+    level = Column(Integer) 
+    delay_time = Column(Integer)
+    is_spreading = Column(Boolean, default=False) 
+
+    scenario = relationship("Scenario", back_populates="fires")
+
+class TrainingHistory(Base):
+    __tablename__ = "training_history"
+    history_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    trainee_name = Column(String(100))
+    scenario_id = Column(Integer, ForeignKey("scenarios.scenario_id", ondelete="CASCADE"))
+    device_hex_id = Column(String(100))
+    start_time = Column(DateTime(timezone=True), server_default=func.now())
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    time_elapsed = Column(Integer)
+    score = Column(Integer)
+
+    scenario = relationship("Scenario", back_populates="histories")

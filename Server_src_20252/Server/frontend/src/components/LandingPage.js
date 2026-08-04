@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import LoginModal from "./LoginModal";
+import { useMessage } from "./MessageModal";
 import "../assets/css/LandingPage.css";
 import uwbIcon from "../assets/picture/uwb-icon.png";
-import rssiIcon from "../assets/picture/rssi-icon.png";
 import {
   Settings,
   X,
@@ -11,6 +11,8 @@ import {
   Tag,
   FingerprintPattern,
   SatelliteDish,
+  History,
+  Trophy,
 } from "lucide-react";
 import axios from "axios";
 
@@ -24,10 +26,12 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
   const [editingDevice, setEditingDevice] = useState(null);
   const [newDeviceName, setNewDeviceName] = useState("");
 
-  const openLoginModal = (mode) => {
-    setIsLoginModalOpen(true);
-    setLoginModalMode(mode);
-  };
+  const [trainingHistory, setTrainingHistory] = useState([]);
+
+  const { showAlert } = useMessage();
+
+  // Flag chống gọi API 2 lần
+  const hasFetchedHistory = useRef(false);
 
   // Hook lắng nghe thiết bị mới qua WebSocket
   useEffect(() => {
@@ -66,13 +70,33 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
     };
   }, [showDeviceManager]);
 
+  useEffect(() => {
+    if (isLoggedIn) {
+      if (hasFetchedHistory.current) return;
+      hasFetchedHistory.current = true;
+
+      axios
+        .get("http://localhost:8000/training_history")
+        .then((res) => setTrainingHistory(res.data))
+        .catch((err) => console.error("Failed to fetch history:", err));
+    } else {
+      // Khi đăng xuất, reset lại cờ để lần sau đăng nhập vẫn load được API
+      hasFetchedHistory.current = false;
+    }
+  }, [isLoggedIn]);
+
   const openDeviceManager = async () => {
     setShowDeviceManager(true);
   };
 
+  const openLoginModal = (mode) => {
+    setIsLoginModalOpen(true);
+    setLoginModalMode(mode);
+  };
+
   const fetchDevices = async () => {
     try {
-      const resRssi = await axios.get("http://localhost:8000/devices/rssi");
+      const resRssi = await axios.get("http://localhost:8000/devices/fingerprint");
       const resUwb = await axios.get("http://localhost:8000/devices/uwb");
       setRssiDevices(resRssi.data);
       setUwbDevices(resUwb.data);
@@ -93,7 +117,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
       setEditingDevice(null);
       fetchDevices(); // Tải lại danh sách sau khi đổi tên
     } catch (e) {
-      alert("Failed to rename device");
+      showAlert("Error", "Failed to rename device.", "error");
     }
   };
 
@@ -104,7 +128,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
       await axios.delete(`http://localhost:8000/devices/${type}/${deviceId}`);
       fetchDevices();
     } catch (e) {
-      alert("Failed to delete device");
+      showAlert("Error", "Failed to delete device.", "error");
       console.error(e);
     }
   };
@@ -162,31 +186,66 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
       {isLoggedIn &&
         // prettier-ignore
         <div className="landing-selection-cards">
-          {/* Widget RSSI Fingerprinting */}
-          <div className="mode-card small-card" onClick={() => onSelectMode("fingerprint")}>
-            <div className="mode-icon-box">
-              <FingerprintPattern size={34} color="#475569" />
+
+          {/* CỘT 1: WIDGET LỊCH SỬ HUẤN LUYỆN */}
+          <div className="mode-card history-card">
+            <div className="history-header">
+              <div className="mode-icon-box" style={{ width: 32, height: 32 }}>
+                <History size={34} color="#475569" />
+              </div>
+              <h3 className="mode-title-small">Training History</h3>
             </div>
-            <div className="mode-title-small">RSSI<br />Fingerprinting</div>
+            
+            <div className="history-list">
+              {trainingHistory.length === 0 ? (
+                <div style={{textAlign: 'center', color: '#94a3b8', fontSize: 13, marginTop: 20}}>
+                  No training records found.
+                </div>
+              ) : (
+                trainingHistory.map((record) => (
+                  <div key={record.history_id} className="history-item">
+                    <div className="hi-left">
+                      <span className="hi-title">{record.trainee_name}</span>
+                      <span className="hi-subtitle">
+                        {new Date(record.start_time).toLocaleDateString()} • {record.device_hex_id}
+                      </span>
+                    </div>
+                      <span className="hi-title">{record.scenario_name}</span>
+                    <div className="hi-score" title="Score">
+                      {record.score}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-
-          {/* Widget UWB Trilateration và Manage Devices */}
-          <div className="mode-cards-row">
-            {/* Widget UWB */}
-            <div className="mode-card small-card" onClick={() => onSelectMode("uwb")}>
+          <div className="mode-cards-column">
+            {/* Widget RSSI Fingerprinting */}
+            <div className="mode-card small-card" onClick={() => onSelectMode("fingerprint")}>
               <div className="mode-icon-box">
-                {/* <img src={uwbIcon} alt="icon" /> */}
-                <SatelliteDish size={34} color="#475569" />
+                <FingerprintPattern size={34} color="#475569" />
               </div>
-              <div className="mode-title-small">UWB<br />Trilateration</div>
+              <div className="mode-title-small">RSSI<br />Fingerprinting</div>
             </div>
 
-            {/* Widget Manage Devices */}
-            <div className="mode-card small-card" onClick={openDeviceManager}>
-              <div className="mode-icon-box" style={{ background: "transparent", border: "none" }}>
-                <Settings size={34} color="#475569" />
+            {/* Widget UWB Trilateration và Manage Devices */}
+            <div className="mode-cards-row">
+              {/* Widget UWB */}
+              <div className="mode-card small-card" onClick={() => onSelectMode("uwb")}>
+                <div className="mode-icon-box">
+                  {/* <img src={uwbIcon} alt="icon" /> */}
+                  <SatelliteDish size={34} color="#475569" />
+                </div>
+                <div className="mode-title-small">UWB<br />Trilateration</div>
               </div>
-              <div className="mode-title-small">Manage<br />Devices</div>
+
+              {/* Widget Manage Devices */}
+              <div className="mode-card small-card" onClick={openDeviceManager}>
+                <div className="mode-icon-box" style={{ background: "transparent", border: "none" }}>
+                  <Settings size={34} color="#475569" />
+                </div>
+                <div className="mode-title-small">Manage<br />Devices</div>
+              </div>
             </div>
           </div>
         </div>}
@@ -305,7 +364,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
             />
             <div className="dm-rename-actions">
               <button className="dm-btn-save" onClick={handleRenameDevice}>
-                Save Changes
+                Save
               </button>
               <button
                 className="dm-btn-cancel"
@@ -320,7 +379,7 @@ function LandingPage({ isLoggedIn, onLoginSuccess, onSelectMode }) {
 
       <div className="landing-nav">
         <div></div>
-        <div className="powered">Powered by Sondeptrai</div>
+        <div className="powered">Powered by Son</div>
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import "../assets/css/App.css";
+import { useMessage } from "./MessageModal";
 import MapEditor from "./MapEditor";
 import CollectData from "./CollectData";
 import RealtimeMonitor from "./RealtimeMonitor";
 import LandingPage from "./LandingPage";
+import Scenarios from "./Scenarios";
 import {
   House,
   RotateCw,
@@ -16,6 +18,7 @@ import {
   Video,
   AlertTriangle,
   CheckCircle2,
+  Flame,
 } from "lucide-react";
 
 const api = axios.create({
@@ -32,12 +35,15 @@ function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const { showConfirm } = useMessage();
+
   // Hàm gọi API tự động đổi endpoint dựa trên chế độ
   const fetchMaps = useCallback(async (currentMode) => {
     if (currentMode === "selection") return;
     setLoading(true);
     try {
-      const endpoint = currentMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
+      const endpoint =
+        currentMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
       const res = await api.get(endpoint);
       setMaps(res.data);
       setError("");
@@ -73,21 +79,26 @@ function App() {
   };
 
   const handleDelete = async (id) => {
-    const ok = window.confirm("Delete this map?");
-    if (!ok) return;
-    setLoading(true);
-    setMessage("");
-    setError("");
+    showConfirm(
+      "Are you sure delete this map?",
+      "This action can't be undone. Please confirm if you want to proceed.",
+      async () => {
+        setLoading(true);
+        setMessage("");
+        setError("");
 
-    try {
-      const endpoint = systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
-      await api.delete(`${endpoint}/${id}`);
-      setMessage("Map deleted successfully");
-      fetchMaps(systemMode);
-    } catch (err) {
-      setError(err.response?.data?.detail || "Delete failed");
-    }
-    setLoading(false);
+        try {
+          const endpoint =
+            systemMode === "fingerprint" ? "/rssi_maps" : "/uwb_maps";
+          await api.delete(`${endpoint}/${id}`);
+          setMessage("Map deleted successfully");
+          fetchMaps(systemMode);
+        } catch (err) {
+          setError(err.response?.data?.detail || "Delete failed");
+        }
+        setLoading(false);
+      },
+    );
   };
 
   const onMapSaved = (savedMap) => {
@@ -115,14 +126,16 @@ function App() {
 
   return (
     <div className="app-bg">
-      {/* THÊM KHỐI MÀU MỜ ẢO VÀO NỀN APP */}
+      {/* HIỆU ỨNG BACKGROUND */}
       <div className="app-visuals">
         <div className="blob blob-1"></div>
         <div className="blob blob-2"></div>
         <div className="blob blob-3"></div>
         <div className="blob blob-4"></div>
+        <div className="blob blob-5"></div>
       </div>
 
+      {/* TOPBAR */}
       <header className="topbar">
         <div className="brand">
           <span className="brand-badge">🙂</span>{" "}
@@ -198,7 +211,8 @@ function App() {
                           <th>ID</th>
                           <th>Total units</th>
                           <th>Area/unit</th>
-                  
+                          <th>North Offset</th>
+
                           {systemMode === "fingerprint" ? (
                             <>
                               <th>Router number</th>
@@ -220,7 +234,7 @@ function App() {
                             <td>{map.map_info_id}</td>
                             <td>{map.total_units}</td>
                             <td>{map.area_of_one_unit}</td>
-
+                            <td>{map.north_offset}</td>
                             {systemMode === "fingerprint" ? (
                               <>
                                 <td>{map.router_number}</td>
@@ -251,6 +265,7 @@ function App() {
 
                             <td>{map.walkable_area}</td>
                             <td>
+                              {/* CÁC NÚT ACTION */}
                               <div className="row-actions">
                                 <button
                                   className="btn btn-edit"
@@ -259,7 +274,6 @@ function App() {
                                 >
                                   <SquarePen size={20} />
                                 </button>
-
                                 {systemMode === "fingerprint" && (
                                   <button
                                     className="btn btn-colect"
@@ -272,7 +286,16 @@ function App() {
                                     <DatabaseZap size={20} />
                                   </button>
                                 )}
-
+                                <button
+                                  className="btn btn-training-scenario"
+                                  onClick={() => {
+                                    setSelectedMap(map);
+                                    setView("scenarios");
+                                  }}
+                                  title="Training Scenarios"
+                                >
+                                  <Flame size={20} />
+                                </button>
                                 <button
                                   className="btn btn-monitor"
                                   onClick={() => {
@@ -294,6 +317,7 @@ function App() {
                             </td>
                           </tr>
                         ))}
+
                         {maps.length === 0 && (
                           <tr>
                             <td colSpan={8}>No maps found.</td>
@@ -319,7 +343,7 @@ function App() {
           </>
         )}
 
-        {/* Các màn hình con */}
+        {/* CÁC MÀN HÌNH KHI CLICK VÀO CÁC NÚT ACTION*/}
         {view === "map" && (
           <MapEditor
             mapToEdit={selectedMap}
@@ -331,7 +355,6 @@ function App() {
             }}
           />
         )}
-
         {view === "collect" && systemMode === "fingerprint" && (
           <CollectData
             mapData={selectedMap}
@@ -341,7 +364,16 @@ function App() {
             }}
           />
         )}
-
+        {view === "scenarios" && (
+          <Scenarios
+            mapData={selectedMap}
+            systemMode={systemMode}
+            onBack={() => {
+              setSelectedMap(null);
+              setView("maps");
+            }}
+          />
+        )}
         {view === "monitor" && (
           <RealtimeMonitor
             mapData={selectedMap}

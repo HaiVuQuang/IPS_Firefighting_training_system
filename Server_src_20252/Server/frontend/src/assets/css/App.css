@@ -31,14 +31,14 @@ body {
 }
 /* Khung chứa các Blobs */
 .app-visuals {
+  flex: 1;
   position: absolute;
+  right: 600px;
   top: 0;
-  left: 0;
-  width: 100%;
+  width: 50%;
   height: 100%;
-  overflow: hidden;
-  pointer-events: none;
   z-index: 0;
+  pointer-events: none;
 }
 /* Topbar */
 .topbar {
@@ -228,6 +228,8 @@ body {
 }
 .row-actions .btn {
   white-space: nowrap;
+  color: #94a3b8;
+  background: #ffffff;
   width: 40px;
   height: 40px;
   border: 1px solid rgba(255, 255, 255, 0.45);
@@ -236,30 +238,33 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0;
-}
-.btn-edit {
-  background: #0f3b7c;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 .btn-edit:hover {
-  background: linear-gradient(157deg, #022860, #1e4e9d);
-}
-.btn-delete {
-  background: #ef4444;
-}
-.btn-delete:hover {
-  background: linear-gradient(157deg, #f43737, #d87c7c);
-}
-.btn-colect {
-  background: #2cc8a7;
+  color: #0284c7;
+  background: #bae6fd;
+  transform: scale(1.05);
 }
 .btn-colect:hover {
-  background: linear-gradient(157deg, #0ecba2, #92c7bb);
+  color: #059669;
+  background: #bbf7d0;
+  transform: scale(1.05);
 }
-.btn-monitor {
-  background: #ffc259;
+.btn-training-scenario:hover {
+  color: #ea580c;
+  background: #fed7aa;
+  transform: scale(1.05);
 }
 .btn-monitor:hover {
-  background: linear-gradient(157deg, #ffa201, #f9cc80);
+  color: #7e22ce;
+  background: #e9d5ff;
+  transform: scale(1.05);
+}
+.btn-delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  transform: scale(1.05);
 }
 /* Thông báo */
 .success-msg {

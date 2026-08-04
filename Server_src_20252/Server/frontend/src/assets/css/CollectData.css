@@ -88,6 +88,17 @@
   gap: 8px;
   margin-bottom: 16px;
 }
+
+.rm-action-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.map-cell.collected {
+  background-color: rgba(16, 185, 129, 0.4) !important; 
+  border: 1px solid #10b981 !important;
+}
 /* CÁC CLASS VẼ MAP KẾ THỪA TỪ MapEditor.css */
 
 /* POP-UP COLLECT DATA*/
@@ -103,3 +114,4 @@
   display: block;
   margin-bottom: 8px;
 }
+
