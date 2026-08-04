@@ -12,8 +12,8 @@ Since traditional Global Positioning Systems (GPS) fail in indoor environments d
 
 - **High-Precision UWB Positioning:** Utilizes Single-Sided Two-Way Ranging (SS-TWR) combined with a Time Division Multiple Access (TDMA) network to prevent radio collisions and ensure stable multi-tag tracking.
 - **Hardware-Level Clock Drift Compensation:** Implements advanced algorithms directly reading the DW1000's Carrier Integrator register to compensate for crystal oscillator deviations, maximizing ToF accuracy.
-- **Smart Fire Hose Prototype:** A real firefighting nozzle retrofitted with 9-DoF IMU sensors, valve actuators, and an LCD screen to provide an immersive First-Person View (FPV) training experience.
-- **Advanced Tracking Algorithms:** Integrates a **1D Kalman Filter** for noise reduction and the **Levenberg-Marquardt (LM)** non-linear optimization algorithm to solve the 2D Trilateration problem with minimal latency.
+- **Fire Nozzel Prototype:** A real firefighting nozzle retrofitted with 9-DoF IMU sensors, valve actuators, and an LCD screen to provide an immersive First-Person View (FPV) training experience.
+- **Tracking Algorithms:** Integrates a **1D Kalman Filter** for noise reduction and the **Levenberg-Marquardt (LM)** non-linear optimization algorithm to solve the 2D Trilateration problem with minimal latency.
 - **Web-based Management Dashboard:** A centralized control system via MQTT and WebSockets, allowing instructors to draw indoor maps, spawn virtual fires, and monitor the trainees' trajectories in real-time.
 
 ## Technology Stack & Hardware
