@@ -60,7 +60,7 @@ The core objective of this project is to provide highly accurate indoor tracking
 
 Visual evaluation demonstrates that the experimental trajectory closely adheres to the ground-truth path across both straight segments and turning points. The UWB system operates stably, tracking the user's movements with minimal latency.
 
-### Comparison with Traditional IPS Approaches (Wi-Fi RSSI + CNN + PDR)
+### Comparison with RSSI-based IPS Approaches (Wi-Fi RSSI + CNN + PDR)
 
 To benchmark our UWB system, we compared the experimental results with another parallel IPS research conducted by our team. The reference method utilized Wi-Fi Received Signal Strength Indicator (RSSI) Fingerprinting combined with geomagnetic data, processed through a **Convolutional Neural Network (CNN)** and refined by a Kalman-based **Pedestrian Dead Reckoning (PDR)** algorithm. *(Note: The results of this reference system have been officially  presented at the 2025 Asia Meeting on Environment and Electrical Engineering (EEE-AM25) international conference, and published on IEEE Xplore. DOI: [10.1109/EEE-AM66675.2025.11473930](https://doi.org/10.1109/EEE-AM66675.2025.11473930)).*
 ![Comparison: PDR vs CNN+PDR vs UWB](Documents/Results/results_comparision.png)
