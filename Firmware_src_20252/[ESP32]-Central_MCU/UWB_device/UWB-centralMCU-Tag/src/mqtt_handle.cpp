@@ -42,6 +42,7 @@ bool connect_wifi()
 
 bool connect_mqtt() 
 {
+    mqtt_client.setBufferSize(1024);
     mqtt_client.setServer(MQTT_BROKER, MQTT_PORT);
     
     if (!mqtt_client.connected()) {
@@ -69,10 +70,14 @@ void init_connection_with_mqtt_broker()
         Serial.println("Connect to MQTT broker -> Failed!");
         return;
     }
-    snprintf(mqtt_user_pos_topic, sizeof(mqtt_user_pos_topic), "%d/user_pos/%02X", MY_IPS_ALGO_CODE, MY_DEVICE_ID);
-    snprintf(mqtt_flames_data_topic, sizeof(mqtt_flames_data_topic), "%d/firefighting_data", MY_IPS_ALGO_CODE);
-    snprintf(mqtt_map_data_topic, sizeof(mqtt_map_data_topic), "%d/map_data", MY_IPS_ALGO_CODE);
-    snprintf(mqtt_user_data_topic, sizeof(mqtt_user_data_topic), "%d/user_data/%02X", MY_IPS_ALGO_CODE, MY_DEVICE_ID);
+    // snprintf(mqtt_user_pos_topic, sizeof(mqtt_user_pos_topic), "%d/user_pos/0x%02X", MY_IPS_ALGO_CODE, MY_DEVICE_ID);
+    // snprintf(mqtt_flames_data_topic, sizeof(mqtt_flames_data_topic), "%d/firefighting_data", MY_IPS_ALGO_CODE);
+    // snprintf(mqtt_map_data_topic, sizeof(mqtt_map_data_topic), "%d/map_data", MY_IPS_ALGO_CODE);
+    // snprintf(mqtt_user_data_topic, sizeof(mqtt_user_data_topic), "%d/user_data/0x%02X", MY_IPS_ALGO_CODE, MY_DEVICE_ID);
+    snprintf(mqtt_user_pos_topic, sizeof(mqtt_user_pos_topic), "user_pos/0x%02X", MY_DEVICE_ID);
+    snprintf(mqtt_flames_data_topic, sizeof(mqtt_flames_data_topic), "fire_data");
+    snprintf(mqtt_map_data_topic, sizeof(mqtt_map_data_topic), "map_data");
+    snprintf(mqtt_user_data_topic, sizeof(mqtt_user_data_topic), "uwb_id/0x%02X", MY_DEVICE_ID);
 
     mqtt_client.subscribe(mqtt_user_pos_topic);
     mqtt_client.subscribe(mqtt_flames_data_topic);
@@ -154,3 +159,19 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length)
 }
 
 
+/*--------------------------------------------------------------------------------------------------------*/
+/**
+ * @brief Publish payload dữ liệu thiết bị lên topic MQTT
+ */
+/*--------------------------------------------------------------------------------------------------------*/
+void publish_mqtt_payload_device_data(String device_payload_buffer) {
+    // Chỉ publish nếu chuỗi có dữ liệu để tránh gửi bản tin rỗng
+    if (device_payload_buffer.length() > 0) {
+        bool success = publish_message(String(mqtt_user_data_topic), device_payload_buffer);
+        // if(success) {
+        //     Serial.println("Data published: " + device_payload_buffer);
+        // } else {
+        //     Serial.println("Failed to publish user data!");
+        // }
+    }
+}

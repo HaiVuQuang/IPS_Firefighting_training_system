@@ -69,6 +69,6 @@ void processAndPublish(char* data) {
         mqttClient.publish(topic, payload_str);
         
         // Debug (Comment out in production to save micro-seconds)
-        Serial.printf("Msg: %s\n", topic, payload_str);
+        // Serial.printf("Msg: %s\n", topic, payload_str);
     }
 }

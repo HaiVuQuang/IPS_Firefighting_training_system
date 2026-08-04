@@ -130,12 +130,14 @@
   width: 400px;
   height: 400px;
   background: #bf4cd9;
+  background: #bf4cd9;
   top: 20%;
   right: 20%;
 }
 .blob-2 {
   width: 500px;
   height: 500px;
+  background: #87acc5;
   background: #87acc5;
   top: 40%;
   right: -5%;
@@ -144,12 +146,14 @@
   width: 350px;
   height: 350px;
   background: #f7e7a8;
+  background: #f7e7a8;
   top: 50%;
   right: 30%;
 }
 .blob-4 {
   width: 400px;
   height: 350px;
+  background: #fa7540;
   background: #fa7540;
   top: 35%;
   right: 45%;
@@ -167,10 +171,12 @@
   position: absolute;
   top: 50%;
   right: 60px;
+  right: 60px;
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   gap: 20px;
+  width: 420px;
   width: 420px;
   z-index: 20;
   animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -194,13 +200,18 @@
   background: rgba(255, 255, 255, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.9);
   border-radius: 24px;
+  border-radius: 24px;
   cursor: pointer;
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+  width: 160px;
+  height: 160px;
   width: 160px;
   height: 160px;
   padding: 20px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
   justify-content: space-between;
   align-items: flex-start;
   text-align: left;
@@ -220,6 +231,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  background: transparent;
+  border: none;
   background: transparent;
   border: none;
 }

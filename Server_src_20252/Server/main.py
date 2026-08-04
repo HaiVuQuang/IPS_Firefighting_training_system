@@ -335,8 +335,12 @@ async def websocket_devices_endpoint(websocket: WebSocket):
 @app.get("/rssi_maps")
 def get_all_maps(db: Session = Depends(get_db)):
     db_maps = db.query(database_models.RSSIMapInfo).all()
+    db_maps = db.query(database_models.RSSIMapInfo).all()
     return db_maps
 
+@app.post("/rssi_maps")
+def create_map(map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
+    db_map = database_models.RSSIMapInfo(**map_info.model_dump())
 @app.post("/rssi_maps")
 def create_map(map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
     db_map = database_models.RSSIMapInfo(**map_info.model_dump())
@@ -346,12 +350,17 @@ def create_map(map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
     return db_map
 
 @app.get("/rssi_maps/{id}")
+@app.get("/rssi_maps/{id}")
 def get_map_by_id(id: int, db: Session = Depends(get_db)):
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     if not db_map:
         raise HTTPException(status_code=404, detail="Map not found")
     return db_map
 
+@app.put("/rssi_maps/{id}")
+def update_map(id: int, map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
 @app.put("/rssi_maps/{id}")
 def update_map(id: int, map_info: RSSIMapInfoSchema, db: Session = Depends(get_db)):
     db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
@@ -371,7 +380,9 @@ def update_map(id: int, map_info: RSSIMapInfoSchema, db: Session = Depends(get_d
     return db_map
 
 @app.delete("/rssi_maps/{id}")
+@app.delete("/rssi_maps/{id}")
 def delete_map(id: int, db: Session = Depends(get_db)):
+    db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     db_map = db.query(database_models.RSSIMapInfo).filter(database_models.RSSIMapInfo.map_info_id == id).first()
     if not db_map:
         raise HTTPException(status_code=404, detail="Map not found")
@@ -379,6 +390,8 @@ def delete_map(id: int, db: Session = Depends(get_db)):
     db.delete(db_map)
     db.commit()
 
+    if db.query(database_models.RSSIMapInfo).count() == 0:
+        db.execute(text("ALTER TABLE rssi_map_info AUTO_INCREMENT = 1"))
     if db.query(database_models.RSSIMapInfo).count() == 0:
         db.execute(text("ALTER TABLE rssi_map_info AUTO_INCREMENT = 1"))
         db.commit()

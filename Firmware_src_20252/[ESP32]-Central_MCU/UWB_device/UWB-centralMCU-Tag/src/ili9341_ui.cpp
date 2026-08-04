@@ -2,7 +2,7 @@
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Draw progress bar
  */
 /*--------------------------------------------------------------------------------------------------------*/
 static void draw_progress_bar(Adafruit_ILI9341 &tft, int x, int y, int width, int height, int percentage)
@@ -27,6 +27,7 @@ static void draw_progress_bar(Adafruit_ILI9341 &tft, int x, int y, int width, in
     }
     //
     int filled_width = round((percentage * width) / 100);
+
     // Cập nhật thanh progress
     tft.drawRect(x, y, width, height, STATIC_TEXT_COLOR);
     tft.fillRect(x + 1, y + 1, width - 2, height - 2, BACKGROUND_COLOR);
@@ -36,7 +37,7 @@ static void draw_progress_bar(Adafruit_ILI9341 &tft, int x, int y, int width, in
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Setup map axes outline
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_setup_map_axes_outline(Adafruit_ILI9341 &tft)
@@ -99,7 +100,7 @@ void tft_setup_map_axes_outline(Adafruit_ILI9341 &tft)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief Setup static text 
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_setup_static_text_outline(Adafruit_ILI9341 &tft)
@@ -116,40 +117,36 @@ void tft_setup_static_text_outline(Adafruit_ILI9341 &tft)
     tft.println(MY_DEVICE_ID);
     tft.setCursor(240, 24);
     tft.println("User score");
-    tft.setCursor(220, 75);
+    tft.setCursor(220, 85);
     tft.println("Valve Opening:");
-    tft.setCursor(220, 123);
+    tft.setCursor(220, 133);
     tft.println("User position:");
-    tft.setCursor(220, 136);
-    tft.println("X:");
-    tft.setCursor(220, 149);
-    tft.println("Y:");
-    tft.setCursor(220, 162);
+    tft.setCursor(220, 146);
+    tft.println("- X:");
+    tft.setCursor(220, 159);
+    tft.println("- Y:");
+    tft.setCursor(220, 179);
     tft.println("User speed:");
-
+    tft.setCursor(220, 199);
+    tft.println("Connection state:");
+    tft.setCursor(220, 212);
+    tft.println("- WiFi: OK");
+    tft.setCursor(220, 225);
+    tft.println("- UWB: OK");
+ 
     // Bảng User score
     tft.drawFastVLine(220, 21, 49, STATIC_TEXT_COLOR);
     tft.drawFastVLine(319, 21, 49, STATIC_TEXT_COLOR);
     tft.drawFastHLine(220, 21, 99, STATIC_TEXT_COLOR);
     tft.drawFastHLine(220, 35, 99, STATIC_TEXT_COLOR);
     tft.drawFastHLine(220, 70, 99, STATIC_TEXT_COLOR);
+    tft.drawFastHLine(220, 78, 99, STATIC_TEXT_COLOR);
 }
 
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
- */
-/*--------------------------------------------------------------------------------------------------------*/
-void tft_setup_intro(Adafruit_ILI9341 &tft)
-{
-
-}
-
-
-/*--------------------------------------------------------------------------------------------------------*/
-/**
- * @brief
+ * @brief: Setup Static UI
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_setup_static_ui(Adafruit_ILI9341 &tft)
@@ -161,26 +158,57 @@ void tft_setup_static_ui(Adafruit_ILI9341 &tft)
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief Score, speed, current pos, imu data, valve data
+ * @brief Update Score, speed, current pos, imu data, valve data
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_update_device_info_text(Adafruit_ILI9341 &tft, UserDisplay &user, IMU_Data &imu_data, Valve_Data &valve_data)
 {
-    // User score
+    // ===================== User score ========================
+    String score_str = String(user.getScore());
 
-    // Speed & position
+    // X(220->319), Y(35->70)
+    tft.fillRect(221, 36, 97, 33, BACKGROUND_COLOR);
+    tft.setTextSize(3); 
+    tft.setTextColor(WHITE);
 
-    // Valve open status
-    draw_progress_bar(tft, 220, 88, 100, 30, valve_data.valve_open_status);
+    // Font size 3, each character 18px
+    int text_width = score_str.length() * 18;
+    int cursor_x = 220 + (98 - text_width) / 2;
+    int cursor_y = 42;
+
+    tft.setCursor(cursor_x, cursor_y);
+    tft.print(score_str);
+
+    // =================== Speed & position ========================
+    tft.setTextSize(1);
+    tft.setTextColor(WHITE);
+
+    // Delete old position coordinate
+    tft.fillRect(246, 146, 30, 8, BACKGROUND_COLOR); 
+    tft.fillRect(246, 159, 30, 8, BACKGROUND_COLOR);
+
+    // Draw new position coordinate
+    tft.setCursor(247, 146);
+    tft.print(user.getCoorX(), 1); 
+    tft.setCursor(247, 159);
+    tft.print(user.getCoorY(), 1);
+
+    // Update user speed
+    tft.fillRect(285, 179, 30, 8, BACKGROUND_COLOR);
+    tft.setCursor(285, 179);
+    tft.print(user.getSpeed(), 2);
+
+    // ================== Valve open status ========================
+    draw_progress_bar(tft, 220, 98, 100, 30, valve_data.valve_open_status);
 }
 
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief: Render new excercise frame 
  */
 /*--------------------------------------------------------------------------------------------------------*/
-void tft_render_new_exercise_frame(Adafruit_ILI9341 &tft, UserDisplay &user, FlamesDisplay &flames, MapDisplay &map)
+void tft_render_new_exercise_frame(Adafruit_ILI9341 &tft, UserDisplay &user, FlamesDisplay &flames, MapDisplay &map, IMU_Data &imu_data, Valve_Data &valve_data)
 {
     // --- Clear user previous position ---
     user.clearUser(tft);
@@ -207,7 +235,7 @@ void tft_render_new_exercise_frame(Adafruit_ILI9341 &tft, UserDisplay &user, Fla
     }
 
     // --- Draw User ---
-    user.drawUser(tft, map);
+    user.drawUser(tft, map, imu_data, valve_data);
     user.clearFlag();
 
 }
@@ -215,14 +243,17 @@ void tft_render_new_exercise_frame(Adafruit_ILI9341 &tft, UserDisplay &user, Fla
 
 /*--------------------------------------------------------------------------------------------------------*/
 /**
- * @brief
+ * @brief TFT interface main loop handler
  */
 /*--------------------------------------------------------------------------------------------------------*/
 void tft_main_loop_handler(Adafruit_ILI9341 &tft, UserDisplay &user, FlamesDisplay &flames, 
                             MapDisplay &map, IMU_Data &imu_data, Valve_Data &valve_data)
 {
+    // Calculate user speed
+    user.calculateSpeed(imu_data);
+
     // Render User, Flames, Map
-    tft_render_new_exercise_frame(tft, user, flames, map); 
+    tft_render_new_exercise_frame(tft, user, flames, map, imu_data, valve_data); 
 
     // Render static device info text
     tft_update_device_info_text(tft, user, imu_data, valve_data);

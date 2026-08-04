@@ -56,16 +56,15 @@ typedef struct {
 /*#############################################################################################################*/
 typedef struct {
     int valve_open_status;  // 0-100%
-    bool mode_status;       // ON-OFF
+    int mode_status;       // 0-100%
 } Valve_Data;
 
 
 /*#############################################################################################################*/
 // Global defines 
 /*#############################################################################################################*/
-extern IMU_Data imu_data;
-extern IMU_Raw_Data imu_raw_data;
-extern IMU_Real_local_Data imu_real_local_data;
+extern IMU_Data int_imu_data;
+extern IMU_Data ext_imu_data;
 extern Valve_Data valve_data;
 extern Adafruit_ILI9341 tft;
 
@@ -76,10 +75,12 @@ void init_button_and_valve();
 
 void init_on_device_bno055();
 
+void init_ext_device_bno055();
+
 void TFT_setup(Adafruit_ILI9341 &tft);
 
-void read_IMU_data();
+void read_IMU_data(IMU_Data *imu_data, uint8_t BNO055_ADDRESS);
 
-void read_valve_open_status();
+void read_valve_open_status(Valve_Data &valve_data);
 
 #endif

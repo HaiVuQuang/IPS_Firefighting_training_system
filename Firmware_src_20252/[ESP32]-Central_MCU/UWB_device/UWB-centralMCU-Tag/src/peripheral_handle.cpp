@@ -1,9 +1,9 @@
 #include "peripheral_handle.h"
 
-IMU_Data imu_data;
-IMU_Raw_Data imu_raw_data;
-IMU_Real_local_Data imu_real_local_data;
+IMU_Data int_imu_data;
+IMU_Data ext_imu_data;
 Valve_Data valve_data;
+
 // Initialize Adafruit ILI9341 TFT display
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 
@@ -18,8 +18,13 @@ void init_button_and_valve()
 {
     pinMode(MODE_SWITCH_PIN, INPUT_PULLUP);
     pinMode(TRANS_PIN, INPUT_PULLUP);
-    pinMode(VALVE_PIN, INPUT);
-    pinMode(MODE_PIN, INPUT);
+
+    #if (DEVICE_TYPE == TYPE_NOZZLE)
+        pinMode(VALVE_PIN, INPUT);
+        pinMode(MODE_PIN, INPUT);
+    #elif (DEVICE_TYPE == TYPE_EXTINGUISHER)
+        pinMode(VALVE_PIN, INPUT);
+    #endif
 }
 
 /*#############################################################################################################*/
@@ -35,13 +40,33 @@ void init_on_device_bno055()
     Wire.begin(I2C_SDA, I2C_SCL);
 
     // Configure BNO055
-    Wire.beginTransmission(BNO055_ADDRESS);
+    Wire.beginTransmission(INT_BNO055_ADDRESS);
     Wire.write(BNO055_OPR_MODE_ADDR); // Select operation mode register
     Wire.write(BNO055_MODE_NDOF);     // Set NDOF fusion mode
     Wire.endTransmission();
     delay(BNO055_CONFIG_DELAY); // Wait for mode switch
 }
 
+
+/*#############################################################################################################*/
+/**
+ * @brief Initialize on-device BNO055 
+ * 
+ *          !!! This function should be called in main setup !!!
+ */
+/*#############################################################################################################*/
+void init_ext_device_bno055()
+{
+    // Set up I2C communication with BNO055
+    Wire.begin(I2C_SDA, I2C_SCL);
+
+    // Configure BNO055
+    Wire.beginTransmission(EXT_BNO055_ADDRESS);
+    Wire.write(BNO055_OPR_MODE_ADDR); // Select operation mode register
+    Wire.write(BNO055_MODE_NDOF);     // Set NDOF fusion mode
+    Wire.endTransmission();
+    delay(BNO055_CONFIG_DELAY); // Wait for mode switch
+}
 
 /*#############################################################################################################*/
 /**
@@ -67,7 +92,7 @@ void TFT_setup(Adafruit_ILI9341 &tft)
  * @return Combined 16-bit value from two 8-bit registers
  */
 /*#############################################################################################################*/
-static int16_t read_16_bit_LSB_MSB(uint8_t reg)
+static int16_t read_16_bit_LSB_MSB(uint8_t reg, uint8_t BNO055_ADDRESS)
 {
     // Start I2C transmission with BNO055
     Wire.beginTransmission(BNO055_ADDRESS);
@@ -100,34 +125,34 @@ static int16_t read_16_bit_LSB_MSB(uint8_t reg)
  */
 
 /*#############################################################################################################*/
-static void read_IMU_raw_data(IMU_Raw_Data *imu_raw_data)
+static void read_IMU_raw_data(IMU_Raw_Data *imu_raw_data, uint8_t BNO055_ADDRESS)
 {
     // Read Accelerometer data (X,Y,Z)
     // Each axis requires 2 registers (LSB + MSB)
-    imu_raw_data->acc_raw.x = read_16_bit_LSB_MSB(ACC_DATA_START);     // X: registers 0x08, 0x09
-    imu_raw_data->acc_raw.y = read_16_bit_LSB_MSB(ACC_DATA_START + 2); // Y: registers 0x0A, 0x0B
-    imu_raw_data->acc_raw.z = read_16_bit_LSB_MSB(ACC_DATA_START + 4); // Z: registers 0x0C, 0x0D
+    imu_raw_data->acc_raw.x = read_16_bit_LSB_MSB(ACC_DATA_START, BNO055_ADDRESS);     // X: registers 0x08, 0x09
+    imu_raw_data->acc_raw.y = read_16_bit_LSB_MSB(ACC_DATA_START + 2, BNO055_ADDRESS); // Y: registers 0x0A, 0x0B
+    imu_raw_data->acc_raw.z = read_16_bit_LSB_MSB(ACC_DATA_START + 4, BNO055_ADDRESS); // Z: registers 0x0C, 0x0D
 
     // Read Gyroscope data (X,Y,Z)
-    imu_raw_data->gyro_raw.x = read_16_bit_LSB_MSB(GYRO_DATA_START);     // X: registers 0x14, 0x15
-    imu_raw_data->gyro_raw.y = read_16_bit_LSB_MSB(GYRO_DATA_START + 2); // Y: registers 0x16, 0x17
-    imu_raw_data->gyro_raw.z = read_16_bit_LSB_MSB(GYRO_DATA_START + 4); // Z: registers 0x18, 0x19
+    imu_raw_data->gyro_raw.x = read_16_bit_LSB_MSB(GYRO_DATA_START, BNO055_ADDRESS);     // X: registers 0x14, 0x15
+    imu_raw_data->gyro_raw.y = read_16_bit_LSB_MSB(GYRO_DATA_START + 2, BNO055_ADDRESS); // Y: registers 0x16, 0x17
+    imu_raw_data->gyro_raw.z = read_16_bit_LSB_MSB(GYRO_DATA_START + 4, BNO055_ADDRESS); // Z: registers 0x18, 0x19
 
     // Read Magnetometer data (X,Y,Z)
-    imu_raw_data->mag_raw.x = read_16_bit_LSB_MSB(MAG_DATA_START);     // X: registers 0x0E, 0x0F
-    imu_raw_data->mag_raw.y = read_16_bit_LSB_MSB(MAG_DATA_START + 2); // Y: registers 0x10, 0x11
-    imu_raw_data->mag_raw.z = read_16_bit_LSB_MSB(MAG_DATA_START + 4); // Z: registers 0x12, 0x13
+    imu_raw_data->mag_raw.x = read_16_bit_LSB_MSB(MAG_DATA_START, BNO055_ADDRESS);     // X: registers 0x0E, 0x0F
+    imu_raw_data->mag_raw.y = read_16_bit_LSB_MSB(MAG_DATA_START + 2, BNO055_ADDRESS); // Y: registers 0x10, 0x11
+    imu_raw_data->mag_raw.z = read_16_bit_LSB_MSB(MAG_DATA_START + 4, BNO055_ADDRESS); // Z: registers 0x12, 0x13
 
     // Read Euler angles (Roll, Pitch, Heading)
-    imu_raw_data->euler_raw.x = read_16_bit_LSB_MSB(EULER_DATA_START);     // Roll: registers 0x1A, 0x1B
-    imu_raw_data->euler_raw.y = read_16_bit_LSB_MSB(EULER_DATA_START + 2); // Pitch: registers 0x1C, 0x1D
-    imu_raw_data->euler_raw.z = read_16_bit_LSB_MSB(EULER_DATA_START + 4); // Heading: registers 0x1E, 0x1F
+    imu_raw_data->euler_raw.z = read_16_bit_LSB_MSB(EULER_DATA_START, BNO055_ADDRESS);     // Heading: registers 0x1A, 0x1B
+    imu_raw_data->euler_raw.x = read_16_bit_LSB_MSB(EULER_DATA_START + 2, BNO055_ADDRESS); // Roll: registers 0x1C, 0x1D
+    imu_raw_data->euler_raw.y = read_16_bit_LSB_MSB(EULER_DATA_START + 4, BNO055_ADDRESS); // Pitch: registers 0x1E, 0x1F
 
     // Read Quaternion data (W,X,Y,Z)
-    imu_raw_data->quaternion_raw.w = read_16_bit_LSB_MSB(QUATERNION_DATA_START);     // W: registers 0x20, 0x21
-    imu_raw_data->quaternion_raw.x = read_16_bit_LSB_MSB(QUATERNION_DATA_START + 2); // X: registers 0x22, 0x23
-    imu_raw_data->quaternion_raw.y = read_16_bit_LSB_MSB(QUATERNION_DATA_START + 4); // Y: registers 0x24, 0x25
-    imu_raw_data->quaternion_raw.z = read_16_bit_LSB_MSB(QUATERNION_DATA_START + 6); // Z: registers 0x26, 0x27
+    imu_raw_data->quaternion_raw.w = read_16_bit_LSB_MSB(QUATERNION_DATA_START, BNO055_ADDRESS);     // W: registers 0x20, 0x21
+    imu_raw_data->quaternion_raw.x = read_16_bit_LSB_MSB(QUATERNION_DATA_START + 2, BNO055_ADDRESS); // X: registers 0x22, 0x23
+    imu_raw_data->quaternion_raw.y = read_16_bit_LSB_MSB(QUATERNION_DATA_START + 4, BNO055_ADDRESS); // Y: registers 0x24, 0x25
+    imu_raw_data->quaternion_raw.z = read_16_bit_LSB_MSB(QUATERNION_DATA_START + 6, BNO055_ADDRESS); // Z: registers 0x26, 0x27
 }
 
 /*#############################################################################################################*/
@@ -324,11 +349,14 @@ static void convert_IMU_local_data_to_global_data(IMU_Real_local_Data imu_real_l
  *          !!! This function should be called in main loop !!!
  */
 /*#############################################################################################################*/
-void read_IMU_data()
+void read_IMU_data(IMU_Data *imu_data, uint8_t BNO055_ADDRESS)
 {
-    read_IMU_raw_data(&imu_raw_data);
+    IMU_Raw_Data imu_raw_data;
+    IMU_Real_local_Data imu_real_local_data;
+
+    read_IMU_raw_data(&imu_raw_data, BNO055_ADDRESS);
     convert_IMU_raw_data_to_real_local_data(imu_raw_data, &imu_real_local_data);
-    convert_IMU_local_data_to_global_data(imu_real_local_data, &imu_data);
+    convert_IMU_local_data_to_global_data(imu_real_local_data, imu_data);
 }
 
 
@@ -340,13 +368,13 @@ void read_IMU_data()
  *          !!! This function should be called in main loop !!!
  */
 /*#############################################################################################################*/
-void read_valve_open_status()
+void read_valve_open_status(Valve_Data &valve_data)
 {
-    int raw_value = analogRead(VALVE_PIN);
-
+    // --- Valve open value % (Nozzle & Extinguisher) --- 
+    int raw_valve_value = analogRead(VALVE_PIN);
     // Convert ADC value to opening percentage
-    valve_data.valve_open_status = (int)((raw_value / 700.0) * 100);
-
+    valve_data.valve_open_status = (int)((raw_valve_value / 700.0) * 100);
+    valve_data.mode_status = 0;
     // Limit the result to the range 0 - 100%
     if (valve_data.valve_open_status > 100) {
         valve_data.valve_open_status = 100;
@@ -355,8 +383,17 @@ void read_valve_open_status()
         valve_data.valve_open_status = 0;
     }
 
-    // ON-OFF mode
-    if(valve_data.valve_open_status > 0) {
-        valve_data.mode_status= 1;
-    } 
+    #if (DEVICE_TYPE == TYPE_NOZZLE)
+        // --- Valve mode value % (Nozzle type only) --- 
+        int raw_valve_mode = analogRead(MODE_PIN);
+        // Convert ADC value to opening percentage
+        valve_data.mode_status = (int)((raw_valve_mode / 700.0) * 100);
+        // Limit the result to the range 0 - 100%
+        if (valve_data.mode_status > 100) {
+            valve_data.mode_status = 100;
+        }
+        else if (valve_data.mode_status < 0) {
+            valve_data.mode_status = 0;
+        }
+    #endif
 }

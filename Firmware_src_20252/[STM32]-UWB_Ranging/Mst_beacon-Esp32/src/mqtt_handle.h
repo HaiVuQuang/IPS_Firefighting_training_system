@@ -6,7 +6,7 @@
 #include <PubSubClient.h>
 
 // --- Configuration ---
-#define WIFI_SSID       "RSSI3"
+#define WIFI_SSID       "RSSI1"
 #define WIFI_PASSWORD   "11111111"
 #define MQTT_SERVER     "192.168.0.102"
 #define MQTT_PORT       1883
