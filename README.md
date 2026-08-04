@@ -23,12 +23,28 @@ The system is built upon a modular, dual-MCU architecture to separate high-speed
 | Component | Hardware / Device | Description |
 | :--- | :--- | :--- |
 | **UWB RF Module** | Decawave DW1000 (BU01) | Provides ultra-wideband radio communication. Calculates highly precise TX/RX timestamps for Time-of-Flight (ToF) distance measurements. |
-| **Co-Processor (Ranging)** | STM32F103C8T6 (ARM Cortex-M3) | Dedicated MCU to handle SPI communication with DW1000, managing the strict microsecond timing required for the TDMA superframe. |
-| **Main MCU (Tag & Master)** | ESP32-WROOM-32 | Acts as the central brain. Reads sensor data, renders TFT graphics, and acts as the IoT Gateway bridging the UWB network to the Server via Wi-Fi/MQTT. |
+| **Co-Processor (Ranging)** | STM32F103C8T6 (ARM Cortex-M3) | MCU to handle SPI communication with DW1000, managing the microsecond timing required for the TDMA superframe and control core WSN logic |
+| **Main MCU (Tag & Master)** | ESP32-WROOM-32 | Acts as the central MCU. Reads sensor data, renders TFT graphics, and acts as the IoT Gateway bridging the UWB network to the Server via Wi-Fi/MQTT. |
 | **IMU Sensor** | Bosch BNO055 (9-DoF) | Features a built-in Sensor Fusion algorithm outputting absolute Quaternions and Euler angles to track the nozzle's orientation (yaw/pitch/roll). |
 | **HMI Display** | 2.8" TFT LCD (ILI9341) | Displays the virtual map, user position, and interacting virtual fires directly on the training equipment. |
 | **Actuators** | Analog Potentiometers | Digitizes the physical water valve opening (0-100%) and spray mode (straight stream vs. fog spray). |
-| **Server & Software** | Python, MySQL, MQTT, Vue/React | Backend handles the Levenberg-Marquardt optimization and fire interaction logic. Frontend provides the instructor's dashboard. |
+| **Server & Software** | Python, MySQL, MQTT, Bootstrap | Backend handles the Levenberg-Marquardt LLS optimization and human/fire interaction logic. Frontend provides trainers with comprehensive tools for device management, virtual map configuration, training scenario setup, and a real-time operational dashboard for firefighting training execution. |
+
+## Prototype Design
+
+The hardware devices is entirely custom-built to ensure high mobility, stable power management, and a realistic training experience. It consists of two main physical components: the interactive training equipment and the spatial referencing network of Beacons. This design approach enables trainees to acquire practical experience and execute fundamental firefighting maneuvers using authentic equipment, thereby ensuring highly realistic training while strictly maintaining a hazard-free environment.
+
+<p align="center">
+  <img src="Documents/Results/Prototype.jpg" alt="Smart Fire Hose Prototype" width="80%">
+</p>
+
+*Hardware Showcase 1: The trainning prototype modified directly from a real firefighting nozzle. It has the custom dual-MCU PCB, a 9-DoF IMU for orientation tracking, mechanical potentiometers to digitize valve operations, and a 2.8" TFT screen serving as the trainee's FPV interface.*
+
+<p align="center">
+  <img src="Documents/Results/Beacon.jpg" alt="UWB Beacon Nodes" width="80%">
+</p>
+
+*Hardware Showcase 2: The UWB Beacon network setup. Custom-designed UWB anchor nodes (Master and Slaves) powered by 18650 Li-ion batteries for completely wireless deployment. The nodes are mounted on portable stands, allowing for rapid and flexible setup across various indoor training environments.*
 
 ## Experimental Results & Evaluation
 
@@ -36,7 +52,9 @@ The core objective of this project is to provide highly accurate indoor tracking
 
 ### UWB Tracking Performance
 
-![UWB Trajectory Comparison](Documents/Results/trajectory_results.png)
+<p align="center">
+  <img src="Documents/Results/trajectory_results.png" alt="UWB Trajectory Comparison" width="25%">
+</p>
 
 *Figure 1: Trajectory tracking results. The **blue line** represents the ground-truth predefined path, while the **red line** indicates the real-time estimated coordinates calculated by the UWB system.*
 
