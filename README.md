@@ -35,13 +35,13 @@ The system is built upon a modular, dual-MCU architecture to separate high-speed
 The hardware devices is entirely custom-built to ensure high mobility, stable power management, and a realistic training experience. It consists of two main physical components: the interactive training equipment and the spatial referencing network of Beacons. This design approach enables trainees to acquire practical experience and execute fundamental firefighting maneuvers using authentic equipment, thereby ensuring highly realistic training while strictly maintaining a hazard-free environment.
 
 <p align="center">
-  <img src="Documents/Results/Prototype.jpg" alt="Smart Fire Hose Prototype" width="80%">
+  <img src="Documents/Results/Prototype.png" alt="Fire Nozzel Prototype" width="80%">
 </p>
 
 *Hardware Showcase 1: The trainning prototype modified directly from a real firefighting nozzle. It has the custom dual-MCU PCB, a 9-DoF IMU for orientation tracking, mechanical potentiometers to digitize valve operations, and a 2.8" TFT screen serving as the trainee's FPV interface.*
 
 <p align="center">
-  <img src="Documents/Results/Beacon.jpg" alt="UWB Beacon Nodes" width="80%">
+  <img src="Documents/Results/Beacon.png" alt="UWB Beacon Nodes" width="80%">
 </p>
 
 *Hardware Showcase 2: The UWB Beacon network setup. Custom-designed UWB anchor nodes (Master and Slaves) powered by 18650 Li-ion batteries for completely wireless deployment. The nodes are mounted on portable stands, allowing for rapid and flexible setup across various indoor training environments.*
@@ -53,7 +53,7 @@ The core objective of this project is to provide highly accurate indoor tracking
 ### UWB Tracking Performance
 
 <p align="center">
-  <img src="Documents/Results/trajectory_results.png" alt="UWB Trajectory Comparison" width="25%">
+  <img src="Documents/Results/trajectory_results.png" alt="UWB Trajectory Comparison" width="50%">
 </p>
 
 *Figure 1: Trajectory tracking results. The **blue line** represents the ground-truth predefined path, while the **red line** indicates the real-time estimated coordinates calculated by the UWB system.*
